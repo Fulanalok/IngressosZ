@@ -1,0 +1,29 @@
+{
+  "name": "ingressosz-monorepo",
+  "private": true,
+  "scripts": {
+    "emulators:start": "firebase emulators:start --project ingressosz",
+    "emulators:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./start.ps1 -Stop",
+    "emulators:auth-firestore": "firebase emulators:start --config firebase.json --project ingressosz --only auth,firestore",
+    "functions:logs": "cd functions && npm run logs",
+    "functions:serve": "cd functions && npm run serve",
+    "web:dev": "cd ingressosZ && npm run dev",
+    "web:dev:https": "cd ingressosZ && npm run dev:https",
+    "dev:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./start.ps1 && npm run web:dev:https",
+    "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./start.ps1 -Stop",
+    "qa:test": "cucumber-js qa/features --require qa/features/steps/**/*.js --fail-fast",
+    "qa:test:all": "cucumber-js qa/features --require qa/features/steps/**/*.js",
+    "qa:test:validar": "cucumber-js qa/features --require qa/features/steps/**/*.js --name \"Validar ingresso válido\"",
+    "qa:test:login": "cucumber-js qa/features --require qa/features/steps/**/*.js --name \"Login de usuário existente\"",
+    "qa:test:cadastro": "cucumber-js qa/features --require qa/features/steps/**/*.js --name \"Cadastro de novo usuário\"",
+    "qa:report": "cucumber-js qa/features --require qa/features/steps/**/*.js --format @cucumber/html-formatter:cucumber-report.html"
+  },
+  "dependencies": {
+    "mercadopago": "^2.10.0"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^10.7.0",
+    "playwright": "^1.49.0",
+    "@cucumber/html-formatter": "^21.4.1"
+  }
+}

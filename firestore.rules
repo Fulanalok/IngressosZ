@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function para verificar se usuário é organizador
+    function isOrganizer() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer';
+    }
+
+    // Qualquer pessoa pode ver os eventos
+    // Em desenvolvimento, qualquer usuário autenticado pode criar eventos
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if request.auth != null; // Dev: permite qualquer usuário autenticado
+      allow update, delete: if isOrganizer();
+    }
+
+    // O usuário só pode ler seus próprios ingressos
+    // Criação é feita pelo backend (admin SDK bypassa rules)
+    match /tickets/{ticketId} {
+      allow read: if request.auth != null && 
+                     (request.auth.uid == resource.data.userId || 
+                      request.auth.uid == resource.data.organizerId);
+      allow create: if false; // Apenas backend pode criar
+      allow update: if false; // Apenas backend pode atualizar  
+      allow delete: if false; // Apenas backend pode deletar
+    }
+
+    // Pedidos: criar o próprio, ler o próprio, backend atualiza via Admin SDK
+    match /orders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if false; // Apenas backend via Admin SDK
+    }
+
+    // Perfil do usuário: criar/ler/atualizar o próprio documento
+    match /users/{uid} {
+      // Permitir criar o próprio perfil ao fazer cadastro
+      allow create: if request.auth != null && request.auth.uid == uid;
+      // Permitir ler/atualizar apenas o próprio perfil
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+      // Não permitir deletar
+      allow delete: if false;
+    }
+  }
+}

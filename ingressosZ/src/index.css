@@ -1,0 +1,169 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+/*
+  Base de estilização compatível com shadcn/ui em Tailwind v4.
+  - Define tokens HSL via CSS variables para light/dark.
+  - Mapeia tokens Tailwind (@theme) esperados pelos componentes shadcn.
+*/
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 84% 5%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 84% 5%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 84% 5%;
+
+  /* Paleta azul */
+  --primary: 221 83% 53%; /* azul principal */
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 216 100% 97%; /* azul muito claro */
+  --secondary-foreground: 223 47% 11%;
+
+  --muted: 217 92% 95%; /* azul pálido para backgrounds */
+  --muted-foreground: 215 20% 45%;
+
+  --accent: 221 90% 60%; /* azul de destaque */
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
+
+  --radius: 0.5rem;
+
+  --font-family-sans: "Inter", system-ui, sans-serif;
+}
+
+.dark {
+  --background: 222 84% 5%;
+  --foreground: 210 40% 98%;
+
+  --card: 222 84% 5%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222 84% 5%;
+  --popover-foreground: 210 40% 98%;
+
+  /* Paleta azul (modo escuro) */
+  --primary: 217 92% 60%;
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 219 23% 18%; /* azul escuro discreto */
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 219 23% 18%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 223 75% 48%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 86% 97%;
+
+  --border: 219 23% 18%;
+  --input: 219 23% 18%;
+  --ring: 223 75% 48%;
+}
+
+@theme {
+  /* Tokens shadcn -> Tailwind v4 */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius: var(--radius);
+}
+
+@layer base {
+  html { font-family: var(--font-family-sans); }
+
+  /* Base shadcn: aplica tokens e borda padrão */
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground min-h-screen; }
+}
+
+@layer components {
+  /* Classes utilitárias herdando tokens shadcn */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+  }
+
+  .btn-success {
+    @apply bg-accent text-accent-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+  }
+
+  .btn-danger {
+    @apply bg-destructive text-destructive-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+  }
+
+  .card {
+    @apply bg-card text-card-foreground rounded-none shadow-lg border p-6 transition-colors transition-transform hover:shadow-xl hover:-translate-y-1;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-background text-foreground border rounded-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors;
+  }
+
+  .nav-link {
+    @apply text-muted-foreground hover:text-foreground font-medium transition-colors;
+  }
+
+  .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
+
+  .dark-toggle {
+    @apply fixed top-4 right-4 z-50 bg-secondary text-secondary-foreground hover:opacity-90 p-2 rounded-none shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .gradient-bg {
+    @apply bg-gradient-to-br from-background to-muted;
+  }
+
+  .nav-bg {
+    @apply bg-background shadow-sm border-b;
+  }
+}
