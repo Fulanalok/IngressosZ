@@ -3,6 +3,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import type { Event } from "../../types";
 
+import { storageService } from "../../services/storage";
+
 interface EventFormProps {
   initialData?: Event | null;
   onSave: (
@@ -61,6 +63,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     if (initialData) {
       const { id, createdAt, updatedAt, ...rest } = initialData;
       setFormData(rest);
+      if (rest.image) {
+        setPreviewUrl(rest.image);
+      }
     }
   }, [initialData]);
 
@@ -83,8 +88,14 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     e.preventDefault();
     setLoading(true);
     try {
+      let imageUrl = formData.image;
+
+      if (selectedFile) {
+        imageUrl = await storageService.uploadEventImage(selectedFile);
+      }
+
       // Sincronizar availableTickets com maxTickets na criação se não especificado diferente
-      const dataToSave = { ...formData };
+      const dataToSave = { ...formData, image: imageUrl };
       if (!initialData) {
         dataToSave.availableTickets = dataToSave.maxTickets;
       }
