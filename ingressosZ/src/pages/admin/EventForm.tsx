@@ -28,7 +28,17 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     availableTickets: 100,
     category: "Entretenimento",
     image: "",
-    organizerId: "admin", // Será sobrescrito ou ignorado dependendo da lógica
+    organizerId: "admin",
+    inventory: {
+      standard: 0,
+      vip: 0,
+      premium: 0,
+    },
+    pricing: {
+      standard: 0,
+      vip: 0,
+      premium: 0,
+    },
   });
 
   const [loading, setLoading] = useState(false);
@@ -62,7 +72,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
   useEffect(() => {
     if (initialData) {
       const { id, createdAt, updatedAt, ...rest } = initialData;
-      setFormData(rest);
+      setFormData({
+        ...rest,
+        inventory: rest.inventory || { standard: 0, vip: 0, premium: 0 },
+        pricing: rest.pricing || { standard: 0, vip: 0, premium: 0 },
+      });
       if (rest.image) {
         setPreviewUrl(rest.image);
       }
@@ -84,6 +98,20 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     }));
   };
 
+  const handleNestedChange = (
+    category: "inventory" | "pricing",
+    type: "standard" | "vip" | "premium",
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [type]: Number(value),
+      },
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -96,9 +124,40 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       // Sincronizar availableTickets com maxTickets na criação se não especificado diferente
       const dataToSave = { ...formData, image: imageUrl };
-      if (!initialData) {
+
+      // Limpar pricing zerado para permitir fallback automático no backend/frontend
+      if (dataToSave.pricing) {
+        const cleanedPricing: Record<string, number> = {};
+        let hasPricing = false;
+
+        (["standard", "vip", "premium"] as const).forEach((type) => {
+          const val = dataToSave.pricing?.[type];
+          if (val && val > 0) {
+            cleanedPricing[type] = val;
+            hasPricing = true;
+          }
+        });
+
+        if (hasPricing) {
+          dataToSave.pricing = cleanedPricing;
+        } else {
+          delete dataToSave.pricing;
+        }
+      }
+
+      // Opcional: Calcular totais com base nos tipos se eles forem maiores que 0
+      const totalInventory =
+        (dataToSave.inventory?.standard || 0) +
+        (dataToSave.inventory?.vip || 0) +
+        (dataToSave.inventory?.premium || 0);
+
+      if (totalInventory > 0) {
+        dataToSave.availableTickets = totalInventory;
+        dataToSave.maxTickets = Math.max(dataToSave.maxTickets, totalInventory);
+      } else if (!initialData) {
         dataToSave.availableTickets = dataToSave.maxTickets;
       }
+
       await onSave(dataToSave);
     } catch (err) {
       console.error(err);
@@ -111,8 +170,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium mb-1">Título</label>
+        <label htmlFor="title" className="block text-sm font-medium mb-1">Título</label>
         <Input
+          id="title"
           name="title"
           value={formData.title}
           onChange={handleChange}
@@ -121,8 +181,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Descrição</label>
+        <label htmlFor="description" className="block text-sm font-medium mb-1">Descrição</label>
         <textarea
+          id="description"
           name="description"
           value={formData.description}
           onChange={handleChange}
@@ -134,10 +195,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label htmlFor="date" className="block text-sm font-medium mb-1">
             Data (AAAA-MM-DD)
           </label>
           <Input
+            id="date"
             type="date"
             name="date"
             value={formData.date}
@@ -146,8 +208,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Hora</label>
+          <label htmlFor="time" className="block text-sm font-medium mb-1">Hora</label>
           <Input
+            id="time"
             type="time"
             name="time"
             value={formData.time}
@@ -158,8 +221,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Local (Nome)</label>
+        <label htmlFor="location" className="block text-sm font-medium mb-1">Local (Nome)</label>
         <Input
+          id="location"
           name="location"
           value={formData.location}
           onChange={handleChange}
@@ -168,10 +232,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label htmlFor="address" className="block text-sm font-medium mb-1">
           Endereço Completo
         </label>
         <Input
+          id="address"
           name="address"
           value={formData.address}
           onChange={handleChange}
@@ -181,8 +246,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Preço (R$)</label>
+          <label htmlFor="price" className="block text-sm font-medium mb-1">
+            Preço Base (R$)
+          </label>
           <Input
+            id="price"
             type="number"
             name="price"
             value={formData.price}
@@ -193,8 +261,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Categoria</label>
+          <label htmlFor="category" className="block text-sm font-medium mb-1">Categoria</label>
           <select
+            id="category"
             name="category"
             value={formData.category}
             onChange={handleChange}
@@ -210,12 +279,57 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
         </div>
       </div>
 
+      <div className="border p-4 rounded-md bg-muted/20">
+        <h3 className="font-semibold mb-3">Preços e Estoque por Tipo</h3>
+
+        <div className="grid grid-cols-3 gap-4 mb-2">
+          <div className="font-medium text-sm text-center">Tipo</div>
+          <div className="font-medium text-sm text-center">Preço (R$)</div>
+          <div className="font-medium text-sm text-center">Estoque</div>
+        </div>
+
+        {["standard", "vip", "premium"].map((type) => (
+          <div key={type} className="grid grid-cols-3 gap-4 mb-2 items-center">
+            <div className="capitalize text-sm">{type}</div>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              aria-label={`Preço ${type}`}
+              value={
+                formData.pricing?.[type as "standard" | "vip" | "premium"] || 0
+              }
+              onChange={(e) =>
+                handleNestedChange("pricing", type as any, e.target.value)
+              }
+            />
+            <Input
+              type="number"
+              min="0"
+              aria-label={`Estoque ${type}`}
+              value={
+                formData.inventory?.[type as "standard" | "vip" | "premium"] ||
+                0
+              }
+              onChange={(e) =>
+                handleNestedChange("inventory", type as any, e.target.value)
+              }
+            />
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground mt-2">
+          * Se o estoque total dos tipos for maior que 0, ele sobrescreverá o
+          estoque total abaixo.
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Estoque Máximo
+          <label htmlFor="maxTickets" className="block text-sm font-medium mb-1">
+            Estoque Máximo (Total)
           </label>
           <Input
+            id="maxTickets"
             type="number"
             name="maxTickets"
             value={formData.maxTickets}
@@ -225,10 +339,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Estoque Atual
+          <label htmlFor="availableTickets" className="block text-sm font-medium mb-1">
+            Estoque Atual (Total)
           </label>
           <Input
+            id="availableTickets"
             type="number"
             name="availableTickets"
             value={formData.availableTickets}
@@ -240,7 +355,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">
+        <label htmlFor="imageFile" className="block text-sm font-medium mb-1">
           Imagem do Evento
         </label>
 
@@ -256,6 +371,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
         <div className="flex gap-2 items-center">
           <Input
+            id="imageFile"
             type="file"
             accept="image/*"
             onChange={handleFileChange}
@@ -270,6 +386,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           value={formData.image}
           onChange={handleChange}
           placeholder="https://exemplo.com/imagem.jpg"
+          aria-label="URL da Imagem"
         />
       </div>
 

@@ -27,6 +27,11 @@ export function TicketPurchase({
   checkoutError,
   totalPrice,
 }: TicketPurchaseProps) {
+  const selectedTypeAvailability =
+    event.inventory && typeof event.inventory === "object"
+      ? event.inventory[selectedTicketType] ?? 0
+      : event.availableTickets;
+
   return (
     <div className="bg-background border border-border rounded-none p-6 transition-colors">
       <h2 className="text-2xl font-bold text-foreground mb-6">
@@ -40,47 +45,78 @@ export function TicketPurchase({
             Tipo de Ingresso
           </label>
           <div className="space-y-3">
-            {Object.entries(TICKET_TYPES).map(([type, info]) => (
-              <label
-                key={type}
-                className={`flex items-center p-4 border-2 rounded-none cursor-pointer transition-all ${
-                  selectedTicketType === type
-                    ? "border-primary bg-muted"
-                    : "border-border hover:border-primary"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="ticketType"
-                  value={type}
-                  checked={selectedTicketType === type}
-                  onChange={(e) =>
-                    setSelectedTicketType(
-                      e.target.value as "standard" | "vip" | "premium"
-                    )
-                  }
-                  className="sr-only"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">{info.icon}</span>
-                      <div>
-                        <p className="font-medium text-foreground">{info.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {info.description}
+            {Object.entries(TICKET_TYPES).map(([type, info]) => {
+              // Calculate availability for this specific ticket type
+              // If event has inventory map, use it; otherwise fallback to global availableTickets
+              const availableForType =
+                event.inventory && typeof event.inventory === "object"
+                  ? event.inventory[type] ?? 0
+                  : event.availableTickets;
+
+              const isSoldOut = availableForType === 0;
+
+              return (
+                <label
+                  key={type}
+                  className={`flex items-center p-4 border-2 rounded-none cursor-pointer transition-all ${
+                    isSoldOut
+                      ? "opacity-50 cursor-not-allowed border-border bg-muted/50"
+                      : selectedTicketType === type
+                      ? "border-primary bg-muted"
+                      : "border-border hover:border-primary"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="ticketType"
+                    value={type}
+                    checked={selectedTicketType === type}
+                    onChange={(e) =>
+                      !isSoldOut &&
+                      setSelectedTicketType(
+                        e.target.value as "standard" | "vip" | "premium"
+                      )
+                    }
+                    disabled={isSoldOut}
+                    className="sr-only"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="text-2xl mr-3">{info.icon}</span>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {info.name}
+                            {isSoldOut && (
+                              <span className="ml-2 text-xs font-bold text-red-500 uppercase">
+                                (Esgotado)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {info.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-primary">
+                          R${" "}
+                          {(
+                            event.pricing?.[type as "standard" | "vip" | "premium"] ??
+                            event.price * info.multiplier
+                          ).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {availableForType > 0
+                            ? `${availableForType} disponíveis`
+                            : "Indisponível"}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg text-primary">
-                        R$ {(event.price * info.multiplier).toFixed(2)}
-                      </p>
-                    </div>
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
         </div>
 
@@ -150,7 +186,7 @@ export function TicketPurchase({
             onClick={handlePurchase}
             disabled={
               checkoutLoading ||
-              event.availableTickets < quantity ||
+              selectedTypeAvailability < quantity ||
               paymentStatus === "processing"
             }
             className="w-full h-12 text-lg"
@@ -162,7 +198,7 @@ export function TicketPurchase({
                   ? "Redirecionando..."
                   : "Processando compra..."}
               </div>
-            ) : event.availableTickets < quantity ? (
+            ) : selectedTypeAvailability < quantity ? (
               "❌ Ingressos insuficientes"
             ) : (
               <div className="flex items-center justify-center">

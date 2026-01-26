@@ -15,10 +15,7 @@ export default function AdminPage() {
   const loadEvents = async () => {
     setLoading(true);
     try {
-      // Idealmente teríamos um método getAllEventsForAdmin sem filtro de estoque
-      // Por enquanto usamos getEvents que retorna eventos com estoque > 0
-      // TODO: Ajustar serviço para retornar todos eventos para admin
-      const data = await eventService.getEvents();
+      const data = await eventService.getAdminEvents();
       setEvents(data);
     } catch (error) {
       console.error("Erro ao carregar eventos", error);

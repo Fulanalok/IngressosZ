@@ -1,7 +1,4 @@
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { GridChildComponentProps } from "react-window";
-import { FixedSizeGrid as Grid, FixedSizeList as List } from "react-window";
 import Ticket from "../components/Ticket";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../hooks/useAuth";
@@ -10,33 +7,12 @@ import { useUserTickets } from "../hooks/useTickets";
 function MyTicketsPage() {
   const { user } = useAuth();
   const { tickets, loading, error, refetch } = useUserTickets();
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [gridWidth, setGridWidth] = useState(0);
-  const [gridHeight, setGridHeight] = useState(800);
-  const [columns, setColumns] = useState(1);
-  const CARD_HEIGHT = 380;
-
-  useEffect(() => {
-    const measure = () => {
-      const w = containerRef.current?.clientWidth || window.innerWidth;
-      setGridWidth(w);
-      const headerAndFilters = 280;
-      const h = Math.max(360, window.innerHeight - headerAndFilters);
-      setGridHeight(h);
-      if (w >= 1280) setColumns(3);
-      else if (w >= 1024) setColumns(2);
-      else setColumns(1);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center transition-colors">
         <div className="text-center">
-          <div className="animate-spin rounded-none h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <h2 className="text-xl font-semibold text-foreground">
             Carregando seus ingressos...
           </h2>
@@ -94,80 +70,38 @@ function MyTicketsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="space-y-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-lg shadow-sm border">
+                  <h2 className="text-2xl font-bold text-foreground">
                     Seus Ingressos ({tickets.length})
                   </h2>
                   <div className="flex items-center space-x-4">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <div className="w-3 h-3 bg-green-500 rounded-none mr-2"></div>
+                    <div className="flex items-center text-sm text-muted-foreground bg-green-100 dark:bg-green-900/20 px-3 py-1 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                       Válido
                     </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <div className="w-3 h-3 bg-red-500 rounded-none mr-2"></div>
+                    <div className="flex items-center text-sm text-muted-foreground bg-red-100 dark:bg-red-900/20 px-3 py-1 rounded-full">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
                       Usado
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <div className="w-3 h-3 bg-yellow-500 rounded-none mr-2"></div>
-                      Expirado
                     </div>
                   </div>
                 </div>
 
-                <div ref={containerRef}>
-                  {gridWidth > 0 &&
-                    (columns === 1 ? (
-                      <List
-                        height={gridHeight}
-                        itemCount={tickets.length}
-                        itemSize={CARD_HEIGHT}
-                        width={gridWidth}
-                      >
-                        {({ index, style }) => {
-                          const ticket = tickets[index];
-                          return (
-                            <div style={style} className="p-3">
-                              <div className="transform hover:scale-105 transition-transform duration-200">
-                                <Ticket ticket={ticket} />
-                              </div>
-                            </div>
-                          );
-                        }}
-                      </List>
-                    ) : (
-                      <Grid
-                        columnCount={columns}
-                        columnWidth={Math.floor(gridWidth / columns)}
-                        height={gridHeight}
-                        rowCount={Math.ceil(tickets.length / columns)}
-                        rowHeight={CARD_HEIGHT}
-                        width={gridWidth}
-                      >
-                        {(props: GridChildComponentProps) => {
-                          const { columnIndex, rowIndex, style } = props;
-                          const index = rowIndex * columns + columnIndex;
-                          const ticket = tickets[index];
-                          if (!ticket) return null;
-                          return (
-                            <div style={style} className="p-3">
-                              <div className="transform hover:scale-105 transition-transform duration-200">
-                                <Ticket ticket={ticket} />
-                              </div>
-                            </div>
-                          );
-                        }}
-                      </Grid>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {tickets.map((ticket) => (
+                      <div key={ticket.id} className="h-full">
+                         <Ticket ticket={ticket} />
+                      </div>
                     ))}
                 </div>
 
                 {/* Quick Actions */}
-                <div className="card bg-gradient-to-r from-primary to-accent text-primary-foreground text-center">
+                <div className="card bg-gradient-to-r from-primary to-accent text-primary-foreground text-center mt-12">
                   <h3 className="text-xl font-bold mb-4">Ações Rápidas</h3>
                   <div className="grid md:grid-cols-2 gap-4">
                     <Link
                       to="/eventos"
-                      className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-none p-4 text-center transition-colors"
+                      className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-lg p-4 text-center transition-colors backdrop-blur-sm"
                     >
                       <div className="text-2xl mb-2">🎉</div>
                       <div className="font-semibold">Mais Eventos</div>
@@ -176,13 +110,13 @@ function MyTicketsPage() {
                       </div>
                     </Link>
                     <Link
-                      to="/validador"
-                      className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-none p-4 text-center transition-colors"
+                      to="/perfil"
+                      className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-lg p-4 text-center transition-colors backdrop-blur-sm"
                     >
-                      <div className="text-2xl mb-2">📱</div>
-                      <div className="font-semibold">Validar Ingresso</div>
+                      <div className="text-2xl mb-2">👤</div>
+                      <div className="font-semibold">Meu Perfil</div>
                       <div className="text-sm opacity-90">
-                        Valide ingressos do evento
+                        Gerenciar conta
                       </div>
                     </Link>
                   </div>

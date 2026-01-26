@@ -150,7 +150,12 @@ function EventCard({ event }: EventCardProps) {
           <div className="flex items-center text-primary">
             <span className="mr-2 text-lg">💰</span>
             <span className="text-xl font-bold">
-              R$ {event.price.toFixed(2)}
+              R${" "}
+              {(
+                event.pricing?.standard ??
+                event.price ??
+                0
+              ).toFixed(2)}
             </span>
           </div>
           <div

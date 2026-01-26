@@ -1,20 +1,25 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import EventCard from "../components/EventCard";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
 import { useAuth } from "../hooks/useAuth";
+import { useEvents } from "../hooks/useEvents";
 import { eventService } from "../services/firestore";
 
 function HomePage() {
   const { userProfile } = useAuth();
+  const { events, loading } = useEvents();
   const queryClient = useQueryClient();
+
+  const featuredEvents = events.slice(0, 3);
+
   const prefetchEvents = () => {
     queryClient.prefetchQuery({
       queryKey: ["events"],
@@ -90,98 +95,110 @@ function HomePage() {
           </div>
         </section>
 
-        {/* Navigation Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <Link to="/eventos" className="group">
-            <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
-              <CardHeader className="text-center">
-                <div className="text-5xl mb-2">📅</div>
-                <CardTitle>Eventos</CardTitle>
-                <CardDescription>
-                  Explore os melhores eventos da cidade
-                </CardDescription>
-              </CardHeader>
-              <CardFooter className="justify-center">
-                <Button>Ver Eventos</Button>
-              </CardFooter>
-            </Card>
-          </Link>
-
-          <Link to="/meus-ingressos" className="group">
-            <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
-              <CardHeader className="text-center">
-                <div className="text-5xl mb-2">🎫</div>
-                <CardTitle>Meus Ingressos</CardTitle>
-                <CardDescription>
-                  Gerencie seus ingressos e acessos
-                </CardDescription>
-              </CardHeader>
-              <CardFooter className="justify-center">
-                <Button>Ver Ingressos</Button>
-              </CardFooter>
-            </Card>
-          </Link>
-
-          {userProfile?.role === "validator" && (
-            <Link to="/validador" className="group">
-              <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
-                <CardHeader className="text-center">
-                  <div className="text-5xl mb-2">✅</div>
-                  <CardTitle>Validador</CardTitle>
-                  <CardDescription>
-                    Valide ingressos nos eventos
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter className="justify-center">
-                  <Button>Abrir Validador</Button>
-                </CardFooter>
-              </Card>
-            </Link>
-          )}
-        </div>
-
-        {/* CTA Section */}
-        <div className="bg-gradient-to-r from-primary to-accent rounded-none p-8 text-center text-primary-foreground">
-          <h3 className="text-2xl font-bold mb-4">Pronto para se divertir?</h3>
-          <p className="text-lg mb-6 opacity-90">
-            Confira os eventos mais quentes da cidade e garante já seu ingresso!
-          </p>
-          <Button variant="secondary" asChild>
-            <Link to="/eventos">Explorar Eventos 🚀</Link>
-          </Button>
-        </div>
-
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-              500+
+        {/* Featured Events Section */}
+        {featuredEvents.length > 0 && (
+          <section className="mb-16">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Eventos em Destaque
+              </h3>
+              <Button variant="ghost" asChild>
+                <Link to="/eventos">Ver todos &rarr;</Link>
+              </Button>
             </div>
-            <div className="text-gray-600 dark:text-gray-300">Eventos</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-secondary-600 dark:text-secondary-400">
-              10k+
+
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-8">
+                {featuredEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Why Choose Us Section */}
+        <section className="mb-16">
+          <h3 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100 mb-12">
+            Por que usar o IngressosZ?
+          </h3>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center p-6 rounded-2xl bg-card border border-border/50 hover:shadow-lg transition-all duration-300">
+              <div className="text-5xl mb-4">🔒</div>
+              <h4 className="text-xl font-bold mb-2">Segurança Total</h4>
+              <p className="text-muted-foreground">
+                Pagamentos processados com a segurança do Mercado Pago e
+                ingressos validados via QR Code criptografado.
+              </p>
             </div>
-            <div className="text-gray-600 dark:text-gray-300">
-              Ingressos Vendidos
+
+            <div className="text-center p-6 rounded-2xl bg-card border border-border/50 hover:shadow-lg transition-all duration-300">
+              <div className="text-5xl mb-4">⚡</div>
+              <h4 className="text-xl font-bold mb-2">Compra Rápida</h4>
+              <p className="text-muted-foreground">
+                Garanta seu ingresso em menos de 1 minuto. Sem filas, sem
+                complicações e com confirmação imediata.
+              </p>
+            </div>
+
+            <div className="text-center p-6 rounded-2xl bg-card border border-border/50 hover:shadow-lg transition-all duration-300">
+              <div className="text-5xl mb-4">📱</div>
+              <h4 className="text-xl font-bold mb-2">100% Digital</h4>
+              <p className="text-muted-foreground">
+                Acesse seus ingressos pelo celular a qualquer momento. Esqueça
+                impressões e papéis.
+              </p>
             </div>
           </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-              50+
+        </section>
+
+        {/* Admin/Validator Quick Access (Only for authorized roles) */}
+        {(userProfile?.role === "admin" ||
+          userProfile?.role === "validator") && (
+          <section className="mb-12">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+              Acesso Rápido
+            </h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              {userProfile?.role === "admin" && (
+                <Link to="/admin" className="group">
+                  <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-primary/5 border-primary/20">
+                    <CardHeader className="flex flex-row items-center gap-4">
+                      <div className="text-4xl">📊</div>
+                      <div>
+                        <CardTitle>Painel Administrativo</CardTitle>
+                        <CardDescription>
+                          Gerencie eventos, vendas e relatórios
+                        </CardDescription>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              )}
+
+              {(userProfile?.role === "admin" ||
+                userProfile?.role === "validator") && (
+                <Link to="/validador" className="group">
+                  <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-secondary/5 border-secondary/20">
+                    <CardHeader className="flex flex-row items-center gap-4">
+                      <div className="text-4xl">🔍</div>
+                      <div>
+                        <CardTitle>Validador de Ingressos</CardTitle>
+                        <CardDescription>
+                          Escaneie e valide ingressos na portaria
+                        </CardDescription>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              )}
             </div>
-            <div className="text-gray-600 dark:text-gray-300">
-              Organizadores
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-              4.9★
-            </div>
-            <div className="text-gray-600 dark:text-gray-300">Avaliação</div>
-          </div>
-        </div>
+          </section>
+        )}
       </main>
     </div>
   );

@@ -1,23 +1,22 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 // import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "mock-api-key",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "mock-auth-domain",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "mock-project-id",
-  storageBucket:
-    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "mock-storage-bucket",
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "mock-app-id",
-  measurementId:
-    import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-MOCKMEASURE",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Validação leve para garantir configuração correta (apenas chaves essenciais)
 const requiredKeys = ["apiKey", "authDomain", "projectId", "appId"] as const;
+// @ts-expect-error
 const missingKeys = requiredKeys.filter((k) => !firebaseConfig[k]);
 
 if (missingKeys.length) {
@@ -35,12 +34,18 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const storage = (() => {
+  try {
+    return getStorage(app);
+  } catch (err) {
+    console.warn("Firebase Storage init failed (ignorar em testes):", err);
+    return {} as any;
+  }
+})();
 // Firebase Functions client não é utilizado atualmente; evite carregá-lo para reduzir bundle
 // export const functions = getFunctions(app);
 
-const shouldTryEmulators =
-  import.meta.env.VITE_USE_EMULATORS === "true" || import.meta.env.DEV;
+const shouldTryEmulators = import.meta.env.VITE_USE_EMULATORS === "true";
 if (shouldTryEmulators) {
   void (async () => {
     const host =

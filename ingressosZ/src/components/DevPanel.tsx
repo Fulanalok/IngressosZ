@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { ticketService } from "../services/firestore";
+import { ticketService, userService } from "../services/firestore";
 import { seedSampleEvents } from "../utils/seedData";
 
 function DevPanel() {
@@ -9,6 +9,26 @@ function DevPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const handleBecomeOrganizer = async () => {
+    if (!user) {
+      setMessage("❌ Você precisa estar logado para virar organizador");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      await userService.updateUserProfile(user.uid, { role: "organizer" });
+      setMessage("✅ Agora você é um organizador! Recarregue a página.");
+    } catch (error) {
+      setMessage(
+        "❌ Erro ao atualizar perfil: " +
+          (error instanceof Error ? error.message : "Erro desconhecido")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSeedEvents = async () => {
     setLoading(true);

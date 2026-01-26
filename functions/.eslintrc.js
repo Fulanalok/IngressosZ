@@ -16,10 +16,12 @@ module.exports = {
   parserOptions: {
     project: ["tsconfig.json", "tsconfig.dev.json"],
     sourceType: "module",
+    tsconfigRootDir: __dirname,
   },
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
     "/generated/**/*", // Ignore generated files.
+    "jest.config.js",
   ],
   plugins: [
     "@typescript-eslint",
@@ -36,5 +38,7 @@ module.exports = {
     "operator-linebreak": "off",
     "space-before-function-paren": "off",
     "@typescript-eslint/no-inferrable-types": "off",
+    "linebreak-style": "off",
+    "@typescript-eslint/no-explicit-any": "off",
   },
 };

@@ -44,6 +44,20 @@ export const eventService = {
     return res;
   },
 
+  // Buscar todos os eventos para administração (sem filtro de estoque)
+  async getAdminEvents(): Promise<Event[]> {
+    const eventsCollection = collection(db, "events");
+    const eventsQuery = query(eventsCollection, orderBy("date", "desc"));
+    const snapshot = await getDocs(eventsQuery);
+    return snapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        } as Event)
+    );
+  },
+
   // Buscar evento por ID
   async getEventById(eventId: string): Promise<Event | null> {
     const now = Date.now();
@@ -123,19 +137,35 @@ export const eventService = {
 
   async decrementAvailableTickets(
     eventId: string,
-    count: number
+    count: number,
+    ticketType?: string
   ): Promise<void> {
     if (count <= 0) return;
     const eventDoc = doc(db, "events", eventId);
     const snapshot = await getDoc(eventDoc);
     if (!snapshot.exists()) throw new Error("Evento não encontrado");
     const data = snapshot.data() as Event;
-    const available = Number(data.availableTickets || 0);
-    if (available < count) throw new Error("Ingressos insuficientes");
-    await updateDoc(eventDoc, {
-      availableTickets: increment(-count),
-      updatedAt: serverTimestamp(),
-    });
+
+    // Check specific inventory if type is provided and inventory exists
+    if (ticketType && data.inventory && typeof data.inventory === "object") {
+      const current = Number(data.inventory[ticketType] ?? 0);
+      if (current < count)
+        throw new Error("Ingressos insuficientes para este tipo");
+      await updateDoc(eventDoc, {
+        [`inventory.${ticketType}`]: increment(-count),
+        availableTickets: increment(-count),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      // Fallback to global availability
+      const available = Number(data.availableTickets || 0);
+      if (available < count) throw new Error("Ingressos insuficientes");
+      await updateDoc(eventDoc, {
+        availableTickets: increment(-count),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
     try {
       __eventByIdCache.delete(eventId);
       __eventsCache = null;
@@ -147,6 +177,65 @@ export const eventService = {
 
 // Serviços para Ingressos
 export const ticketService = {
+  // Inscrever-se para atualizações em tempo real dos ingressos do usuário
+  subscribeToUserTickets(
+    userId: string,
+    onUpdate: (tickets: Ticket[]) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    const ticketsCollection = collection(db, "tickets");
+    const ticketsQuery = query(
+      ticketsCollection,
+      where("userId", "==", userId),
+      orderBy("purchaseDate", "desc")
+    );
+
+    return onSnapshot(
+      ticketsQuery,
+      async (snapshot) => {
+        try {
+          const eventCache = new Map<string, Event | null>();
+          const tickets: Ticket[] = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const ticketData = docSnap.data() as Omit<
+                Ticket,
+                | "id"
+                | "eventTitle"
+                | "eventDate"
+                | "eventTime"
+                | "eventLocation"
+              >;
+              const eventId = ticketData.eventId;
+
+              let eventData = eventCache.get(eventId) ?? null;
+              if (!eventCache.has(eventId)) {
+                eventData = await eventService.getEventById(eventId);
+                eventCache.set(eventId, eventData);
+              }
+
+              return {
+                id: docSnap.id,
+                ...ticketData,
+                eventTitle: eventData?.title || "Evento não encontrado",
+                eventDate: eventData?.date || "Data não disponível",
+                eventTime: eventData?.time || "Horário não disponível",
+                eventLocation: eventData?.location || "Local não disponível",
+              } as Ticket;
+            })
+          );
+          onUpdate(tickets);
+        } catch (err) {
+          console.error("Erro ao processar atualização de ingressos:", err);
+          if (onError) onError(err as Error);
+        }
+      },
+      (error) => {
+        console.error("Erro no listener de ingressos:", error);
+        if (onError) onError(error);
+      }
+    );
+  },
+
   // Buscar ingressos do usuário
   async getUserTickets(userId: string): Promise<Ticket[]> {
     try {

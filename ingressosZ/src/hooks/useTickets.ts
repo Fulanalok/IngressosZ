@@ -8,49 +8,36 @@ export function useUserTickets() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    const loadTickets = async () => {
-      if (!user) {
-        setTickets([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        const userTickets = await ticketService.getUserTickets(user.uid);
-        setTickets(userTickets);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Erro ao carregar ingressos";
-        setError(errorMessage);
-        console.error("Erro ao carregar ingressos:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTickets();
-  }, [user]);
-
-  const refetchTickets = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const userTickets = await ticketService.getUserTickets(user.uid);
-      setTickets(userTickets);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Erro ao carregar ingressos";
-      setError(errorMessage);
-      console.error("Erro ao carregar ingressos:", err);
-    } finally {
+    if (!user) {
+      setTickets([]);
       setLoading(false);
+      return;
     }
+
+    setLoading(true);
+    setError(null);
+
+    const unsubscribe = ticketService.subscribeToUserTickets(
+      user.uid,
+      (updatedTickets) => {
+        setTickets(updatedTickets);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Erro ao carregar ingressos:", err);
+        setError(err.message || "Erro ao carregar ingressos");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, retryCount]);
+
+  const refetchTickets = () => {
+    setRetryCount((prev) => prev + 1);
   };
 
   const createTicket = async (
@@ -58,7 +45,7 @@ export function useUserTickets() {
   ) => {
     try {
       const ticketId = await ticketService.createTicket(ticketData);
-      await refetchTickets(); // Recarregar lista
+      // A subscrição atualizará a lista automaticamente
       return ticketId;
     } catch (err) {
       const errorMessage =

@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useAuth } from "../useAuth";
-import { postClientError } from "../../services/logger";
 import { TestDataService } from "../../services/testDataService";
+import { useAuth } from "../useAuth";
 
 export interface TicketData {
   eventTitle: string;
@@ -49,7 +48,7 @@ export function useTicketValidator() {
 
       if (resp.ok && data?.success) {
         const details = data?.ticket;
-        setValidationResult({
+        const result: ValidationResultState = {
           status: "success",
           message: "Ingresso válido! Entrada autorizada.",
           ticketData: {
@@ -59,13 +58,17 @@ export function useTicketValidator() {
             eventDate: details?.eventDate || new Date().toLocaleDateString(),
             eventTime: details?.eventTime || "",
           },
-        });
+        };
+        setValidationResult(result);
+        return result;
       } else {
         const msg =
           data?.message ||
           "Código do ingresso inválido. Verifique e tente novamente.";
         const status = data?.status === "used" ? "error" : "invalid";
-        setValidationResult({ status, message: msg });
+        const result: ValidationResultState = { status, message: msg };
+        setValidationResult(result);
+        return result;
       }
     } catch (backendErr) {
       console.warn("⚠️ Erro ao validar no backend:", backendErr);
@@ -75,7 +78,7 @@ export function useTicketValidator() {
         const offlineTicket =
           TestDataService.validateOfflineTicket(codeToValidate);
         if (offlineTicket) {
-          setValidationResult({
+          const result: ValidationResultState = {
             status: offlineTicket.status === "used" ? "error" : "success",
             message:
               offlineTicket.status === "used"
@@ -88,27 +91,18 @@ export function useTicketValidator() {
               eventDate: offlineTicket.eventDate,
               eventTime: offlineTicket.eventTime || "",
             },
-          });
-          return;
+          };
+          setValidationResult(result);
+          return result;
         }
       }
 
-      setValidationResult({
+      const result: ValidationResultState = {
         status: "error",
         message: "Erro ao validar ingresso no backend. Tente novamente.",
-      });
-
-      void postClientError({
-        type: "validate-backend-error",
-        message:
-          backendErr instanceof Error
-            ? backendErr.message
-            : String(backendErr),
-        route: window.location.pathname,
-        ua: navigator.userAgent,
-        qrCode: codeToValidate,
-        ts: Date.now(),
-      });
+      };
+      setValidationResult(result);
+      return result;
     } finally {
       setIsValidating(false);
     }

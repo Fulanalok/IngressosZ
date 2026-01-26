@@ -188,23 +188,44 @@ export const mercadoPagoCreatePreference = functions.https.onRequest(
       }
       const eventData = eventSnap.data() as any;
 
-      // Preços por tipo priorizam o que está no evento; fallback para mapa padrão
-      const PRICE_BY_TYPE_DEFAULT: Record<string, number | undefined> = {
-        standard: 50,
-        vip: 150,
-        premium: 300,
+      // Lógica de Preço:
+      // 1. Preço explícito no mapa 'pricing' do evento
+      // 2. Preço base do evento * multiplicador do tipo
+      // 3. Fallback para valores hardcoded
+
+      const MULTIPLIERS: Record<string, number> = {
+        standard: 1,
+        vip: 2,
+        premium: 3,
       };
-      const priceByTypeFromEvent =
-        eventData?.pricing && typeof eventData.pricing === "object"
-          ? eventData.pricing
-          : null;
-      const unitPrice =
-        (priceByTypeFromEvent?.[normalizedType] as number | undefined) ??
-        (PRICE_BY_TYPE_DEFAULT[normalizedType] as number | undefined);
-      if (!unitPrice) {
-        res
-          .status(400)
-          .json({ error: `Tipo de ingresso inválido: ${ticketType}` });
+
+      let unitPrice: number | undefined;
+
+      // 1. Tentar pricing explícito
+      if (
+        eventData?.pricing &&
+        typeof eventData.pricing === "object" &&
+        typeof eventData.pricing[normalizedType] === "number"
+      ) {
+        unitPrice = Number(eventData.pricing[normalizedType]);
+      } else if (typeof eventData?.price === "number") {
+        // 2. Tentar base price * multiplier
+        const multiplier = MULTIPLIERS[normalizedType] || 1;
+        unitPrice = Number(eventData.price) * multiplier;
+      } else {
+        // 3. Fallback
+        const DEFAULTS: Record<string, number> = {
+          standard: 50,
+          vip: 100,
+          premium: 150,
+        };
+        unitPrice = DEFAULTS[normalizedType];
+      }
+
+      if (unitPrice === undefined || isNaN(unitPrice)) {
+        res.status(400).json({
+          error: `Não foi possível determinar o preço para: ${ticketType}`,
+        });
         return;
       }
 
@@ -465,13 +486,32 @@ export const mercadoPagoWebhook = functions.https.onRequest(
                 const current = Number(
                   eventData.inventory?.[order.ticketType] ?? 0
                 );
-                const next = Math.max(0, current - qty);
+                // Permitir valor negativo para rastrear overselling
+                const next = current - qty;
+
+                if (next < 0) {
+                  console.warn(
+                    `⚠️ Overselling detectado para evento ${order.eventId} ` +
+                      `(tipo ${order.ticketType}). Estoque: ${current} -> ${next}`
+                  );
+                }
+
                 tx.update(eventRef, {
                   [`inventory.${order.ticketType}`]: next,
+                  availableTickets: FieldValue.increment(-qty),
                 });
               } else if (typeof eventData.availableTickets === "number") {
                 const current = Number(eventData.availableTickets);
-                const next = Math.max(0, current - qty);
+                // Permitir valor negativo para rastrear overselling
+                const next = current - qty;
+
+                if (next < 0) {
+                  console.warn(
+                    `⚠️ Overselling detectado para evento ${order.eventId} (global). ` +
+                      `Estoque: ${current} -> ${next}`
+                  );
+                }
+
                 tx.update(eventRef, { availableTickets: next });
               }
             }

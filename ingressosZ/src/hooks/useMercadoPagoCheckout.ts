@@ -140,7 +140,11 @@ export function useMercadoPagoCheckout({
           console.log(`📋 Ingresso ${i + 1}/${quantity} criado (simulação)`);
         }
         try {
-          await eventService.decrementAvailableTickets(eventId, quantity);
+          await eventService.decrementAvailableTickets(
+            eventId,
+            quantity,
+            ticketType
+          );
         } catch {
           /* ignore */
         }

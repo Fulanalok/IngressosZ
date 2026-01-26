@@ -1,5 +1,14 @@
 {
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "noImplicitAny": false,
+    "sourceMap": true
+  },
   "include": [
-    ".eslintrc.js"
+    ".eslintrc.js",
+    "src",
+    "test"
   ]
 }

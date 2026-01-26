@@ -9,7 +9,10 @@ import { ScannerSection } from "../components/validator/ScannerSection";
 import { ValidationResult } from "../components/validator/ValidationResult";
 import { ValidatorForm } from "../components/validator/ValidatorForm";
 import { useAuth } from "../hooks/useAuth";
-import { useTicketValidator } from "../hooks/validator/useTicketValidator";
+import {
+  useTicketValidator,
+  type ValidationResultState,
+} from "../hooks/validator/useTicketValidator";
 import { TestDataService } from "../services/testDataService";
 
 function ValidatorPage() {
@@ -18,6 +21,7 @@ function ValidatorPage() {
   const [backendStatus, setBackendStatus] = useState<string | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [isCreatingTestData, setIsCreatingTestData] = useState(false);
+  const [recentScans, setRecentScans] = useState<ValidationResultState[]>([]);
 
   const { validateTicket, validationResult, isValidating, resetValidation } =
     useTicketValidator();
@@ -74,9 +78,13 @@ function ValidatorPage() {
     }
   };
 
-  const handleValidate = (code?: string) => {
+  const handleValidate = async (code?: string) => {
     const codeToValidate = code || ticketCode;
-    validateTicket(codeToValidate);
+    const result = await validateTicket(codeToValidate);
+    if (result) {
+      // Adicionar timestamp ou ID único para a lista se necessário, mas por enquanto usamos o objeto
+      setRecentScans((prev) => [result, ...prev].slice(0, 5));
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -180,6 +188,52 @@ function ValidatorPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Scans */}
+        {recentScans.length > 0 && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="text-xl">Histórico Recente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {recentScans.map((scan, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded border flex justify-between items-center ${
+                      scan.status === "success"
+                        ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                        : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {scan.ticketData?.holderName || "Desconhecido"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {scan.ticketData?.ticketType || "Ingresso"} -{" "}
+                        {scan.ticketData?.eventTitle}
+                      </div>
+                    </div>
+                    <div
+                      className={`font-bold ${
+                        scan.status === "success"
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {scan.status === "success"
+                        ? "VÁLIDO"
+                        : scan.status === "error"
+                        ? "USADO"
+                        : "INVÁLIDO"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Instructions */}
         <Card className="mt-12">
