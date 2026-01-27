@@ -4,6 +4,7 @@ import { eventService } from "../../services/firestore";
 import type { Event } from "../../types";
 import { EventForm } from "./EventForm";
 import { useAuth } from "../../hooks/useAuth";
+import SetAdminRole from "../../components/admin/SetAdminRole"; // Importe o novo componente
 
 export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -89,6 +90,11 @@ export default function AdminPage() {
               + Novo Evento
             </Button>
           )}
+        </div>
+
+        {/* Seção para Tornar Admin */}
+        <div className="mb-8">
+          <SetAdminRole />
         </div>
 
         {isEditing ? (
