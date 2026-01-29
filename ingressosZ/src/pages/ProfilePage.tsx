@@ -9,6 +9,7 @@ function ProfilePage() {
       await signOut();
     } catch (e) {
       console.error("Erro ao deslogar", e);
+      toast.error("Erro ao sair da conta");
     }
   };
 
@@ -29,7 +30,9 @@ function ProfilePage() {
           <div className="space-y-6">
             <div className="grid gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="flex justify-between items-center border-b border-border pb-3">
-                <span className="font-medium text-foreground">ID do Usuário</span>
+                <span className="font-medium text-foreground">
+                  ID do Usuário
+                </span>
                 <span className="text-sm text-muted-foreground font-mono">
                   {userProfile?.uid}
                 </span>
@@ -41,10 +44,14 @@ function ProfilePage() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-medium text-foreground">Membro desde</span>
+                <span className="font-medium text-foreground">
+                  Membro desde
+                </span>
                 <span className="text-sm text-muted-foreground">
                   {userProfile?.createdAt
-                    ? new Date(userProfile.createdAt).toLocaleDateString("pt-BR")
+                    ? new Date(userProfile.createdAt).toLocaleDateString(
+                        "pt-BR"
+                      )
                     : "-"}
                 </span>
               </div>

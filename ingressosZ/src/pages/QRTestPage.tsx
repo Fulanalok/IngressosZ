@@ -55,7 +55,7 @@ function QRTestPage() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-full flex items-center justify-center font-bold text-sm">
                       1
                     </div>
                     <div>
@@ -70,7 +70,7 @@ function QRTestPage() {
                   </div>
 
                   <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
                       2
                     </div>
                     <div>
@@ -84,7 +84,7 @@ function QRTestPage() {
                   </div>
 
                   <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
                       3
                     </div>
                     <div>
@@ -98,7 +98,7 @@ function QRTestPage() {
                   </div>
 
                   <div className="flex items-start space-x-3">
-        <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-none flex items-center justify-center font-bold text-sm">
+                    <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-full flex items-center justify-center font-bold text-sm">
                       ✓
                     </div>
                     <div>
@@ -159,7 +159,7 @@ function QRTestPage() {
                   <div>
                     <strong>Opção 3:</strong> Use o input manual no validador
                     com o código:{" "}
-        <code className="bg-muted px-1 rounded-none font-mono">
+                    <code className="bg-muted px-1 rounded-md font-mono">
                       test-ticket-123
                     </code>
                   </div>

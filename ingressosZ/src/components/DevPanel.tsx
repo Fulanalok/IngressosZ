@@ -30,6 +30,26 @@ function DevPanel() {
     }
   };
 
+  const handleBecomeValidator = async () => {
+    if (!user) {
+      setMessage("❌ Você precisa estar logado para virar validador");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      await userService.updateUserProfile(user.uid, { role: "validator" });
+      setMessage("✅ Agora você é um validador! Recarregue a página.");
+    } catch (error) {
+      setMessage(
+        "❌ Erro ao atualizar perfil: " +
+          (error instanceof Error ? error.message : "Erro desconhecido")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSeedEvents = async () => {
     setLoading(true);
     setMessage("");
@@ -123,6 +143,22 @@ function DevPanel() {
           }}
         >
           👑 Virar Organizador
+        </button>
+
+        <button
+          onClick={handleBecomeValidator}
+          disabled={loading}
+          style={{
+            width: "100%",
+            backgroundColor: loading ? "#6c757d" : "#e83e8c",
+            color: "white",
+            border: "none",
+            padding: "8px 12px",
+            borderRadius: "4px",
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          🔍 Virar Validador
         </button>
 
         <button

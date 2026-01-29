@@ -76,50 +76,34 @@ function Navbar() {
                 Painel Admin
               </Link>
             )}
-            <Link
-              to="/validador"
-              className={`nav-link ${
-                isActive("/validador") ? "text-foreground" : ""
-              }`}
-            >
-              Validador
-            </Link>
-            <Link
-              to="/teste-qr"
-              className={`nav-link ${
-                isActive("/teste-qr") ? "text-foreground" : ""
-              }`}
-            >
-              Teste QR
-            </Link>
-            <Link
-              to="/connect-demo"
-              className={`nav-link ${
-                isActive("/connect-demo") ? "text-foreground" : ""
-              }`}
-            >
-              Connect Demo
-            </Link>
-            {import.meta.env.DEV && (
-              <Link
-                to="/debug/firebase"
-                className={`nav-link ${
-                  isActive("/debug") ? "text-foreground" : ""
-                }`}
-              >
-                Debug
-              </Link>
+            {userProfile?.role === "validator" && (
+              <>
+                <Link
+                  to="/validador"
+                  className={`nav-link ${
+                    isActive("/validador") ? "text-foreground" : ""
+                  }`}
+                >
+                  Validador
+                </Link>
+                <Link
+                  to="/teste-qr"
+                  className={`nav-link ${
+                    isActive("/teste-qr") ? "text-foreground" : ""
+                  }`}
+                >
+                  Teste QR
+                </Link>
+              </>
             )}
-            {import.meta.env.DEV && (
-              <Link
-                to="/doc"
-                className={`nav-link ${
-                  isActive("/doc") ? "text-foreground" : ""
-                }`}
-              >
-                Doc
-              </Link>
-            )}
+            <Link
+              to="/doc"
+              className={`nav-link ${
+                isActive("/doc") ? "text-foreground" : ""
+              }`}
+            >
+              Docs
+            </Link>
           </div>
 
           {/* Actions */}

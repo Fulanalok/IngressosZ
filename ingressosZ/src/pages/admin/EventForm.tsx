@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import type { Event } from "../../types";
@@ -51,13 +52,13 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       // Validações
       if (file.size > 5 * 1024 * 1024) {
-        alert("O arquivo deve ter no máximo 5MB.");
+        toast.error("O arquivo deve ter no máximo 5MB.");
         e.target.value = ""; // Limpa o input
         return;
       }
 
       if (!file.type.startsWith("image/")) {
-        alert("Apenas arquivos de imagem são permitidos.");
+        toast.error("Apenas arquivos de imagem são permitidos.");
         e.target.value = "";
         return;
       }
@@ -106,7 +107,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     setFormData((prev) => ({
       ...prev,
       [category]: {
-        ...prev[category],
+        ...(prev[category] || { standard: 0, vip: 0, premium: 0 }),
         [type]: Number(value),
       },
     }));
@@ -159,9 +160,10 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       }
 
       await onSave(dataToSave);
+      toast.success("Evento salvo com sucesso!");
     } catch (err) {
       console.error(err);
-      alert("Erro ao salvar evento");
+      toast.error("Erro ao salvar evento");
     } finally {
       setLoading(false);
     }
@@ -170,7 +172,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="title" className="block text-sm font-medium mb-1">Título</label>
+        <label htmlFor="title" className="block text-sm font-medium mb-1">
+          Título
+        </label>
         <Input
           id="title"
           name="title"
@@ -181,7 +185,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium mb-1">Descrição</label>
+        <label htmlFor="description" className="block text-sm font-medium mb-1">
+          Descrição
+        </label>
         <textarea
           id="description"
           name="description"
@@ -208,7 +214,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label htmlFor="time" className="block text-sm font-medium mb-1">Hora</label>
+          <label htmlFor="time" className="block text-sm font-medium mb-1">
+            Hora
+          </label>
           <Input
             id="time"
             type="time"
@@ -221,7 +229,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       </div>
 
       <div>
-        <label htmlFor="location" className="block text-sm font-medium mb-1">Local (Nome)</label>
+        <label htmlFor="location" className="block text-sm font-medium mb-1">
+          Local (Nome)
+        </label>
         <Input
           id="location"
           name="location"
@@ -261,7 +271,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label htmlFor="category" className="block text-sm font-medium mb-1">Categoria</label>
+          <label htmlFor="category" className="block text-sm font-medium mb-1">
+            Categoria
+          </label>
           <select
             id="category"
             name="category"
@@ -300,7 +312,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
                 formData.pricing?.[type as "standard" | "vip" | "premium"] || 0
               }
               onChange={(e) =>
-                handleNestedChange("pricing", type as any, e.target.value)
+                handleNestedChange(
+                  "pricing",
+                  type as "standard" | "vip" | "premium",
+                  e.target.value
+                )
               }
             />
             <Input
@@ -312,7 +328,11 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
                 0
               }
               onChange={(e) =>
-                handleNestedChange("inventory", type as any, e.target.value)
+                handleNestedChange(
+                  "inventory",
+                  type as "standard" | "vip" | "premium",
+                  e.target.value
+                )
               }
             />
           </div>
@@ -325,7 +345,10 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="maxTickets" className="block text-sm font-medium mb-1">
+          <label
+            htmlFor="maxTickets"
+            className="block text-sm font-medium mb-1"
+          >
             Estoque Máximo (Total)
           </label>
           <Input
@@ -339,7 +362,10 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
           />
         </div>
         <div>
-          <label htmlFor="availableTickets" className="block text-sm font-medium mb-1">
+          <label
+            htmlFor="availableTickets"
+            className="block text-sm font-medium mb-1"
+          >
             Estoque Atual (Total)
           </label>
           <Input
@@ -375,7 +401,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
           />
         </div>
         <p className="text-xs text-muted-foreground mt-1">

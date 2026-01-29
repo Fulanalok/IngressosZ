@@ -88,18 +88,20 @@ function QRGenerator({ onGenerate }: QRGeneratorProps) {
         <div className="flex space-x-2">
           <button
             onClick={handleGenerate}
-    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-none font-medium transition-colors">
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition-colors"
+          >
             🔄 Gerar QR Code
           </button>
           <button
             onClick={generateRandomData}
-    className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-none font-medium transition-colors">
+            className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium transition-colors"
+          >
             🎲
           </button>
         </div>
 
         {qrImage && (
-  <div className="mt-6 p-4 bg-white border-2 border-gray-200 rounded-none">
+          <div className="mt-6 p-4 bg-white border-2 border-gray-200 rounded-lg">
             <div className="text-center">
               <img
                 src={qrImage}

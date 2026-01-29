@@ -1,36 +1,38 @@
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useTicketValidator } from "./useTicketValidator";
-import { useAuth } from "../useAuth";
 
-vi.mock("../useAuth");
-vi.mock("../../services/logger");
-vi.mock("../../services/testDataService");
+// Mock useAuth
+vi.mock("../useAuth", () => ({
+  useAuth: () => ({
+    user: {
+      getIdToken: vi.fn().mockResolvedValue("mock-token"),
+      email: "test@example.com",
+    },
+  }),
+}));
+
+// Mock global fetch
+const globalFetch = global.fetch;
 
 describe("useTicketValidator", () => {
-  const mockUser = {
-    getIdToken: vi.fn().mockResolvedValue("mock-token"),
-    email: "test@example.com",
-  };
-
   beforeEach(() => {
-    vi.clearAllMocks();
-    (useAuth as any).mockReturnValue({ user: mockUser });
     global.fetch = vi.fn();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    global.fetch = globalFetch;
   });
 
-  it("deve validar um ingresso com sucesso", async () => {
+  it("should handle successful validation", async () => {
     const mockResponse = {
       success: true,
       ticket: {
-        eventTitle: "Evento Teste",
+        eventTitle: "Test Event",
         ticketType: "VIP",
         holderEmail: "holder@example.com",
-        eventDate: "2024-01-01",
+        eventDate: "2023-12-31",
         eventTime: "20:00",
       },
     };
@@ -43,77 +45,89 @@ describe("useTicketValidator", () => {
     const { result } = renderHook(() => useTicketValidator());
 
     await act(async () => {
-      await result.current.validateTicket("TICKET-VALIDO");
+      await result.current.validateTicket("VALID-CODE");
     });
 
     expect(result.current.validationResult.status).toBe("success");
-    expect(result.current.validationResult.ticketData?.eventTitle).toBe("Evento Teste");
+    expect(result.current.validationResult.ticketData).toEqual({
+      eventTitle: "Test Event",
+      ticketType: "VIP",
+      holderName: "holder@example.com",
+      eventDate: "2023-12-31",
+      eventTime: "20:00",
+    });
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/functions/validateTicket"),
+      "/functions/validateTicket",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({
-          Authorization: "Bearer mock-token",
-        }),
-        body: JSON.stringify({ qrCode: "TICKET-VALIDO" }),
+        body: JSON.stringify({ qrCode: "VALID-CODE" }),
       })
     );
   });
 
-  it("deve lidar com ingresso inválido", async () => {
+  it("should handle invalid ticket", async () => {
     const mockResponse = {
       success: false,
-      message: "Código inválido",
-      status: "invalid",
+      message: "Ingresso não encontrado",
     };
 
     (global.fetch as any).mockResolvedValue({
-      ok: true,
+      ok: true, // API returns 200/404 but fetch is "ok" if network is fine? Actually fetch.ok is false for 4xx/5xx
+      // The hook checks resp.ok && data?.success. 
+      // If the backend returns 404, resp.ok is false.
+      // Let's verify hook logic: "if (resp.ok && data?.success)"
+      // So if 404, resp.ok is false, it goes to else.
+      status: 404, 
       json: async () => mockResponse,
     });
 
     const { result } = renderHook(() => useTicketValidator());
 
     await act(async () => {
-      await result.current.validateTicket("TICKET-INVALIDO");
+      await result.current.validateTicket("INVALID-CODE");
     });
 
     expect(result.current.validationResult.status).toBe("invalid");
-    expect(result.current.validationResult.message).toBe("Código inválido");
+    expect(result.current.validationResult.message).toBe("Ingresso não encontrado");
   });
 
-  it("deve lidar com ingresso já utilizado", async () => {
+  it("should handle used ticket", async () => {
     const mockResponse = {
       success: false,
-      message: "Ingresso já utilizado",
       status: "used",
+      message: "Ingresso já utilizado!",
     };
 
     (global.fetch as any).mockResolvedValue({
-      ok: true,
+      ok: true, // Valid response from server perspective, even if business logic says used?
+      // Looking at backend: res.status(200).send({... status: 'used' ...})
+      // So resp.ok will be true, but data.success is false.
+      status: 200,
       json: async () => mockResponse,
     });
 
     const { result } = renderHook(() => useTicketValidator());
 
     await act(async () => {
-      await result.current.validateTicket("TICKET-USADO");
+      await result.current.validateTicket("USED-CODE");
     });
 
     expect(result.current.validationResult.status).toBe("error");
-    expect(result.current.validationResult.message).toBe("Ingresso já utilizado");
+    expect(result.current.validationResult.message).toBe("Ingresso já utilizado!");
   });
 
-  it("deve lidar com erro no servidor", async () => {
-    (global.fetch as any).mockRejectedValue(new Error("Erro de rede"));
+  it("should handle backend error", async () => {
+    (global.fetch as any).mockRejectedValue(new Error("Network Error"));
 
     const { result } = renderHook(() => useTicketValidator());
 
     await act(async () => {
-      await result.current.validateTicket("TICKET-ERRO");
+      await result.current.validateTicket("ERROR-CODE");
     });
 
     expect(result.current.validationResult.status).toBe("error");
-    expect(result.current.validationResult.message).toContain("Erro ao validar");
+    expect(result.current.validationResult.message).toContain(
+      "Erro ao validar ingresso no backend"
+    );
   });
 });

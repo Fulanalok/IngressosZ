@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import { EventHeader } from "../components/event/EventHeader";
 import { EventInfo } from "../components/event/EventInfo";
 import { TicketPurchase } from "../components/event/TicketPurchase";
@@ -77,6 +78,13 @@ function EventDetailPage() {
       : "bg-red-50 dark:bg-red-900/20";
   }, [event?.availableTickets]);
 
+  // Monitorar erros de checkout e exibir via Toast
+  useEffect(() => {
+    if (checkoutError) {
+      toast.error(checkoutError);
+    }
+  }, [checkoutError]);
+
   const handlePurchase = useCallback(async () => {
     if (!event || !id) return;
 
@@ -93,16 +101,11 @@ function EventDetailPage() {
         // Se estiver em modo de desenvolvimento, simular redirecionamento
         if (import.meta.env.DEV) {
           console.log("🔧 Modo desenvolvimento: simulando compra bem-sucedida");
-          alert(
-            `✅ Compra simulada com sucesso!\n\n` +
-              `${quantity} ingresso(s) ${selectedTicketType} criado(s).\n` +
-              `Total: R$ ${(
-                event.price *
-                (TICKET_TYPES[selectedTicketType]?.multiplier || 1) *
-                quantity
-              ).toFixed(2)}\n\n` +
-              `Em produção, você seria redirecionado para o Mercado Pago.`
-          );
+
+          toast.success("Compra simulada com sucesso!", {
+            description: `${quantity} ingresso(s) ${selectedTicketType} criado(s).`,
+            duration: 4000,
+          });
 
           setTimeout(() => {
             navigate("/meus-ingressos");
@@ -110,10 +113,14 @@ function EventDetailPage() {
         } else {
           // Em produção, o Mercado Pago fará o redirecionamento automaticamente
           console.log("🔄 Redirecionamento automático para Mercado Pago...");
+          window.location.href = preference.url; // Redirecionamento real se a URL for externa
         }
       }
     } catch (err) {
       console.error("❌ Erro ao criar preferência de pagamento:", err);
+      toast.error("Não foi possível iniciar o pagamento", {
+        description: "Por favor, tente novamente mais tarde.",
+      });
     }
   }, [
     event,
@@ -126,16 +133,7 @@ function EventDetailPage() {
   ]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center transition-colors">
-        <div className="text-center">
-          <div className="animate-spin rounded-none h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-foreground">
-            Carregando detalhes do evento...
-          </h2>
-        </div>
-      </div>
-    );
+    return <EventDetailSkeleton />;
   }
 
   if (error || !event) {
@@ -165,7 +163,7 @@ function EventDetailPage() {
         <div className="card transition-colors">
           {/* Event Image */}
           {event.image && (
-            <div className="w-full h-80 overflow-hidden rounded-none">
+            <div className="w-full h-80 overflow-hidden rounded-t-xl">
               <img
                 src={event.image}
                 alt={event.title}

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Ticket from "../components/Ticket";
+import { TicketSkeleton } from "../components/TicketSkeleton";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../hooks/useAuth";
 import { useUserTickets } from "../hooks/useTickets";
@@ -10,13 +11,18 @@ function MyTicketsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center transition-colors">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-foreground">
-            Carregando seus ingressos...
-          </h2>
-        </div>
+      <div className="min-h-screen gradient-bg transition-colors">
+         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="text-center mb-8 space-y-4">
+               <div className="h-16 w-16 bg-muted animate-pulse rounded-full mx-auto"></div>
+               <div className="h-10 w-64 bg-muted animate-pulse rounded mx-auto"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {[...Array(3)].map((_, i) => (
+                  <TicketSkeleton key={i} />
+               ))}
+            </div>
+         </div>
       </div>
     );
   }

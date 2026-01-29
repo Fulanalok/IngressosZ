@@ -8,6 +8,7 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import { Toaster } from "sonner";
 import DevPanel from "./components/DevPanel";
 import FirebaseDebug from "./components/FirebaseDebug";
 import Navbar from "./components/Navbar";
@@ -51,13 +52,47 @@ function App() {
     role,
     children,
   }: {
-    role: string;
+    role: string | string[];
     children: React.ReactNode;
   }) {
     const { userProfile } = useAuth();
-    const hasRole =
-      String(userProfile?.role || "").toLowerCase() === role.toLowerCase();
-    if (!hasRole) return <Navigate to="/" replace />;
+    const allowedRoles = Array.isArray(role)
+      ? role.map((r) => r.toLowerCase())
+      : [role.toLowerCase()];
+    const userRole = String(userProfile?.role || "").toLowerCase();
+    const hasRole = allowedRoles.includes(userRole);
+
+    if (!hasRole) {
+      // Em desenvolvimento, mostramos uma mensagem explicativa em vez de redirecionar silenciosamente
+      if (import.meta.env.DEV) {
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
+            <div className="text-4xl mb-4">🛡️</div>
+            <h2 className="text-xl font-bold mb-2">
+              Acesso Restrito (DEV Mode)
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Esta rota exige um dos seguintes papéis:{" "}
+              <code className="bg-muted px-1 rounded">
+                {allowedRoles.join(", ")}
+              </code>
+            </p>
+            <p className="mb-6">
+              Seu papel atual é:{" "}
+              <code className="bg-muted px-1 rounded">
+                {userRole || "nenhum (user)"}
+              </code>
+            </p>
+            <div className="flex gap-4">
+              <Button asChild variant="outline">
+                <Link to="/">Voltar para Início</Link>
+              </Button>
+            </div>
+          </div>
+        );
+      }
+      return <Navigate to="/" replace />;
+    }
     return <>{children}</>;
   }
   function NotFound() {
@@ -133,6 +168,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <Toaster richColors position="top-right" closeButton />
       <BrowserRouter>
         {/* Skip link acessível para teclado */}
         <a
@@ -258,7 +294,9 @@ function App() {
                       path="/validador"
                       element={
                         <RequireAuth>
-                          <RequireRole role="validator">
+                          <RequireRole
+                            role={["validator", "organizer", "admin"]}
+                          >
                             <ValidatorPage />
                           </RequireRole>
                         </RequireAuth>
@@ -270,6 +308,16 @@ function App() {
                         <RequireAuth>
                           <RequireRole role="validator">
                             <QRTestPage />
+                          </RequireRole>
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={
+                        <RequireAuth>
+                          <RequireRole role="organizer">
+                            <AdminPage />
                           </RequireRole>
                         </RequireAuth>
                       }

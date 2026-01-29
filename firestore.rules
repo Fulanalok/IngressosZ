@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && 
+             (request.auth.token.role == role || request.auth.token.admin == true);
+    }
+    
+    function isOrganizer() {
+      return hasRole('organizer') || hasRole('admin');
+    }
+    
+    function isValidator() {
+      return hasRole('validator') || hasRole('organizer') || hasRole('admin');
+    }
+    
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // --- Events Collection ---
+    // Anyone can read events
+    // Only organizers/admins can create/update/delete
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update, delete: if isOrganizer();
+    }
+
+    // --- Tickets Collection ---
+    // Users can read their own tickets
+    // Validators/Organizers can read any ticket (for validation)
+    // Creation: Authenticated users (for DevPanel/Testing), ideally backend-only in prod
+    // Update: Validators (to mark used) or Admin
+    match /tickets/{ticketId} {
+      allow read: if isOwner(resource.data.userId) || isValidator();
+      allow create: if isAuthenticated(); 
+      allow update: if isValidator();
+    }
+    
+    // --- Users Collection ---
+    // Users can read/write their own profile
+    // Admins can read all profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isOrganizer(); // Organizers might need to see user details for tickets
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // --- Payment Sessions ---
+    // Users can read/write their own sessions
+    match /paymentSessions/{sessionId} {
+      allow read, write: if isAuthenticated() && 
+                          (request.resource.data.userId == request.auth.uid || 
+                           resource.data.userId == request.auth.uid);
+    }
+    
+    // --- Default Deny ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

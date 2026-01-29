@@ -91,7 +91,7 @@ function EventCard({ event }: EventCardProps) {
     >
       {/* Image */}
       {event.image && (
-        <div className="relative mb-4 overflow-hidden rounded-none">
+        <div className="relative mb-4 overflow-hidden rounded-t-xl">
           <img
             src={event.image}
             alt={event.title}

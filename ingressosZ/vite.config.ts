@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
-import basicSsl from "@vitejs/plugin-basic-ssl";
+// import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
+import path from "path";
 import { defineConfig, loadEnv } from "vite";
 
 // https://vite.dev/config/
@@ -22,13 +23,17 @@ export default defineConfig(({ mode }) => {
       : [];
 
   return {
-    plugins: [react(), tailwindcss(), basicSsl()],
-    resolve: { alias },
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: [
+        { find: "@", replacement: path.resolve(__dirname, "./src") },
+        ...alias,
+      ],
+    },
     server: {
       host: true,
       port: 5173,
-      strictPort: true,
-      https: {},
+      strictPort: false,
       proxy: {
         "/functions": {
           target: `http://127.0.0.1:${functionsPort}`,

@@ -1,0 +1,20 @@
+{
+  "name": "ingressos-z-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "bootstrap": "npm.cmd install && npm.cmd run install:all",
+    "install:all": "concurrently \"npm.cmd run install:frontend\" \"npm.cmd run install:backend\"",
+    "install:frontend": "cd ingressosZ && npm.cmd install",
+    "install:backend": "cd functions && npm.cmd install",
+    "dev": "concurrently \"npm.cmd run dev:frontend\" \"npm.cmd run dev:backend\"",
+    "dev:frontend": "cd ingressosZ && npm.cmd run dev",
+    "dev:backend": "cd functions && npm.cmd run serve",
+    "build": "concurrently \"npm.cmd run build:frontend\" \"npm.cmd run build:backend\"",
+    "build:frontend": "cd ingressosZ && npm.cmd run build",
+    "build:backend": "cd functions && npm.cmd run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

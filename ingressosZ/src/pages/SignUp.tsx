@@ -1,11 +1,12 @@
+import { FirebaseError } from "firebase/app";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { auth } from "../firebaseConfig";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { toast } from "sonner";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { Card, CardContent, CardFooter } from "../components/ui/card";
-import { FirebaseError } from "firebase/app";
+import { Input } from "../components/ui/input";
+import { auth } from "../firebaseConfig";
 
 function SignUp() {
   const [email, setEmail] = useState("");
@@ -55,19 +56,27 @@ function SignUp() {
             setError("E-mail inválido.");
             break;
           case "auth/network-request-failed":
-            setError("Falha de rede ao criar conta. Verifique sua conexão e tente novamente.");
+            setError(
+              "Falha de rede ao criar conta. Verifique sua conexão e tente novamente."
+            );
             break;
           case "auth/configuration-not-found":
-            setError("Erro de configuração do Firebase. Verifique as configurações do projeto.");
+            setError(
+              "Erro de configuração do Firebase. Verifique as configurações do projeto."
+            );
             break;
           case "auth/api-key-not-valid":
             setError("Chave de API do Firebase inválida.");
             break;
           default:
-            setError("Não foi possível criar a conta. Tente novamente em alguns instantes.");
+            setError(
+              "Não foi possível criar a conta. Tente novamente em alguns instantes."
+            );
+            toast.error("Erro ao criar conta. Tente novamente.");
         }
       } else {
         setError("Ocorreu um erro ao criar a conta.");
+        toast.error("Ocorreu um erro inesperado.");
       }
     } finally {
       setLoading(false);
@@ -89,107 +98,121 @@ function SignUp() {
         {/* Form */}
         <Card className="mt-8">
           <CardContent>
-          <form onSubmit={handleSignUp} className="space-y-6" aria-busy={loading}>
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-foreground mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="seu@email.com"
-                  className="pl-10"
-                  aria-invalid={!!error}
-                  aria-describedby={error ? "signup-error" : undefined}
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-muted-foreground">📧</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-foreground mb-2">
-                Senha
-              </label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  placeholder="Mínimo 6 caracteres"
-                  className="pl-10"
-                  aria-invalid={!!error}
-                  aria-describedby={error ? "signup-error" : undefined}
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-muted-foreground">🔒</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-foreground mb-2">
-                Confirmar Senha
-              </label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  placeholder="Confirme sua senha"
-                  className="pl-10"
-                  aria-invalid={!!error}
-                  aria-describedby={error ? "signup-error" : undefined}
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-muted-foreground">🔐</span>
-                </div>
-              </div>
-            </div>
-
-            {error && (
-  <div id="signup-error" role="alert" aria-live="assertive" className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-none p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <span className="text-red-500 dark:text-red-400">⚠️</span>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+            <form
+              onSubmit={handleSignUp}
+              className="space-y-6"
+              aria-busy={loading}
+            >
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Email
+                </label>
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="seu@email.com"
+                    className="pl-10"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "signup-error" : undefined}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-muted-foreground">📧</span>
                   </div>
                 </div>
               </div>
-            )}
 
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? (
-                <>
-            <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                  Criando conta...
-                </>
-              ) : (
-                <>
-                  <span className="mr-2">🚀</span>
-                  Criar conta gratuita
-                </>
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Senha
+                </label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="Mínimo 6 caracteres"
+                    className="pl-10"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "signup-error" : undefined}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-muted-foreground">🔒</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Confirmar Senha
+                </label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    placeholder="Confirme sua senha"
+                    className="pl-10"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "signup-error" : undefined}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-muted-foreground">🔐</span>
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  id="signup-error"
+                  role="alert"
+                  aria-live="assertive"
+                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
+                >
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <span className="text-red-500 dark:text-red-400">⚠️</span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-800 dark:text-red-300">
+                        {error}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
-            </Button>
-          </form>
+
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                    Criando conta...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2">🚀</span>
+                    Criar conta gratuita
+                  </>
+                )}
+              </Button>
+            </form>
           </CardContent>
 
           <CardFooter className="mt-0 flex-col">
@@ -216,7 +239,7 @@ function SignUp() {
         </Card>
 
         {/* Benefits */}
-  <div className="bg-background rounded-none p-6 shadow-sm border border-border">
+        <div className="bg-background rounded-none p-6 shadow-sm border border-border">
           <h3 className="text-lg font-medium text-foreground mb-4">
             Por que se cadastrar?
           </h3>
@@ -241,7 +264,9 @@ function SignUp() {
             </div>
             <div className="flex items-center">
               <span className="text-green-500 mr-3">✅</span>
-              <span className="text-muted-foreground">Histórico de compras</span>
+              <span className="text-muted-foreground">
+                Histórico de compras
+              </span>
             </div>
           </div>
         </div>

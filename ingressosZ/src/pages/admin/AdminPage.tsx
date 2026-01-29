@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import SetAdminRole from "../../components/admin/SetAdminRole"; // Importe o novo componente
 import { Button } from "../../components/ui/button";
+import { useAuth } from "../../hooks/useAuth";
 import { eventService } from "../../services/firestore";
 import type { Event } from "../../types";
 import { EventForm } from "./EventForm";
-import { useAuth } from "../../hooks/useAuth";
-import SetAdminRole from "../../components/admin/SetAdminRole"; // Importe o novo componente
 
 export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -40,17 +41,20 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este evento?")) return;
+    if (!window.confirm("Tem certeza que deseja excluir este evento?")) return;
     try {
       await eventService.deleteEvent(id);
       await loadEvents();
+      toast.success("Evento excluído com sucesso");
     } catch (error) {
       console.error("Erro ao excluir", error);
-      alert("Erro ao excluir evento");
+      toast.error("Erro ao excluir evento");
     }
   };
 
-  const handleSave = async (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => {
+  const handleSave = async (
+    data: Omit<Event, "id" | "createdAt" | "updatedAt">
+  ) => {
     try {
       if (currentEvent) {
         await eventService.updateEvent(currentEvent.id, data);
@@ -83,10 +87,15 @@ export default function AdminPage() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">Painel Administrativo</h1>
-            <p className="text-muted-foreground">Gerencie seus eventos e vendas</p>
+            <p className="text-muted-foreground">
+              Gerencie seus eventos e vendas
+            </p>
           </div>
           {!isEditing && (
-            <Button onClick={handleCreate} className="bg-primary text-primary-foreground">
+            <Button
+              onClick={handleCreate}
+              className="bg-primary text-primary-foreground"
+            >
               + Novo Evento
             </Button>
           )}
@@ -125,7 +134,10 @@ export default function AdminPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {events.map((event) => (
-                      <tr key={event.id} className="hover:bg-muted/50 transition-colors">
+                      <tr
+                        key={event.id}
+                        className="hover:bg-muted/50 transition-colors"
+                      >
                         <td className="p-4 font-medium">{event.title}</td>
                         <td className="p-4">
                           {new Date(event.date).toLocaleDateString("pt-BR")}
@@ -136,8 +148,8 @@ export default function AdminPage() {
                           <span
                             className={`px-2 py-1 rounded text-xs ${
                               event.availableTickets > 10
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
+                                ? "bg-green-500/10 text-green-500"
+                                : "bg-red-500/10 text-red-500"
                             }`}
                           >
                             {event.availableTickets} / {event.maxTickets}
@@ -163,7 +175,10 @@ export default function AdminPage() {
                     ))}
                     {events.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        <td
+                          colSpan={6}
+                          className="p-8 text-center text-muted-foreground"
+                        >
                           Nenhum evento encontrado. Crie o primeiro!
                         </td>
                       </tr>

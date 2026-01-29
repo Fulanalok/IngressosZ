@@ -70,7 +70,7 @@ function FirebaseDebug() {
           </div>
         ))}
       </div>
-  <div className="mt-4 p-3 bg-blue-50 rounded-none">
+  <div className="mt-4 p-3 bg-blue-50 rounded-md">
         <p className="text-sm text-blue-800">
           <strong>Dica:</strong> Se você estiver vendo erro de configuração,
           verifique se o Firebase Authentication está habilitado no console e se

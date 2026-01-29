@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 // import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
@@ -47,32 +47,26 @@ export const storage = (() => {
 
 const shouldTryEmulators = import.meta.env.VITE_USE_EMULATORS === "true";
 if (shouldTryEmulators) {
-  void (async () => {
-    const host =
-      typeof window !== "undefined" && window.location?.hostname
-        ? window.location.hostname
-        : "127.0.0.1";
-    const ping = async (url: string) => {
-      try {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 700);
-        await fetch(url, { mode: "no-cors", signal: controller.signal });
-        clearTimeout(id);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    if (await ping(`http://${host}:9099`)) {
-      try {
-        connectAuthEmulator(auth, `http://${host}:9099`, {
-          disableWarnings: true,
-        });
-      } catch {
-        void 0;
-      }
+  // Forçar 127.0.0.1 para evitar problemas de resolução de DNS (localhost vs IPv6)
+  const host = "127.0.0.1";
+
+  // Conectar imediatamente aos emuladores para evitar que o SDK tente bater na produção
+  // (O que causa erros 400/404 se a chave de API não for válida para prod ou se o usuário não existir lá)
+  connectAuthEmulator(auth, `http://${host}:9099`, {
+    disableWarnings: true,
+  });
+  connectFirestoreEmulator(db, host, 8080);
+  // @ts-ignore
+  if (storage._app) {
+    // Verificação simples se o storage foi inicializado
+    try {
+      connectStorageEmulator(storage, host, 9199);
+    } catch (e) {
+      console.warn("Falha ao conectar emulador storage", e);
     }
-    // Conexão com emulador Firestore desabilitada para reduzir bundle e compatibilizar com versão lite
-    // Cliente Functions desabilitado para reduzir bundle
-  })();
+  }
+
+  console.log(
+    "🔥 Configurado para usar emuladores (Auth: 9099, Firestore: 8080, Storage: 9199)"
+  );
 }

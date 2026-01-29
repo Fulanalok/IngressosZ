@@ -157,14 +157,14 @@ function HomePage() {
         </section>
 
         {/* Admin/Validator Quick Access (Only for authorized roles) */}
-        {(userProfile?.role === "admin" ||
+        {(userProfile?.role === "organizer" ||
           userProfile?.role === "validator") && (
           <section className="mb-12">
             <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
               Acesso Rápido
             </h3>
             <div className="grid md:grid-cols-2 gap-6">
-              {userProfile?.role === "admin" && (
+              {userProfile?.role === "organizer" && (
                 <Link to="/admin" className="group">
                   <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-primary/5 border-primary/20">
                     <CardHeader className="flex flex-row items-center gap-4">
@@ -180,7 +180,7 @@ function HomePage() {
                 </Link>
               )}
 
-              {(userProfile?.role === "admin" ||
+              {(userProfile?.role === "organizer" ||
                 userProfile?.role === "validator") && (
                 <Link to="/validador" className="group">
                   <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-secondary/5 border-secondary/20">

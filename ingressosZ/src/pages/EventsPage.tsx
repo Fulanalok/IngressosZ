@@ -109,13 +109,34 @@ function EventsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center transition-colors">
-        <div className="text-center">
-          <div className="animate-spin rounded-none h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-foreground">
-            🎫 Carregando eventos...
-          </h2>
+      <div className="min-h-screen gradient-bg transition-colors">
+        {/* Header Skeleton */}
+        <header className="nav-bg transition-colors">
+          <div className="page-container py-6">
+            <div className="h-10 w-64 bg-muted animate-pulse rounded mb-4"></div>
+            <div className="h-4 w-48 bg-muted animate-pulse rounded mb-6"></div>
+          </div>
+        </header>
+
+        {/* Filters Skeleton */}
+        <div className="bg-background border-b border-border transition-colors">
+          <div className="page-container py-6">
+            <div className="flex gap-4">
+              <div className="h-10 flex-1 bg-muted animate-pulse rounded"></div>
+              <div className="h-10 w-64 bg-muted animate-pulse rounded"></div>
+            </div>
+          </div>
         </div>
+
+        <main className="page-container py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="p-3">
+                <EventCardSkeleton />
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
@@ -183,7 +204,7 @@ function EventsPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full rounded-none border-input bg-background text-foreground px-3 py-2 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border-input bg-background text-foreground px-3 py-2 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Filtrar por categoria"
               >
                 {categories.map((category) => (

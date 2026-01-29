@@ -77,7 +77,7 @@ export function ValidatorForm({
           >
             {isValidating ? (
               <>
-                <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 Validando...
               </>
             ) : (
@@ -101,7 +101,7 @@ export function ValidatorForm({
       </form>
 
       {/* Quick Actions */}
-      <div className="mt-6 p-4 rounded-none bg-muted">
+      <div className="mt-6 p-4 rounded-lg bg-muted">
         <h3 className="font-semibold text-foreground mb-3">Ações Rápidas</h3>
         <div className="grid grid-cols-2 gap-3">
           <Button

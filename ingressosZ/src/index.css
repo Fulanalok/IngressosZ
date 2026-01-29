@@ -147,7 +147,7 @@
   .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
 
   .dark-toggle {
-    @apply fixed top-4 right-4 z-50 bg-secondary text-secondary-foreground hover:opacity-90 p-2 rounded-none shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply fixed top-4 right-4 z-50 bg-secondary text-secondary-foreground hover:opacity-90 p-2 rounded-full shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   @media (prefers-reduced-motion: reduce) {

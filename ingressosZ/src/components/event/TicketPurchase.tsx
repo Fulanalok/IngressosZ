@@ -33,7 +33,7 @@ export function TicketPurchase({
       : event.availableTickets;
 
   return (
-    <div className="bg-background border border-border rounded-none p-6 transition-colors">
+    <div className="bg-background border border-border rounded-xl p-6 transition-colors">
       <h2 className="text-2xl font-bold text-foreground mb-6">
         🎫 Comprar Ingressos
       </h2>
@@ -58,7 +58,7 @@ export function TicketPurchase({
               return (
                 <label
                   key={type}
-                  className={`flex items-center p-4 border-2 rounded-none cursor-pointer transition-all ${
+                  className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
                     isSoldOut
                       ? "opacity-50 cursor-not-allowed border-border bg-muted/50"
                       : selectedTicketType === type
@@ -102,8 +102,9 @@ export function TicketPurchase({
                         <p className="font-bold text-lg text-primary">
                           R${" "}
                           {(
-                            event.pricing?.[type as "standard" | "vip" | "premium"] ??
-                            event.price * info.multiplier
+                            event.pricing?.[
+                              type as "standard" | "vip" | "premium"
+                            ] ?? event.price * info.multiplier
                           ).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -128,7 +129,7 @@ export function TicketPurchase({
           <select
             value={quantity}
             onChange={(e) => setQuantity(parseInt(e.target.value))}
-            className="w-full px-4 py-3 border border-input rounded-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none bg-background text-foreground transition-colors"
+            className="w-full px-4 py-3 border border-input rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none bg-background text-foreground transition-colors"
           >
             {[1, 2, 3, 4, 5].map((num) => (
               <option key={num} value={num}>
@@ -140,7 +141,7 @@ export function TicketPurchase({
 
         {/* Error Display */}
         {checkoutError && (
-          <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-600 rounded-none">
+          <div className="p-4 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-600 rounded-md">
             <div className="flex items-start">
               <span className="text-red-500 mr-2">❌</span>
               <div className="flex-1">
@@ -163,9 +164,9 @@ export function TicketPurchase({
 
         {/* Status do Pagamento */}
         {paymentStatus === "processing" && (
-          <div className="p-4 bg-muted border border-border rounded-none">
+          <div className="p-4 bg-muted border border-border rounded-md">
             <div className="flex items-center">
-              <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-primary mr-3"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-3"></div>
               <p className="text-primary text-sm font-medium">
                 Processando pagamento...
               </p>
