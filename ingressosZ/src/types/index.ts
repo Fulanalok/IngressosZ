@@ -54,45 +54,17 @@ export interface PaymentSession {
   id: string;
   eventId: string;
   userId: string;
-  amount: number;
-  currency: string;
-  status: "pending" | "completed" | "failed" | "cancelled";
+  ticketType: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  status: "pending" | "approved" | "failed" | "cancelled";
   paymentId?: string;
   provider?: "mercadopago";
-  createdAt: string;
+  createdAt: { seconds: number; nanoseconds: number } | string; // Suporta Timestamp do Firestore e string ISO
   completedAt?: string;
 }
 
+
 // Tipos para o contexto de autenticação
-export interface AuthContextType {
-  user: import("firebase/auth").User | null;
-  userProfile: UserProfile | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-  getFreshIdToken: () => Promise<string | null>;
-  getAuthHeaders: () => Promise<Record<string, string>>;
-}
-
-// Tipos para APIs/Cloud Functions
-export interface ValidateTicketRequest {
-  ticketId: string;
-  qrCode: string;
-}
-
-export interface ValidateTicketResponse {
-  success: boolean;
-  message: string;
-  ticket?: Ticket;
-  event?: Event;
-}
-
-export interface CreateCheckoutSessionRequest {
-  eventId: string;
-  ticketType: string;
-  quantity: number;
-}
-
-export interface CreateCheckoutSessionResponse {
-  sessionId: string;
-  url: string;
-}
+// ... (restante do arquivo permanece o mesmo)

@@ -1,20 +1,38 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { eventService } from "../services/firestore";
 import type { Event } from "../types";
 
+const EVENTS_PER_PAGE = 8;
+
 export function useEvents() {
-  const { data, isLoading, error, refetch } = useQuery<Event[], Error>({
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery<Awaited<ReturnType<typeof eventService.getEvents>>, Error>({
     queryKey: ["events"],
-    queryFn: () => eventService.getEvents(),
-    staleTime: 20 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    queryFn: ({ pageParam }) => eventService.getEvents(EVENTS_PER_PAGE, pageParam),
+    getNextPageParam: (lastPage) => {
+      // Se a última página não tiver o número máximo de eventos, não há próxima página
+      if (lastPage.events.length < EVENTS_PER_PAGE) return undefined;
+      return lastPage.lastVisible;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
+  // "Achata" os eventos de todas as páginas em um único array
+  const events = data?.pages.flatMap((page) => page.events) || [];
+
   return {
-    events: data || [],
+    events,
     loading: isLoading,
     error: error ? error.message : null,
-    refetch,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   };
 }
 
