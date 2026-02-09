@@ -142,8 +142,7 @@ export function useMercadoPagoCheckout({
         try {
           await eventService.decrementAvailableTickets(
             eventId,
-            quantity,
-            ticketType
+            quantity
           );
         } catch {
           /* ignore */

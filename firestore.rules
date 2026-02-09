@@ -55,7 +55,9 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isOrganizer();
       // Prevent users from changing their own roles.
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && !('role' in request.resource.data.keys())) || isAdmin();
+      // Allow update if user is owner AND is NOT changing the role (role must remain the same)
+      // OR if user is admin.
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
       allow delete: if isAdmin();
     }
 

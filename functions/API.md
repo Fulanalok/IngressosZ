@@ -1,79 +1,74 @@
-# Documentação da API - IngressosZ
+# Documentação da API - IngressosZ (Backend)
 
-Esta documentação detalha as Cloud Functions disponíveis no backend do projeto.
+O backend do IngressosZ é construído sobre **Firebase Cloud Functions v2**, oferecendo uma arquitetura serverless escalável e orientada a eventos.
 
-## Visão Geral
+## 🛠️ Tech Stack
 
-O backend utiliza **Firebase Cloud Functions (v2)** e expõe dois tipos de endpoints:
-1.  **Callable Functions**: Chamadas diretamente pelo cliente Firebase no Frontend.
-2.  **HTTPS Requests**: Endpoints HTTP padrão (Webhooks).
+*   **Runtime:** Node.js 20
+*   **Framework:** Firebase Functions v2
+*   **Linguagem:** TypeScript
+*   **Banco de Dados:** Cloud Firestore
+*   **Outras Libs:**
+    *   `mercadopago`: SDK oficial para processamento de pagamentos.
+    *   `nodemailer`: Envio de e-mails transacionais (confirmação de compra).
+    *   `sharp`: Processamento e otimização de imagens (upload de banners de eventos).
 
----
+## ⚡ Funções Disponíveis
 
-## 🔐 Callable Functions
+### 1. Callable Functions (Cliente -> Backend)
 
-Estas funções devem ser chamadas utilizando o SDK `functions` do Firebase no cliente. Elas possuem autenticação integrada.
+Estas funções são invocadas diretamente pelo frontend usando o SDK do Firebase.
 
-### 1. `setAdminRole`
+#### `seedDatabase`
+*   **Descrição:** Popula o banco de dados com eventos e ingressos de teste. Útil para desenvolvimento e demonstrações.
+*   **Acesso:** Requer autenticação.
+*   **Retorno:** Status da operação e IDs criados.
 
-Define o privilégio de administrador (`customClaim: { admin: true }`) para um usuário específico.
+#### `createPaymentPreference`
+*   **Descrição:** Cria uma preferência de pagamento no Mercado Pago para um ingresso específico.
+*   **Parâmetros:** `eventId`, `ticketType`, `quantity`.
+*   **Retorno:** URL de checkout do Mercado Pago (`init_point`).
 
-*   **Autenticação**: Obrigatória.
-*   **Autorização**: Apenas usuários que JÁ são administradores podem chamar esta função.
+#### `validateTicket`
+*   **Descrição:** Valida um ingresso scaneado pelo app do validador.
+*   **Parâmetros:** `qrCode`.
+*   **Lógica:** Verifica se o código existe, se pertence ao evento correto e se já foi utilizado.
+*   **Retorno:** Status (`valid`, `used`, `invalid`) e dados do portador.
 
-#### Parâmetros (Request Data)
+### 2. HTTPS Triggers (Webhooks)
 
-| Campo | Tipo     | Obrigatório | Descrição |
-| :--- | :--- | :--- | :--- |
-| `uid` | `string` | Sim | O UID do usuário que receberá o privilégio de admin. |
+Endpoints HTTP públicos para integrações externas.
 
-#### Resposta (Response)
+#### `mercadopagoWebhook`
+*   **Método:** `POST`
+*   **URL:** `/mercadopagoWebhook`
+*   **Descrição:** Recebe notificações de status de pagamento do Mercado Pago.
+*   **Fluxo:**
+    1.  Recebe notificação `payment.updated`.
+    2.  Verifica status na API do Mercado Pago.
+    3.  Se aprovado, gera o ingresso na coleção `tickets`.
+    4.  Envia e-mail de confirmação (via `sendTicketEmail` stub).
 
-**Sucesso:**
-```json
-{
-  "success": true,
-  "message": "Usuário <UID> agora tem o papel de administrador."
-}
+### 3. Firestore Triggers (Eventos de Banco)
+
+Funções disparadas automaticamente por mudanças no banco de dados.
+
+#### `onTicketCreated` (Planejado)
+*   **Gatilho:** Criação de documento em `tickets/{ticketId}`.
+*   **Ação:** Envia e-mail de confirmação para o usuário e atualiza contadores de vendas do evento.
+
+## 🧪 Testes
+
+O backend utiliza **Mocha** e **Chai** para testes, juntamente com `firebase-functions-test` para simular o ambiente Cloud.
+
+```bash
+# Rodar testes do backend
+npm run test
 ```
 
-**Erros Comuns (`HttpsError`):**
-*   `unauthenticated`: Usuário não logado.
-*   `permission-denied`: Usuário logado não é admin.
-*   `invalid-argument`: `uid` não fornecido ou inválido.
+## 📦 Deploy
 
----
-
-## 🌍 HTTPS Requests (Webhooks)
-
-Estes endpoints são acessíveis via HTTP padrão e geralmente são utilizados para integrações externas.
-
-### 2. `mercadopagoWebhook`
-
-Recebe notificações de pagamento (IPN/Webhooks) do Mercado Pago.
-
-*   **Método**: `POST`
-*   **URL**: `https://<region>-<project-id>.cloudfunctions.net/mercadopagoWebhook`
-    *   *Dev*: `http://127.0.0.1:5001/<project-id>/<region>/mercadopagoWebhook`
-
-#### Parâmetros (Query ou Body)
-
-O Mercado Pago envia os dados tanto na query string quanto no corpo da requisição, dependendo do tipo de notificação.
-
-| Campo | Tipo | Descrição |
-| :--- | :--- | :--- |
-| `topic` | `string` | O tipo de notificação (ex: `payment`). |
-| `id` | `string` | O ID do recurso (ex: ID do pagamento). |
-
-#### Comportamento
-
-1.  Verifica se o `topic` é `payment`.
-2.  Consulta a API do Mercado Pago usando o `id` recebido para validar o status real.
-3.  Atualiza o documento correspondente na coleção `paymentSessions` do Firestore (usando `external_reference` como chave).
-4.  Se o pagamento for `approved`, o sistema está pronto para disparar a emissão do ingresso.
-
-#### Respostas HTTP
-
-*   `200 OK`: Processamento bem-sucedido ou tópico ignorado (para não travar a fila do webhook).
-*   `400 Bad Request`: ID não fornecido.
-*   `500 Internal Server Error`: Erro ao consultar a API do Mercado Pago ou atualizar o Firestore.
+```bash
+# Deploy apenas das functions
+firebase deploy --only functions
+```

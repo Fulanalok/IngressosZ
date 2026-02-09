@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { SEO } from "../components/common/SEO";
 import EventCard from "../components/EventCard";
 import { Button } from "../components/ui/button";
 import {
@@ -23,48 +23,17 @@ function HomePage() {
   const prefetchEvents = () => {
     queryClient.prefetchQuery({
       queryKey: ["events"],
-      queryFn: () => eventService.getEvents(),
+      queryFn: () => eventService.getEvents(8), // Fetch 8 events by default
     });
   };
 
-  useEffect(() => {
-    const title = "IngressosZ — Ingressos rápidos e seguros";
-    const description =
-      "Compre e gerencie ingressos com rapidez e segurança. Explore eventos e finalize o pagamento com facilidade.";
-    document.title = title;
-    const setMeta = (name: string, content: string) => {
-      let tag = document.querySelector(
-        `meta[name='${name}']`
-      ) as HTMLMetaElement | null;
-      if (!tag) {
-        tag = document.createElement("meta");
-        tag.setAttribute("name", name);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute("content", content);
-    };
-    const setProperty = (property: string, content: string) => {
-      let tag = document.querySelector(
-        `meta[property='${property}']`
-      ) as HTMLMetaElement | null;
-      if (!tag) {
-        tag = document.createElement("meta");
-        tag.setAttribute("property", property);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute("content", content);
-    };
-    setMeta("description", description);
-    setProperty("og:title", title);
-    setProperty("og:description", description);
-    const canonical = document.querySelector(
-      "link[rel='canonical']"
-    ) as HTMLLinkElement | null;
-    if (canonical) canonical.href = "/";
-  }, []);
-
   return (
     <div className="min-h-screen gradient-bg">
+      <SEO
+        title="IngressosZ — Ingressos rápidos e seguros"
+        description="Compre e gerencie ingressos com rapidez e segurança. Explore eventos e finalize o pagamento com facilidade."
+        url="/"
+      />
       {/* Main Content */}
       <main className="page-container">
         {/* Hero Section */}

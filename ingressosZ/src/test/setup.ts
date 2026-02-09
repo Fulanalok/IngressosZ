@@ -20,6 +20,16 @@ if (typeof window.scrollTo !== "function") {
   (window as unknown as { scrollTo: () => void }).scrollTo = () => {};
 }
 
+// Mock global do IntersectionObserver
+const IntersectionObserverMock = vi.fn(() => ({
+  disconnect: vi.fn(),
+  observe: vi.fn(),
+  takeRecords: vi.fn(),
+  unobserve: vi.fn(),
+}));
+
+vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+
 // Mock global do Firebase para evitar erros de inicialização com config vazia
 vi.mock("firebase/app", () => ({
   initializeApp: vi.fn(() => ({})),

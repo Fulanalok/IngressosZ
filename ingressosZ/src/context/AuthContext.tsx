@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               role: "user",
               createdAt: new Date().toISOString(),
             };
-            await userService.createUserProfile(newProfile);
+            await userService.createUserProfile(currentUser.uid, newProfile);
             setUserProfile(newProfile);
           }
         } catch (error) {

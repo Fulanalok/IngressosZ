@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { SEO } from "../components/common/SEO";
 import { EventHeader } from "../components/event/EventHeader";
 import { EventInfo } from "../components/event/EventInfo";
 import { TicketPurchase } from "../components/event/TicketPurchase";
+import { EventDetailSkeleton } from "../components/EventDetailSkeleton";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -13,7 +15,6 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { TICKET_TYPES } from "../constants/ticketTypes";
-import { useEventSEO } from "../hooks/seo/useEventSEO";
 import { useEvent } from "../hooks/useEvents";
 import { useMercadoPagoCheckout } from "../hooks/useMercadoPagoCheckout";
 
@@ -25,9 +26,6 @@ function EventDetailPage() {
     "standard" | "vip" | "premium"
   >("standard");
   const [quantity, setQuantity] = useState(1);
-
-  // Hook personalizado para SEO
-  useEventSEO(event, id);
 
   const {
     createPreference,
@@ -84,6 +82,32 @@ function EventDetailPage() {
       toast.error(checkoutError);
     }
   }, [checkoutError]);
+
+  const jsonLd = useMemo(() => {
+    if (!event || !id) return undefined;
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "Event",
+      name: event.title,
+      description: event.description,
+      startDate: event.date,
+      image: event.image ? [event.image] : undefined,
+      location: event.location
+        ? { "@type": "Place", name: event.location }
+        : undefined,
+      offers: {
+        "@type": "Offer",
+        price: event.price ?? 0,
+        priceCurrency: "BRL",
+        availability:
+          (event.availableTickets ?? 0) > 0
+            ? "https://schema.org/InStock"
+            : "https://schema.org/SoldOut",
+        url: window.location.origin + `/evento/${id}`,
+      },
+    };
+  }, [event, id]);
 
   const handlePurchase = useCallback(async () => {
     if (!event || !id) return;
@@ -159,6 +183,14 @@ function EventDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted transition-colors">
+      <SEO
+        title={event ? `${event.title} — IngressosZ` : "Evento — IngressosZ"}
+        description={event?.description}
+        image={event?.image}
+        url={`/evento/${id}`}
+        type="event"
+        jsonLd={jsonLd}
+      />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="card transition-colors">
           {/* Event Image */}

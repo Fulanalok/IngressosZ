@@ -22,11 +22,11 @@ export function useUserTickets() {
 
     const unsubscribe = ticketService.subscribeToUserTickets(
       user.uid,
-      (updatedTickets) => {
+      (updatedTickets: Ticket[]) => {
         setTickets(updatedTickets);
         setLoading(false);
       },
-      (err) => {
+      (err: Error) => {
         console.error("Erro ao carregar ingressos:", err);
         setError(err.message || "Erro ao carregar ingressos");
         setLoading(false);

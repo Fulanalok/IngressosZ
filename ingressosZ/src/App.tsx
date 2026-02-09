@@ -1,5 +1,6 @@
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import React, { Suspense, lazy, useEffect } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import {
   BrowserRouter,
   Link,
@@ -9,6 +10,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Toaster } from "sonner";
+import { GlobalErrorFallback } from "./components/common/GlobalErrorFallback";
 import DevPanel from "./components/DevPanel";
 import FirebaseDebug from "./components/FirebaseDebug";
 import Navbar from "./components/Navbar";
@@ -64,7 +66,8 @@ function App() {
 
     if (!hasRole) {
       // Em desenvolvimento, mostramos uma mensagem explicativa em vez de redirecionar silenciosamente
-      if (import.meta.env.DEV) {
+      // Mas em testes (MODE === 'test'), queremos o comportamento padrão de redirecionamento
+      if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
         return (
           <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
             <div className="text-4xl mb-4">🛡️</div>
@@ -97,73 +100,21 @@ function App() {
   }
   function NotFound() {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="text-6xl mb-4">🧭</div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">
+          <div className="text-9xl font-bold text-primary/20 mb-4">404</div>
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             Página não encontrada
           </h2>
-          <p className="text-muted-foreground mb-6">
-            Verifique o endereço ou volte para a página inicial.
+          <p className="text-muted-foreground mb-8 text-lg">
+            Opa! Parece que você se perdeu no caminho.
           </p>
-          <Button asChild>
+          <Button asChild size="lg">
             <Link to="/">Voltar para início</Link>
           </Button>
         </div>
       </div>
     );
-  }
-  class ErrorBoundary extends React.Component<
-    { onReset: () => void; children: React.ReactNode },
-    { hasError: boolean }
-  > {
-    constructor(props: { onReset: () => void; children: React.ReactNode }) {
-      super(props);
-      this.state = { hasError: false };
-    }
-    static getDerivedStateFromError() {
-      return { hasError: true };
-    }
-    componentDidCatch(error: unknown, info: unknown) {
-      const payload = {
-        type: "render-error",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        info,
-        route: window.location.pathname,
-        ua: navigator.userAgent,
-        ts: Date.now(),
-      };
-      void postClientError(payload);
-    }
-    reset = () => {
-      this.setState({ hasError: false });
-      this.props.onReset();
-    };
-    render() {
-      if (this.state.hasError) {
-        return (
-          <div className="min-h-screen gradient-bg flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-6xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Algo deu errado
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Tente novamente. Se persistir, volte para a página inicial.
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                <Button onClick={this.reset}>Tentar novamente</Button>
-                <Button variant="secondary" asChild>
-                  <Link to="/">Início</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      }
-      return this.props.children;
-    }
   }
 
   return (
@@ -236,7 +187,10 @@ function App() {
           >
             <QueryErrorResetBoundary>
               {({ reset }) => (
-                <ErrorBoundary onReset={reset}>
+                <ErrorBoundary
+                  onReset={reset}
+                  FallbackComponent={GlobalErrorFallback}
+                >
                   <Routes>
                     {}
                     <Route path="/login" element={<Login />} />

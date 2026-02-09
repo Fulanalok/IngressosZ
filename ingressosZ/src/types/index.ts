@@ -19,6 +19,11 @@ export interface Event {
   updatedAt: string;
 }
 
+export interface PaginatedEvents {
+  events: Event[];
+  lastVisible: any;
+}
+
 // Tipos para Ingressos
 export interface Ticket {
   id: string;
@@ -44,12 +49,29 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName?: string;
+  photoURL?: string;
   phone?: string;
   createdAt: string;
   role: "user" | "organizer" | "validator";
 }
 
-// Tipos para Pagamento
+export interface Purchase {
+  id: string;
+  userId: string;
+  eventId: string;
+  paymentId: string;
+  status: "approved" | "refunded" | "cancelled" | "pending";
+  items: Array<{
+    id: string;
+    title: string;
+    quantity: number;
+    unit_price: number;
+  }>;
+  createdAt: any;
+  totalAmount?: number; // Calculado no front ou salvo no banco
+}
+
+// Tipos para Pagamento (Legado/Compatibilidade)
 export interface PaymentSession {
   id: string;
   eventId: string;
@@ -65,6 +87,9 @@ export interface PaymentSession {
   completedAt?: string;
 }
 
-
 // Tipos para o contexto de autenticação
-// ... (restante do arquivo permanece o mesmo)
+export interface AuthContextType {
+  user: any; // User from firebase/auth
+  loading: boolean;
+  isAdmin: boolean;
+}

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { AuthContext, AuthContextType } from "../context/authContext";
+import { AuthContext, type AuthContextType } from "../context/authContext";
 import MyTicketsPage from "./MyTicketsPage";
 
 // Mock do hook useUserTickets

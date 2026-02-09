@@ -16,6 +16,7 @@ function MyTicketsPage() {
             <div className="text-center mb-8 space-y-4">
                <div className="h-16 w-16 bg-muted animate-pulse rounded-full mx-auto"></div>
                <div className="h-10 w-64 bg-muted animate-pulse rounded mx-auto"></div>
+               <span className="sr-only">Carregando seus ingressos...</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {[...Array(3)].map((_, i) => (
@@ -89,6 +90,10 @@ function MyTicketsPage() {
                     <div className="flex items-center text-sm text-muted-foreground bg-red-100 dark:bg-red-900/20 px-3 py-1 rounded-full">
                       <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
                       Usado
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground bg-yellow-100 dark:bg-yellow-900/20 px-3 py-1 rounded-full">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                      Cancelado
                     </div>
                   </div>
                 </div>

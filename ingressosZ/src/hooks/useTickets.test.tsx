@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthContextType } from "../context/authContext";
 import { AuthContext } from "../context/authContext";
 import type { Ticket } from "../types";
@@ -38,21 +38,15 @@ vi.mock("../services/firestore", async (orig) => {
     .mockResolvedValueOnce(ticketsA)
     .mockResolvedValue(ticketsB);
 
-  const subscribeToUserTickets = vi.fn((userId, onUpdate, onError) => {
-    // Return ticketsA initially, then ticketsB on subsequent calls if needed
-    // But since the test uses refetch which triggers re-subscription,
-    // we can check how many times it was called.
-    if (subscribeToUserTickets.mock.calls.length === 1) {
-      onUpdate(ticketsA);
-    } else {
-      onUpdate(ticketsB);
-    }
-    return () => {}; // Unsubscribe mock
+  const subscribeToUserTickets = vi.fn((_userId, onUpdate, _onError) => {
+    onUpdate(ticketsA);
+    return vi.fn();
   });
 
   const createTicket = vi.fn(async () => "t2");
 
   const getTicketForValidation = vi.fn();
+  const markTicketAsUsed = vi.fn();
 
   return {
     ...mod,
@@ -62,6 +56,7 @@ vi.mock("../services/firestore", async (orig) => {
       subscribeToUserTickets,
       createTicket,
       getTicketForValidation,
+      markTicketAsUsed,
     },
   };
 });
@@ -76,6 +71,28 @@ function wrapperWithAuth(value: AuthContextType) {
 }
 
 describe("useUserTickets", () => {
+  beforeEach(() => {
+    vi.mocked(ticketService.subscribeToUserTickets).mockReset();
+    vi.mocked(ticketService.subscribeToUserTickets).mockImplementation(
+      (_userId, onUpdate) => {
+        onUpdate([
+          {
+            id: "t1",
+            eventId: "e1",
+            userId: "u1",
+            userEmail: "u1@example.com",
+            purchaseDate: new Date().toISOString(),
+            qrCode: "qr1",
+            status: "active",
+            price: 100,
+            ticketType: "standard",
+          },
+        ]);
+        return vi.fn();
+      }
+    );
+  });
+
   it("retorna lista vazia quando não há usuário", async () => {
     const wrapper = wrapperWithAuth({
       user: null,
@@ -95,6 +112,45 @@ describe("useUserTickets", () => {
   });
 
   it("carrega ingressos do usuário e permite refetch", async () => {
+    const ticketsA: Ticket[] = [
+      {
+        id: "t1",
+        eventId: "e1",
+        userId: "u1",
+        userEmail: "u1@example.com",
+        purchaseDate: new Date().toISOString(),
+        qrCode: "qr1",
+        status: "active",
+        price: 100,
+        ticketType: "standard",
+      },
+    ];
+    const ticketsB: Ticket[] = [
+      ...ticketsA,
+      {
+        id: "t2",
+        eventId: "e1",
+        userId: "u1",
+        userEmail: "u1@example.com",
+        purchaseDate: new Date().toISOString(),
+        qrCode: "qr2",
+        status: "active",
+        price: 120,
+        ticketType: "vip",
+      },
+    ];
+
+    vi.mocked(ticketService.subscribeToUserTickets).mockReset();
+    vi.mocked(ticketService.subscribeToUserTickets)
+      .mockImplementationOnce((_uid, onUpdate) => {
+        onUpdate(ticketsA);
+        return vi.fn();
+      })
+      .mockImplementationOnce((_uid, onUpdate) => {
+        onUpdate(ticketsB);
+        return vi.fn();
+      });
+
     const wrapper = wrapperWithAuth({
       user: {
         uid: "u1",
@@ -106,6 +162,14 @@ describe("useUserTickets", () => {
       getFreshIdToken: async () => "token",
       getAuthHeaders: async () => ({ Authorization: "Bearer token" }),
     });
+
+    vi.mocked(ticketService.subscribeToUserTickets).mockImplementation(
+      (_userId, onUpdate) => {
+        onUpdate([]);
+        return vi.fn();
+      }
+    );
+
     const { result } = renderHook(() => useUserTickets(), { wrapper });
     await act(async () => {
       await Promise.resolve();
@@ -144,10 +208,110 @@ describe("useUserTickets", () => {
         ticketType: "vip",
       });
     });
-    // A lista não atualiza automaticamente aqui no teste porque o mock de subscribeToUserTickets
-    // não re-emite quando createTicket é chamado (no firestore real, o snapshot dispararia).
-    // Mas podemos verificar se createTicket foi chamado.
-    // (ticketService.createTicket as any).mock calls...
+    expect(ticketService.createTicket).toHaveBeenCalled();
+  });
+
+  it("handle error in subscribeToUserTickets", async () => {
+    const wrapper = wrapperWithAuth({
+      user: { uid: "u1" } as any,
+      userProfile: null,
+      loading: false,
+      signOut: async () => {},
+      getFreshIdToken: async () => "token",
+      getAuthHeaders: async () => ({}),
+    });
+
+    vi.mocked(ticketService.subscribeToUserTickets).mockImplementation(
+      (_userId, _onUpdate, onError) => {
+        onError(new Error("Subscription error"));
+        return vi.fn();
+      }
+    );
+
+    const { result } = renderHook(() => useUserTickets(), { wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBe("Subscription error");
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("handle error with empty message in subscribeToUserTickets", async () => {
+    const wrapper = wrapperWithAuth({
+      user: { uid: "u1" } as any,
+      userProfile: null,
+      loading: false,
+      signOut: async () => {},
+      getFreshIdToken: async () => "token",
+      getAuthHeaders: async () => ({}),
+    });
+
+    vi.mocked(ticketService.subscribeToUserTickets).mockImplementation(
+      (_userId, _onUpdate, onError) => {
+        onError(new Error("")); // Empty message
+        return vi.fn();
+      }
+    );
+
+    const { result } = renderHook(() => useUserTickets(), { wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBe("Erro ao carregar ingressos");
+  });
+
+  it("createTicket handles error", async () => {
+    const wrapper = wrapperWithAuth({
+      user: { uid: "u1" } as any,
+      userProfile: null,
+      loading: false,
+      signOut: async () => {},
+      getFreshIdToken: async () => "token",
+      getAuthHeaders: async () => ({}),
+    });
+
+    vi.mocked(ticketService.createTicket).mockRejectedValue(
+      new Error("Create error")
+    );
+
+    const { result } = renderHook(() => useUserTickets(), { wrapper });
+
+    await act(async () => {
+      try {
+        await result.current.createTicket({} as any);
+      } catch (e) {
+        // Expected
+      }
+    });
+
+    expect(result.current.error).toBe("Create error");
+  });
+
+  it("createTicket handles non-Error exception", async () => {
+    const wrapper = wrapperWithAuth({
+      user: { uid: "u1" } as any,
+      userProfile: null,
+      loading: false,
+      signOut: async () => {},
+      getFreshIdToken: async () => "token",
+      getAuthHeaders: async () => ({}),
+    });
+
+    vi.mocked(ticketService.createTicket).mockRejectedValue("String Error");
+
+    const { result } = renderHook(() => useUserTickets(), { wrapper });
+
+    await act(async () => {
+      try {
+        await result.current.createTicket({} as any);
+      } catch (e) {
+        // Expected
+      }
+    });
+
+    expect(result.current.error).toBe("Erro ao criar ingresso");
   });
 });
 
@@ -230,5 +394,113 @@ describe("useTicketValidation", () => {
     });
 
     expect(result.current.error).toBe("Este ingresso já foi utilizado");
+  });
+
+  it("falha ao validar ingresso cancelado", async () => {
+    const mockTicket: Ticket = {
+      id: "t1",
+      eventId: "e1",
+      userId: "u1",
+      userEmail: "u1@example.com",
+      purchaseDate: new Date().toISOString(),
+      qrCode: "qr1",
+      status: "cancelled",
+      price: 100,
+      ticketType: "standard",
+    };
+
+    (ticketService.getTicketForValidation as any).mockResolvedValue(mockTicket);
+
+    const { result } = renderHook(() => useTicketValidation());
+
+    let response;
+    await act(async () => {
+      response = await result.current.validateTicket("t1", "qr1");
+    });
+
+    expect(response).toEqual({
+      success: false,
+      message: "Este ingresso foi cancelado",
+    });
+
+    expect(result.current.error).toBe("Este ingresso foi cancelado");
+  });
+
+  it("falha ao validar ingresso com erro desconhecido", async () => {
+    (ticketService.getTicketForValidation as any).mockRejectedValue(
+      "Unknown Error"
+    );
+
+    const { result } = renderHook(() => useTicketValidation());
+
+    let response;
+    await act(async () => {
+      response = await result.current.validateTicket("t1", "qr1");
+    });
+
+    expect(response).toEqual({
+      success: false,
+      message: "Erro ao validar ingresso",
+    });
+    expect(result.current.error).toBe("Erro ao validar ingresso");
+  });
+
+  it("marca ingresso como usado com sucesso", async () => {
+    (ticketService.markTicketAsUsed as any).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useTicketValidation());
+
+    let response;
+    await act(async () => {
+      response = await result.current.markTicketAsUsed("t1", "validator1");
+    });
+
+    expect(ticketService.markTicketAsUsed).toHaveBeenCalledWith(
+      "t1",
+      "validator1"
+    );
+    expect(response).toEqual({
+      success: true,
+      message: "Ingresso marcado como usado com sucesso!",
+    });
+    expect(result.current.error).toBeNull();
+  });
+
+  it("falha ao marcar ingresso como usado", async () => {
+    (ticketService.markTicketAsUsed as any).mockRejectedValue(
+      new Error("Erro de conexão")
+    );
+
+    const { result } = renderHook(() => useTicketValidation());
+
+    let response;
+    await act(async () => {
+      response = await result.current.markTicketAsUsed("t1", "validator1");
+    });
+
+    expect(response).toEqual({
+      success: false,
+      message: "Erro de conexão",
+    });
+    expect(result.current.error).toBe("Erro de conexão");
+  });
+
+  it("falha ao marcar ingresso como usado com erro desconhecido", async () => {
+    (ticketService.markTicketAsUsed as any).mockRejectedValue(
+      "Erro desconhecido"
+    );
+
+    const { result } = renderHook(() => useTicketValidation());
+
+    let response;
+    await act(async () => {
+      response = await result.current.markTicketAsUsed("t1", "validator1");
+    });
+
+    expect(response).toEqual({
+      success: false,
+      message: "Erro ao marcar ingresso como usado",
+    });
+    expect(result.current.error).toBe("Erro ao marcar ingresso como usado");
   });
 });
