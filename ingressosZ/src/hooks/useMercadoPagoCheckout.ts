@@ -81,6 +81,7 @@ export function useMercadoPagoCheckout({
             ticketType,
             quantity,
             userId: user.uid,
+            // Preço e itens agora são resolvidos no backend por segurança
           }),
         }
       );

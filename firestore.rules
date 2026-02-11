@@ -29,10 +29,13 @@ service cloud.firestore {
     }
 
     // --- Events Collection ---
-    // Anyone can read events. Only organizers/admins can write.
+    // Anyone can read events. 
+    // Only organizers can write (create/update) THEIR OWN events.
     match /events/{eventId} {
       allow read: if true;
-      allow write: if isOrganizer();
+      allow create: if isOrganizer() && request.resource.data.organizerId == request.auth.uid;
+      allow update: if (isOrganizer() && resource.data.organizerId == request.auth.uid) || isAdmin();
+      allow delete: if (isOrganizer() && resource.data.organizerId == request.auth.uid) || isAdmin();
     }
 
     // --- Tickets Collection ---

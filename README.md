@@ -71,6 +71,28 @@ Isso iniciará:
 
 ---
 
+## 🔐 Segurança e Secrets (Backend)
+
+Para que o backend funcione corretamente (pagamentos, validação segura, emails), você precisa configurar os segredos do Firebase Functions.
+
+1.  Vá para `cd functions`.
+2.  Copie `.env.example` para `.env` (apenas desenvolvimento local) ou configure via Firebase CLI:
+    ```bash
+    firebase functions:secrets:set MP_ACCESS_TOKEN
+    firebase functions:secrets:set MP_WEBHOOK_SECRET
+    firebase functions:secrets:set JWT_SECRET
+    firebase functions:secrets:set SMTP_EMAIL
+    firebase functions:secrets:set SMTP_PASSWORD
+    ```
+
+**Segurança Implementada:**
+*   **Assinatura de Webhook (HMAC-SHA256):** Verifica se as notificações de pagamento realmente vieram do Mercado Pago.
+*   **JWT nos Ingressos:** QR Codes agora contêm tokens JWT assinados digitalmente, prevenindo falsificação e permitindo validação offline.
+*   **Proteção contra Overselling:** Validação de estoque atômica antes e depois do pagamento.
+*   **RBAC Robusto:** Regras de Firestore garantem que usuários só acessem o que devem.
+
+---
+
 ## 🧪 Qualidade de Código
 
 | Tipo | Comando | Descrição |
