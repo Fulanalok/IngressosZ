@@ -119,7 +119,12 @@ describe("ValidatorPage", () => {
     const ticketResult = {
       status: "success",
       message: "Ingresso válido!",
-      ticketData: { id: "t1", eventTitle: "Festa" },
+      ticketData: {
+        id: "t1",
+        eventTitle: "Festa",
+        holderName: "Teste",
+        ticketType: "VIP",
+      },
     };
     mockValidateTicket.mockResolvedValue(ticketResult);
 
@@ -131,9 +136,12 @@ describe("ValidatorPage", () => {
     fireEvent.click(button);
 
     await waitFor(() => {
+      // Check for UI update first, which is the ultimate proof
       expect(screen.getByText("Histórico Recente")).toBeInTheDocument();
       expect(screen.getByText("Festa")).toBeInTheDocument();
     });
+
+    expect(mockValidateTicket).toHaveBeenCalled();
   });
 
   it("gera código de teste", () => {
