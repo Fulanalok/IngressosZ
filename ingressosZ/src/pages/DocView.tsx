@@ -17,11 +17,6 @@ function DocView() {
     time?: string;
   }>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Apenas para suprimir o aviso de variável não utilizada se não for remover
-    if (healthError) console.error(healthError);
-  }, [healthError]);
   const [logSent, setLogSent] = useState<boolean>(false);
 
   useEffect(() => {

@@ -1,6 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
 // import basicSsl from "@vitejs/plugin-basic-ssl";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig, loadEnv } from "vite";
@@ -13,11 +12,10 @@ export default defineConfig(({ mode }) => {
   const alias =
     mode === "production"
       ? [
-          // Removido alias de firestore/lite pois usamos onSnapshot (realtime)
-          // {
-          //   find: "firebase/firestore",
-          //   replacement: "firebase/firestore/lite",
-          // },
+          {
+            find: "firebase/firestore",
+            replacement: "firebase/firestore/lite",
+          },
           { find: "react", replacement: "preact/compat" },
           { find: "react-dom", replacement: "preact/compat" },
           { find: "react/jsx-runtime", replacement: "preact/jsx-runtime" },
@@ -25,15 +23,7 @@ export default defineConfig(({ mode }) => {
       : [];
 
   return {
-    plugins: [
-      react(),
-      tailwindcss(),
-      sentryVitePlugin({
-        org: "seu-org-slug",
-        project: "seu-project-slug",
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-      }),
-    ],
+    plugins: [react(), tailwindcss()],
     resolve: {
       alias: [
         { find: "@", replacement: path.resolve(__dirname, "./src") },
@@ -87,7 +77,6 @@ export default defineConfig(({ mode }) => {
         },
       },
       chunkSizeWarningLimit: 700,
-      sourcemap: true,
     },
   };
 });

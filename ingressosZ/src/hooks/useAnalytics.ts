@@ -1,123 +1,80 @@
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { eventService, paymentService } from "../services/firestore";
-import type { Event, PaymentSession } from "../types";
+import { useQuery } from "@tanstack/react-query";
+import { paymentService } from "../services/firestore";
+import { PaymentSession } from "../types";
 
-interface AnalyticsData {
-  totalRevenue: number;
-  totalTicketsSold: number;
-  totalEvents: number;
-  averageTicketPrice: number;
-  salesByEvent: Record<
-    string,
-    { revenue: number; tickets: number; title: string }
-  >;
-  topEventsByRevenue: { id: string; title: string; revenue: number }[];
-  topEventsByTickets: { id: string; title: string; tickets: number }[];
-  dailySales: { date: string; revenue: number; tickets: number }[];
+interface DailyData {
+  date: string;
+  revenue: number;
+  tickets: number;
+}
+
+// Função para processar os dados de pagamento
+function processData(payments: PaymentSession[]): DailyData[] {
+  if (!payments || payments.length === 0) {
+    return [];
+  }
+
+  // Agrupa e soma os dados por dia
+  const dailyData = payments.reduce<Record<string, { revenue: number; tickets: number }>>((acc, payment) => {
+    if (payment.status !== "approved" || !payment.createdAt) {
+      return acc;
+    }
+
+    const date = new Date(payment.createdAt.seconds * 1000).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    if (!acc[date]) {
+      acc[date] = { revenue: 0, tickets: 0 };
+    }
+
+    acc[date].revenue += payment.totalAmount;
+    acc[date].tickets += payment.quantity;
+    return acc;
+  }, {});
+
+  // Converte para o formato de array esperado pelo gráfico
+  const chartData: DailyData[] = Object.entries(dailyData).map(([date, data]) => ({
+    date,
+    revenue: data.revenue,
+    tickets: data.tickets,
+  }));
+
+  // Ordena os dados por data
+  return chartData.sort((a, b) => new Date(a.date.split("/").reverse().join("-")).getTime() - new Date(b.date.split("/").reverse().join("-")).getTime());
 }
 
 export function useAnalytics() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: payments, isLoading, error } = useQuery<PaymentSession[], Error>({
+    queryKey: ["allPayments"],
+    queryFn: paymentService.getAllPayments,
+  });
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const [events, payments] = await Promise.all([
-          eventService.getAdminEvents(),
-          paymentService.getAllPayments(),
-        ]);
+  const dailyChartData = processData(payments || []);
 
-        const analytics = processAnalytics(events, payments);
-        setData(analytics);
-      } catch (err) {
-        console.error("Error fetching analytics data:", err);
-        setError("Failed to load analytics data.");
-        toast.error("Could not load analytics.");
-      } finally {
-        setLoading(false);
-      }
-    }
+  const totalRevenue = dailyChartData.reduce((sum, item) => sum + item.revenue, 0);
+  const totalTicketsSold = dailyChartData.reduce((sum, item) => sum + item.tickets, 0);
+  
+  // Calcula a variação percentual (exemplo simples)
+  const calculateTrend = (data: DailyData[]) => {
+    if (data.length < 2) return 0;
+    const last = data[data.length - 1].revenue;
+    const secondLast = data[data.length - 2].revenue;
+    if (secondLast === 0) return last > 0 ? 100 : 0;
+    return ((last - secondLast) / secondLast) * 100;
+  };
 
-    fetchData();
-  }, []);
-
-  return { data, loading, error };
-}
-
-function processAnalytics(
-  events: Event[],
-  payments: PaymentSession[]
-): AnalyticsData {
-  const totalRevenue = payments.reduce((sum, p) => sum + p.totalAmount, 0);
-  const totalTicketsSold = payments.reduce((sum, p) => sum + p.quantity, 0);
-
-  const salesByEvent: AnalyticsData["salesByEvent"] = {};
-
-  for (const p of payments) {
-    if (!salesByEvent[p.eventId]) {
-      const event = events.find((e) => e.id === p.eventId);
-      salesByEvent[p.eventId] = {
-        revenue: 0,
-        tickets: 0,
-        title: event?.title || "Evento Desconhecido",
-      };
-    }
-    salesByEvent[p.eventId].revenue += p.totalAmount;
-    salesByEvent[p.eventId].tickets += p.quantity;
-  }
-
-  const topEventsByRevenue = Object.entries(salesByEvent)
-    .map(([id, data]) => ({ id, ...data }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  const topEventsByTickets = Object.entries(salesByEvent)
-    .map(([id, data]) => ({ id, ...data }))
-    .sort((a, b) => b.tickets - a.tickets)
-    .slice(0, 5);
-
-  const dailySalesMap: Record<
-    string,
-    { date: string; revenue: number; tickets: number }
-  > = {};
-  for (const p of payments) {
-    let dateStr = "";
-    if (typeof p.createdAt === "string") {
-      dateStr = p.createdAt.split("T")[0];
-    } else if (
-      p.createdAt &&
-      typeof p.createdAt === "object" &&
-      "seconds" in p.createdAt
-    ) {
-      dateStr = new Date(p.createdAt.seconds * 1000)
-        .toISOString()
-        .split("T")[0];
-    } else {
-      continue; // Skip invalid dates
-    }
-
-    if (!dailySalesMap[dateStr]) {
-      dailySalesMap[dateStr] = { date: dateStr, revenue: 0, tickets: 0 };
-    }
-    dailySalesMap[dateStr].revenue += p.totalAmount;
-    dailySalesMap[dateStr].tickets += p.quantity;
-  }
+  const revenueTrend = calculateTrend(dailyChartData);
 
   return {
+    isLoading,
+    error,
+    dailyChartData,
     totalRevenue,
     totalTicketsSold,
-    totalEvents: events.length,
-    averageTicketPrice:
-      totalTicketsSold > 0 ? totalRevenue / totalTicketsSold : 0,
-    salesByEvent,
-    topEventsByRevenue,
-    topEventsByTickets,
-    dailySales: Object.values(dailySalesMap).sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    ),
+    revenueTrend,
+    hasData: !!payments && payments.length > 0,
   };
 }

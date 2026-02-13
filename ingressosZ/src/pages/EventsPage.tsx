@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useInView } from "react-intersection-observer";
-import { SEO } from "../components/common/SEO";
-import EventCard, { EventCardSkeleton } from "../components/EventCard";
+import { useInView } from 'react-intersection-observer';
+import EventCard from "../components/EventCard";
+import { EventCardSkeleton } from "../components/EventCardSkeleton";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAuth } from "../hooks/useAuth";
@@ -26,7 +26,7 @@ function EventsPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useEvents();
-
+  
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -54,16 +54,11 @@ function EventsPage() {
   const filteredEvents = useMemo(() => {
     const s = debouncedSearchTerm.trim().toLowerCase();
     return events.filter((event) => {
-      const matchesSearch =
-        s.length === 0 || event.title.toLowerCase().includes(s);
-      const matchesCategory =
-        selectedCategory === "Todos" || event.category === selectedCategory;
-      const matchesLocation =
-        locationFilter === "Todos" || event.location === locationFilter;
+      const matchesSearch = s.length === 0 || event.title.toLowerCase().includes(s);
+      const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
+      const matchesLocation = locationFilter === "Todos" || event.location === locationFilter;
       const matchesPrice = maxPrice === "" || event.price <= Number(maxPrice);
-      return (
-        matchesSearch && matchesCategory && matchesLocation && matchesPrice
-      );
+      return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
     });
   }, [events, debouncedSearchTerm, selectedCategory, locationFilter, maxPrice]);
 
@@ -78,9 +73,7 @@ function EventsPage() {
         </header>
         <main className="page-container py-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[...Array(8)].map((_, i) => (
-              <EventCardSkeleton key={i} />
-            ))}
+            {[...Array(8)].map((_, i) => <EventCardSkeleton key={i} />)}
           </div>
         </main>
       </div>
@@ -93,9 +86,7 @@ function EventsPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold">Erro ao carregar eventos</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Tentar Novamente
-          </Button>
+          <Button onClick={() => window.location.reload()}>Tentar Novamente</Button>
         </div>
       </div>
     );
@@ -103,19 +94,10 @@ function EventsPage() {
 
   return (
     <div className="min-h-screen gradient-bg">
-      <SEO
-        title="Eventos Disponíveis — IngressosZ"
-        description="Encontre os melhores eventos, shows e festas. Compre ingressos online com segurança."
-        url="/eventos"
-      />
       <header className="nav-bg py-6 border-b border-border">
         <div className="page-container">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            🎫 Eventos Disponíveis
-          </h1>
-          <p className="text-muted-foreground">
-            Bem-vindo, {userProfile?.displayName || userProfile?.email}!
-          </p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">🎫 Eventos Disponíveis</h1>
+          <p className="text-muted-foreground">Bem-vindo, {userProfile?.displayName || userProfile?.email}!</p>
         </div>
       </header>
 
@@ -133,30 +115,20 @@ function EventsPage() {
             onChange={(e) => setLocationFilter(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
-            ))}
+            {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
           </select>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
+            {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
           </select>
           <Input
             type="number"
             placeholder="Preço máximo (R$)"
             value={maxPrice}
-            onChange={(e) =>
-              setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
-            }
+            onChange={(e) => setMaxPrice(e.target.value === '' ? '' : Number(e.target.value))}
             className="w-full"
             min="0"
           />
@@ -165,9 +137,7 @@ function EventsPage() {
 
       <main className="page-container py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
+          {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
         </div>
 
         <div ref={ref} className="h-10 mt-8 flex justify-center items-center">
@@ -184,9 +154,7 @@ function EventsPage() {
         {filteredEvents.length === 0 && !isFetchingNextPage && (
           <div className="text-center py-16 col-span-full">
             <h3 className="text-xl font-semibold">Nenhum evento encontrado</h3>
-            <p className="text-muted-foreground">
-              Tente ajustar seus filtros ou volte mais tarde.
-            </p>
+            <p className="text-muted-foreground">Tente ajustar seus filtros ou volte mais tarde.</p>
           </div>
         )}
       </main>

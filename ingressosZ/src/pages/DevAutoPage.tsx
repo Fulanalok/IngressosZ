@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
-import { auth, functions } from "../firebaseConfig";
+import { auth } from "../firebaseConfig";
+import { TestDataService } from "../services/testDataService";
 
 function DevAutoPage() {
   const navigate = useNavigate();
@@ -22,9 +22,11 @@ function DevAutoPage() {
           await signInAnonymously(auth);
         }
 
-        setStatus("Seedando banco de dados via Functions...");
-        const seedDatabase = httpsCallable(functions, "seedDatabase");
-        await seedDatabase();
+        setStatus("Criando eventos de teste...");
+        const eventIds = await TestDataService.createTestEvents();
+
+        setStatus("Criando ingressos de teste...");
+        await TestDataService.createTestTickets(eventIds);
 
         setStatus("Concluído! Redirecionando...");
         navigate("/meus-ingressos", { replace: true });

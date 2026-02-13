@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { ticketService, userService } from "../services/firestore";
 import { seedSampleEvents } from "../utils/seedData";
+import { Timestamp } from "firebase/firestore";
 
 function DevPanel() {
   const navigate = useNavigate();
@@ -92,6 +93,8 @@ function DevPanel() {
         ticketType: "standard" as const,
         validatedAt: undefined,
         validatedBy: undefined,
+        purchaseDate: Timestamp.now(), 
+        qrCode: "sample-qr-code",
       };
 
       await ticketService.createTicket(sampleTicket);

@@ -17,77 +17,12 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "../firebaseConfig";
-import type {
-  Event,
-  PaginatedEvents,
-  PaymentSession,
-  Purchase,
-  Ticket,
-  UserProfile,
-} from "../types";
+import { auth, db } from "../firebaseConfig";
+import type { Event, PaginatedEvents, PaymentSession, Ticket, UserProfile } from "../types";
 
 // =============================================================================
 // Event Service
 // =============================================================================
-export const adminService = {
-  async getDashboardStats() {
-    // Nota: Em produção, usar aggregation queries ou contadores distribuídos
-    const ticketsRef = collection(db, "tickets");
-    const snapshot = await getDocs(ticketsRef);
-    const tickets = snapshot.docs.map((doc) => doc.data() as Ticket);
-
-    const totalRevenue = tickets.reduce((acc, t) => {
-      return t.status !== "cancelled" ? acc + (t.price || 0) : acc;
-    }, 0);
-
-    const ticketsSold = tickets.filter((t) => t.status !== "cancelled").length;
-    const ticketsUsed = tickets.filter((t) => t.status === "used").length;
-
-    const salesByDateMap = tickets.reduce((acc, t) => {
-      if (t.status === "cancelled" || !t.purchaseDate) return acc;
-      const date = t.purchaseDate.split("T")[0]; // YYYY-MM-DD
-      if (!acc[date]) {
-        acc[date] = { date, amount: 0, tickets: 0 };
-      }
-      acc[date].amount += t.price || 0;
-      acc[date].tickets += 1;
-      return acc;
-    }, {} as Record<string, { date: string; amount: number; tickets: number }>);
-
-    const salesByDate = Object.values(salesByDateMap).sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-
-    const ticketsByStatus = [
-      {
-        name: "Ativos",
-        value: tickets.filter((t) => t.status === "active").length,
-        fill: "#3b82f6",
-      },
-      {
-        name: "Usados",
-        value: tickets.filter((t) => t.status === "used").length,
-        fill: "#22c55e",
-      },
-      {
-        name: "Cancelados",
-        value: tickets.filter((t) => t.status === "cancelled").length,
-        fill: "#ef4444",
-      },
-    ];
-
-    return {
-      totalRevenue,
-      ticketsSold,
-      ticketsUsed,
-      salesByDate,
-      ticketsByStatus,
-    };
-  },
-};
-
 export const eventService = {
   async getEvents(
     pageSize: number,
@@ -105,9 +40,7 @@ export const eventService = {
     }
     const snapshot = await getDocs(eventsQuery);
     return {
-      events: snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Event)
-      ),
+      events: snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Event)),
       lastVisible: snapshot.docs[snapshot.docs.length - 1],
     };
   },
@@ -150,13 +83,10 @@ export const eventService = {
     await deleteDoc(doc(db, "events", eventId));
   },
 
-  async decrementAvailableTickets(
-    eventId: string,
-    quantity: number
-  ): Promise<void> {
+  async decrementAvailableTickets(eventId: string, quantity: number): Promise<void> {
     const eventRef = doc(db, "events", eventId);
     await updateDoc(eventRef, {
-      availableTickets: increment(-quantity),
+        availableTickets: increment(-quantity),
     });
   },
 };
@@ -175,17 +105,9 @@ export const ticketService = {
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Ticket));
   },
 
-  async getTicketById(ticketId: string): Promise<Ticket | null> {
-    const snapshot = await getDoc(doc(db, "tickets", ticketId));
-    return snapshot.exists()
-      ? ({ id: snapshot.id, ...snapshot.data() } as Ticket)
-      : null;
-  },
-
-  // Adicionar subscrição em tempo real
   subscribeToUserTickets(
     userId: string,
-    onSuccess: (tickets: Ticket[]) => void,
+    onUpdate: (tickets: Ticket[]) => void,
     onError: (error: Error) => void
   ): () => void {
     const q = query(
@@ -193,55 +115,68 @@ export const ticketService = {
       where("userId", "==", userId),
       orderBy("purchaseDate", "desc")
     );
-    return onSnapshot(
+
+    const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const tickets = snapshot.docs.map(
           (d) => ({ id: d.id, ...d.data() } as Ticket)
         );
-        onSuccess(tickets);
+        onUpdate(tickets);
       },
-      (error) => onError(error)
+      (error) => {
+        console.error("Error listening to ticket updates:", error);
+        onError(error);
+      }
     );
+
+    return unsubscribe;
   },
 
-  async createTicket(
-    ticketData: Omit<Ticket, "id" | "purchaseDate" | "qrCode">
-  ): Promise<string> {
-    const docRef = await addDoc(collection(db, "tickets"), {
-      ...ticketData,
-      purchaseDate: new Date().toISOString(),
-      qrCode: self.crypto.randomUUID(),
-      status: "active",
-    });
+  async getTicketById(ticketId: string): Promise<Ticket | null> {
+    const snapshot = await getDoc(doc(db, "tickets", ticketId));
+    return snapshot.exists()
+      ? ({ id: snapshot.id, ...snapshot.data() } as Ticket)
+      : null;
+  },
+
+  async createTicket(ticketData: Omit<Ticket, "id">): Promise<string> {
+    const docRef = await addDoc(collection(db, "tickets"), ticketData);
     return docRef.id;
   },
 
-  async getTicketForValidation(
-    ticketId: string,
-    qrCode: string
-  ): Promise<Ticket | null> {
-    const docSnap = await getDoc(doc(db, "tickets", ticketId));
-    if (!docSnap.exists()) return null;
+  async getTicketForValidation(ticketId: string): Promise<Ticket | null> {
+    const ticketRef = doc(db, "tickets", ticketId);
+    const ticketSnap = await getDoc(ticketRef);
 
-    const ticket = { id: docSnap.id, ...docSnap.data() } as Ticket;
-    if (ticket.qrCode !== qrCode) return null;
+    if (!ticketSnap.exists()) {
+      return null;
+    }
+
+    const ticket = { id: ticketSnap.id, ...ticketSnap.data() } as Ticket;
+
+    const eventRef = doc(db, "events", ticket.eventId);
+    const eventSnap = await getDoc(eventRef);
+
+    if (eventSnap.exists()) {
+      const event = eventSnap.data() as Event;
+      ticket.eventTitle = event.title;
+      ticket.eventDate = event.date;
+      ticket.eventLocation = event.location;
+    }
 
     return ticket;
   },
 
-  async markTicketAsUsed(
-    ticketId: string,
-    validatorUserId: string
-  ): Promise<void> {
-    await updateDoc(doc(db, "tickets", ticketId), {
+  async markTicketAsUsed(ticketId: string, validatorId: string): Promise<void> {
+    const ticketRef = doc(db, "tickets", ticketId);
+    await updateDoc(ticketRef, {
       status: "used",
-      validatedAt: new Date().toISOString(),
-      validatedBy: validatorUserId,
+      validatedAt: serverTimestamp(),
+      validatedBy: validatorId,
     });
   },
 
-  // Nova função para buscar todos os ingressos
   async getAllTickets(): Promise<Ticket[]> {
     const ticketsQuery = query(
       collection(db, "tickets"),
@@ -262,11 +197,22 @@ export const userService = {
     return docSnap.exists() ? (docSnap.data() as UserProfile) : null;
   },
 
-  createUserProfile(
+  async createUserProfile(
     userId: string,
-    data: Omit<UserProfile, "id">
+    data: Omit<UserProfile, "uid" | "createdAt">
   ): Promise<void> {
-    return setDoc(doc(db, "users", userId), data, { merge: true });
+    await setDoc(
+      doc(db, "users", userId),
+      { ...data, uid: userId, createdAt: serverTimestamp() },
+      { merge: true }
+    );
+  },
+
+  async updateUserProfile(
+    userId: string,
+    data: Partial<Omit<UserProfile, "uid">>
+  ): Promise<void> {
+    await updateDoc(doc(db, "users", userId), data);
   },
 
   onUserProfileSnapshot(
@@ -277,42 +223,12 @@ export const userService = {
       callback(docSnap.exists() ? (docSnap.data() as UserProfile) : null);
     });
   },
-
-  async updateUserProfile(
-    userId: string,
-    data: Partial<Omit<UserProfile, "id" | "uid">>
-  ): Promise<void> {
-    const userRef = doc(db, "users", userId);
-    await updateDoc(userRef, {
-      ...data,
-      updatedAt: new Date().toISOString(),
-    });
-  },
 };
 
 // =============================================================================
-// Purchase Service (Orders & Payments)
-// =============================================================================
-export const purchaseService = {
-  async getAllPurchases(): Promise<Purchase[]> {
-    const q = query(collection(db, "purchases"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
-  },
-
-  async refundPurchase(paymentId: string): Promise<any> {
-    if (!functions) throw new Error("Firebase Functions não inicializado");
-    const refundFn = httpsCallable(functions, "refundPayment");
-    const result = await refundFn({ paymentId });
-    return result.data;
-  },
-};
-
-// =============================================================================
-// Payment Service (Analytics - Deprecated/Legacy)
+// Payment Service (Analytics)
 // =============================================================================
 export const paymentService = {
-  // Nova função para buscar todos os pagamentos aprovados
   async getAllPayments(): Promise<PaymentSession[]> {
     const paymentsCollection = collection(db, "paymentSessions");
     const q = query(

@@ -1,147 +1,65 @@
-import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { ticketService } from "../services/firestore";
-import { useAuth } from "./useAuth";
 import type { Ticket } from "../types";
 
-export function useUserTickets() {
-  const { user } = useAuth();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+const TICKETS_QUERY_KEY = "tickets";
 
+export function useUserTickets(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, error } = useQuery<Ticket[], Error>({ 
+    queryKey: [TICKETS_QUERY_KEY, userId], 
+    queryFn: () => ticketService.getUserTickets(userId!), // O '!' assume que a query só roda se userId existir
+    enabled: !!userId, // A query só será executada se o userId não for undefined
+  });
+
+  // Configura a inscrição em tempo real
   useEffect(() => {
-    if (!user) {
-      setTickets([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
+    if (!userId) return;
 
     const unsubscribe = ticketService.subscribeToUserTickets(
-      user.uid,
-      (updatedTickets: Ticket[]) => {
-        setTickets(updatedTickets);
-        setLoading(false);
+      userId,
+      (updatedTickets) => {
+        queryClient.setQueryData([TICKETS_QUERY_KEY, userId], updatedTickets);
       },
-      (err: Error) => {
-        console.error("Erro ao carregar ingressos:", err);
-        setError(err.message || "Erro ao carregar ingressos");
-        setLoading(false);
+      (err) => {
+        console.error("Erro na inscrição de ingressos:", err);
       }
     );
 
+    // Cleanup da inscrição ao desmontar o componente
     return () => unsubscribe();
-  }, [user, retryCount]);
+  }, [userId, queryClient]);
 
-  const refetchTickets = () => {
-    setRetryCount((prev) => prev + 1);
-  };
-
-  const createTicket = async (
-    ticketData: Omit<Ticket, "id" | "purchaseDate" | "qrCode">
-  ) => {
-    try {
-      const ticketId = await ticketService.createTicket(ticketData);
-      // A subscrição atualizará a lista automaticamente
-      return ticketId;
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Erro ao criar ingresso";
-      setError(errorMessage);
-      throw err;
-    }
-  };
-
-  return {
-    tickets,
-    loading,
-    error,
-    refetch: refetchTickets,
-    createTicket,
-  };
+  return { tickets: data, isLoading, error };
 }
 
-export function useTicketValidation() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useTicket(ticketId: string | undefined) {
+  return useQuery<Ticket | null, Error>({ 
+    queryKey: [TICKETS_QUERY_KEY, ticketId], 
+    queryFn: () => ticketService.getTicketById(ticketId!), 
+    enabled: !!ticketId 
+  });
+}
 
-  const validateTicket = async (ticketId: string, qrCode: string) => {
-    try {
-      setLoading(true);
-      setError(null);
+export function useCreateTicket() {
+  const queryClient = useQueryClient();
 
-      // Buscar ingresso no Firestore
-      const ticket = await ticketService.getTicketForValidation(
-        ticketId,
-        qrCode
-      );
-
-      if (!ticket) {
-        throw new Error("Ingresso não encontrado ou QR Code inválido");
-      }
-
-      if (ticket.status === "used") {
-        throw new Error("Este ingresso já foi utilizado");
-      }
-
-      if (ticket.status === "cancelled") {
-        throw new Error("Este ingresso foi cancelado");
-      }
-
-      return {
-        success: true,
-        ticket,
-        message: "Ingresso válido!",
-      };
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Erro ao validar ingresso";
-      setError(errorMessage);
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    } finally {
-      setLoading(false);
+  return useMutation({ 
+    mutationFn: async (ticketData: Omit<Ticket, "id">) => {
+      return await ticketService.createTicket(ticketData);
+    }, 
+    onSuccess: (data, variables) => {
+      // Invalida a query de ingressos do usuário para buscar os dados atualizados
+      queryClient.invalidateQueries({ queryKey: [TICKETS_QUERY_KEY, variables.userId] });
     }
-  };
+  });
+}
 
-  const markTicketAsUsed = async (
-    ticketId: string,
-    validatorUserId: string
-  ) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      await ticketService.markTicketAsUsed(ticketId, validatorUserId);
-
-      return {
-        success: true,
-        message: "Ingresso marcado como usado com sucesso!",
-      };
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Erro ao marcar ingresso como usado";
-      setError(errorMessage);
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return {
-    validateTicket,
-    markTicketAsUsed,
-    loading,
-    error,
-  };
+export function useAllTickets() {
+  return useQuery<Ticket[], Error>({ 
+    queryKey: ["allTickets"], 
+    queryFn: ticketService.getAllTickets 
+  });
 }
