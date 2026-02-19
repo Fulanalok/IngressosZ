@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Preference, initMercadoPago } from "@mercadopago/sdk-react";
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
-import { db } from "../firebaseConfig";
-import { eventService } from "../services/firestore";
-import type { Event, PaymentSession, Ticket } from "../types";
+import { initMercadoPago } from "@mercadopago/sdk-react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/firebaseConfig";
+import { eventService } from "@/services/firestore";
+import type { Event } from "@/types";
 
 const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
@@ -92,16 +92,6 @@ export function useMercadoPagoCheckout(
       // No entanto, podemos criar o ingresso aqui para uma resposta mais rápida na UI
 
       for (let i = 0; i < quantity; i++) {
-        const newTicket: Omit<Ticket, "id"> = {
-          eventId: event.id,
-          userId,
-          userEmail,
-          purchaseDate: Timestamp.now(),
-          qrCode: `qr_${userId}_${event.id}_${Date.now()}_${i}`,
-          status: "active",
-          price: unitPrice,
-          ticketType,
-        };
         // Idealmente, isso deve ser feito em uma batch write no backend
         // quando o pagamento for confirmado
         await eventService.decrementAvailableTickets(event.id, 1);

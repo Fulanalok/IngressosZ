@@ -1,15 +1,21 @@
 import { Link } from "react-router-dom";
-import Ticket from "../components/Ticket";
-import { TicketSkeleton } from "../components/TicketSkeleton";
-import { Button } from "../components/ui/button";
-import { useAuth } from "../hooks/useAuth";
-import { useUserTickets } from "../hooks/useTickets";
+import Ticket from "@/components/Ticket";
+import { TicketSkeleton } from "@/components/TicketSkeleton";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserTickets } from "@/hooks/useTickets";
+import { useQueryClient } from "@tanstack/react-query";
 
 function MyTicketsPage() {
   const { user } = useAuth();
-  const { tickets, loading, error, refetch } = useUserTickets();
+  const { tickets, isLoading, error } = useUserTickets(user?.uid);
+  const queryClient = useQueryClient();
 
-  if (loading) {
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["userTickets", user?.uid] });
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen gradient-bg transition-colors">
          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -49,13 +55,13 @@ function MyTicketsPage() {
             <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">
               Erro ao carregar ingressos
             </h3>
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="text-muted-foreground mb-4">{error.message}</p>
             <Button onClick={refetch}>Tentar Novamente</Button>
           </div>
         )}
 
         {/* Tickets Content */}
-        {!error && (
+        {!error && tickets && (
           <>
             {tickets.length === 0 ? (
               /* Empty State */

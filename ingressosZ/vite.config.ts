@@ -16,9 +16,6 @@ export default defineConfig(({ mode }) => {
             find: "firebase/firestore",
             replacement: "firebase/firestore/lite",
           },
-          { find: "react", replacement: "preact/compat" },
-          { find: "react-dom", replacement: "preact/compat" },
-          { find: "react/jsx-runtime", replacement: "preact/jsx-runtime" },
         ]
       : [];
 

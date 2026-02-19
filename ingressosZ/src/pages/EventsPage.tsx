@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useInView } from 'react-intersection-observer';
-import EventCard from "../components/EventCard";
-import { EventCardSkeleton } from "../components/EventCardSkeleton";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { useAuth } from "../hooks/useAuth";
-import { useEvents } from "../hooks/useEvents";
+import EventCard from "@/components/EventCard";
+import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/useAuth";
+import { useEvents } from "@/hooks/useEvents";
+import type { Event } from "@/types";
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -19,14 +20,14 @@ function useDebouncedValue<T>(value: T, delay: number) {
 function EventsPage() {
   const { userProfile } = useAuth();
   const {
-    events,
-    loading,
+    data: events = [],
+    status,
     error,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
   } = useEvents();
-  
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -43,8 +44,8 @@ function EventsPage() {
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const { categories, locations } = useMemo(() => {
-    const allCategories = new Set(events.map((event) => event.category));
-    const allLocations = new Set(events.map((event) => event.location));
+    const allCategories = new Set(events.map((event: Event) => event.category));
+    const allLocations = new Set(events.map((event: Event) => event.location));
     return {
       categories: ["Todos", ...Array.from(allCategories)],
       locations: ["Todos", ...Array.from(allLocations)],
@@ -53,7 +54,7 @@ function EventsPage() {
 
   const filteredEvents = useMemo(() => {
     const s = debouncedSearchTerm.trim().toLowerCase();
-    return events.filter((event) => {
+    return events.filter((event: Event) => {
       const matchesSearch = s.length === 0 || event.title.toLowerCase().includes(s);
       const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
       const matchesLocation = locationFilter === "Todos" || event.location === locationFilter;
@@ -62,7 +63,7 @@ function EventsPage() {
     });
   }, [events, debouncedSearchTerm, selectedCategory, locationFilter, maxPrice]);
 
-  if (loading && events.length === 0) {
+  if (status === 'pending' && events.length === 0) {
     return (
       <div className="min-h-screen gradient-bg">
         <header className="nav-bg py-6">
@@ -85,7 +86,7 @@ function EventsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Erro ao carregar eventos</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
+          <p className="text-muted-foreground mb-4">{error.message}</p>
           <Button onClick={() => window.location.reload()}>Tentar Novamente</Button>
         </div>
       </div>
@@ -115,14 +116,14 @@ function EventsPage() {
             onChange={(e) => setLocationFilter(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+            {locations.map((loc) => <option key={loc as string} value={loc as string}>{loc as string}</option>)}
           </select>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            {categories.map((cat) => <option key={cat as string} value={cat as string}>{cat as string}</option>)}
           </select>
           <Input
             type="number"
@@ -137,7 +138,7 @@ function EventsPage() {
 
       <main className="page-container py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredEvents.map((event) => <EventCard key={event.id} event={event} />)}
+          {filteredEvents.map((event: Event) => <EventCard key={event.id} event={event} />)}
         </div>
 
         <div ref={ref} className="h-10 mt-8 flex justify-center items-center">

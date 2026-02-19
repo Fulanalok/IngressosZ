@@ -17,7 +17,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import type { Event, PaginatedEvents, PaymentSession, Ticket, UserProfile } from "../types";
 
 // =============================================================================

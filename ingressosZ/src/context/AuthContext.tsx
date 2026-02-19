@@ -1,9 +1,8 @@
 import { getRedirectResult, onAuthStateChanged, signOut, User } from "firebase/auth";
-import { Timestamp } from "firebase/firestore";
 import { createContext, ReactNode, useEffect, useState } from "react";
-import { auth } from "../firebaseConfig";
-import { userService } from "../services/firestore";
-import type { UserProfile } from "../types";
+import { auth } from "@/firebaseConfig";
+import { userService } from "@/services/firestore";
+import type { UserProfile } from "@/types";
 
 interface AuthContextType {
   user: User | null;

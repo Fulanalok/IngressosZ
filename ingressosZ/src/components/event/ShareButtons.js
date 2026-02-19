@@ -1,0 +1,5 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { EmailShareButton, FacebookShareButton, LinkedinShareButton, TelegramShareButton, TwitterShareButton, WhatsappShareButton, EmailIcon, FacebookIcon, LinkedinIcon, TelegramIcon, TwitterIcon, WhatsappIcon, } from "react-share";
+export function ShareButtons({ url, title }) {
+    return (_jsxs("div", { className: "flex items-center gap-2 mt-4", children: [_jsx("span", { className: "text-sm font-medium", children: "Compartilhar:" }), _jsx(FacebookShareButton, { url: url, title: title, children: _jsx(FacebookIcon, { size: 32, round: true }) }), _jsx(TwitterShareButton, { url: url, title: title, children: _jsx(TwitterIcon, { size: 32, round: true }) }), _jsx(WhatsappShareButton, { url: url, title: title, children: _jsx(WhatsappIcon, { size: 32, round: true }) }), _jsx(TelegramShareButton, { url: url, title: title, children: _jsx(TelegramIcon, { size: 32, round: true }) }), _jsx(LinkedinShareButton, { url: url, title: title, children: _jsx(LinkedinIcon, { size: 32, round: true }) }), _jsx(EmailShareButton, { url: url, subject: title, children: _jsx(EmailIcon, { size: 32, round: true }) })] }));
+}

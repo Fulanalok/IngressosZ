@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "../components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { postClientError } from "../services/logger";
+} from "@/components/ui/card";
+import { postClientError } from "@/services/logger";
 
 function DocView() {
   const [health, setHealth] = useState<null | {
@@ -16,7 +16,6 @@ function DocView() {
     authEmulator?: boolean;
     time?: string;
   }>(null);
-  const [healthError, setHealthError] = useState<string | null>(null);
   const [logSent, setLogSent] = useState<boolean>(false);
 
   useEffect(() => {
@@ -37,7 +36,7 @@ function DocView() {
             time: new Date().toISOString()
         });
       } catch (e) {
-        setHealthError(String(e));
+        console.error(e);
       }
     };
     load();

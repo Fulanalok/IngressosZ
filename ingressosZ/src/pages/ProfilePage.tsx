@@ -1,5 +1,5 @@
-import { Button } from "../components/ui/button";
-import { useAuth } from "../hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "react-hot-toast";
 
 function ProfilePage() {
@@ -50,9 +50,9 @@ function ProfilePage() {
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {userProfile?.createdAt
-                    ? new Date(userProfile.createdAt.seconds * 1000).toLocaleDateString(
-                        "pt-BR"
-                      )
+                    ? new Date(
+                        (userProfile.createdAt as any).seconds * 1000
+                      ).toLocaleDateString("pt-BR")
                     : "-"}
                 </span>
               </div>

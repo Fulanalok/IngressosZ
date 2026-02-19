@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { useEvent } from "../../hooks/useEvents";
-import { useAuth } from "../../hooks/useAuth";
-import { TicketPurchase } from "../../components/event/TicketPurchase";
+import { useEvent } from "@/hooks/useEvents";
+import { useAuth } from "@/hooks/useAuth";
+import { TicketPurchase, ShareButtons } from "@/components/event";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ShareButtons } from "../../components/event/ShareButtons";
 import { FiCalendar, FiClock, FiMapPin, FiChevronLeft } from "react-icons/fi";
 
 function EventDetailSkeleton() {
@@ -158,3 +157,5 @@ export function EventDetailPage() {
     </>
   );
 }
+
+export default EventDetailPage;

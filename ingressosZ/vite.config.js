@@ -1,19 +1,25 @@
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 import tailwindcss from "@tailwindcss/vite";
 // import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig, loadEnv } from "vite";
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, process.cwd(), "");
-    const projectId = env.VITE_FIREBASE_PROJECT_ID || "ingressosz";
-    const functionsPort = env.VITE_FUNCTIONS_PORT || "5001";
-    const alias = mode === "production"
+export default defineConfig(function (_a) {
+    var mode = _a.mode;
+    var env = loadEnv(mode, process.cwd(), "");
+    var projectId = env.VITE_FIREBASE_PROJECT_ID || "ingressosz";
+    var functionsPort = env.VITE_FUNCTIONS_PORT || "5001";
+    var alias = mode === "production"
         ? [
-            {
-                find: "firebase/firestore",
-                replacement: "firebase/firestore/lite",
-            },
             { find: "react", replacement: "preact/compat" },
             { find: "react-dom", replacement: "preact/compat" },
             { find: "react/jsx-runtime", replacement: "preact/jsx-runtime" },
@@ -22,10 +28,9 @@ export default defineConfig(({ mode }) => {
     return {
         plugins: [react(), tailwindcss()],
         resolve: {
-            alias: [
-                { find: "@", replacement: path.resolve(__dirname, "./src") },
-                ...alias,
-            ],
+            alias: __spreadArray([
+                { find: "@", replacement: path.resolve(__dirname, "./src") }
+            ], alias, true),
         },
         server: {
             host: true,
@@ -33,9 +38,11 @@ export default defineConfig(({ mode }) => {
             strictPort: false,
             proxy: {
                 "/functions": {
-                    target: `http://127.0.0.1:${functionsPort}`,
+                    target: "http://127.0.0.1:".concat(functionsPort),
                     changeOrigin: true,
-                    rewrite: (path) => path.replace(/^\/(functions)/, `/${projectId}/us-central1`),
+                    rewrite: function (path) {
+                        return path.replace(/^\/(functions)/, "/".concat(projectId, "/us-central1"));
+                    },
                 },
             },
         },
@@ -51,7 +58,7 @@ export default defineConfig(({ mode }) => {
         build: {
             rollupOptions: {
                 output: {
-                    manualChunks(id) {
+                    manualChunks: function (id) {
                         if (id.includes("node_modules/react"))
                             return "vendor-react";
                         if (id.includes("node_modules/react-router-dom"))

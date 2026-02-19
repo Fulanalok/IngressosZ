@@ -9,27 +9,30 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Toaster } from "sonner";
-import DevPanel from "./components/DevPanel";
-import FirebaseDebug from "./components/FirebaseDebug";
-import Navbar from "./components/Navbar";
-import { Button } from "./components/ui/button";
-import { ThemeProvider } from "./context/ThemeContext";
-import { useAuth } from "./hooks/useAuth";
-import { postClientError } from "./services/logger";
-const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
-const EventsPage = lazy(() => import("./pages/EventsPage"));
-const HomePage = lazy(() => import("./pages/HomePage"));
-const Login = lazy(() => import("./pages/Login"));
-const MyTicketsPage = lazy(() => import("./pages/MyTicketsPage"));
-const DevAutoPage = lazy(() => import("./pages/DevAutoPage"));
-const PaymentCanceled = lazy(() => import("./pages/PaymentCanceled"));
-const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
-const QRTestPage = lazy(() => import("./pages/QRTestPage"));
-const SignUp = lazy(() => import("./pages/SignUp"));
-const ValidatorPage = lazy(() => import("./pages/ValidatorPage"));
-const DocViewPage = lazy(() => import("./pages/DocView"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const AdminPage = lazy(() => import("./pages/admin/AdminPage"));
+import DevPanel from "@/components/DevPanel";
+import FirebaseDebug from "@/components/FirebaseDebug";
+import Navbar from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { useAuth } from "@/hooks/useAuth";
+import { postClientError } from "@/services/logger";
+
+const EventDetailPage = lazy(() =>
+  import("@/pages/EventDetailPage").then((module) => ({ default: module.default }))
+);
+const EventsPage = lazy(() => import("@/pages/EventsPage"));
+const HomePage = lazy(() => import("@/pages/HomePage"));
+const Login = lazy(() => import("@/pages/Login"));
+const MyTicketsPage = lazy(() => import("@/pages/MyTicketsPage"));
+const DevAutoPage = lazy(() => import("@/pages/DevAutoPage"));
+const PaymentCanceled = lazy(() => import("@/pages/PaymentCanceled"));
+const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
+const QRTestPage = lazy(() => import("@/pages/QRTestPage"));
+const SignUp = lazy(() => import("@/pages/SignUp"));
+const ValidatorPage = lazy(() => import("@/pages/ValidatorPage"));
+const DocViewPage = lazy(() => import("@/pages/DocView"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const AdminPage = lazy(() => import("@/pages/admin/AdminPage"));
 
 function App() {
   function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -267,7 +270,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/evento/:id"
+                      path="/evento/:eventId"
                       element={
                         <RequireAuth>
                           <EventDetailPage />

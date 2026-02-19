@@ -1,67 +1,34 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import EventCard from "../components/EventCard";
-import { Button } from "../components/ui/button";
+import EventCard from "@/components/EventCard";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
-import { useAuth } from "../hooks/useAuth";
-import { useEvents } from "../hooks/useEvents";
-import { eventService } from "../services/firestore";
+} from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
+import { useEvents } from "@/hooks/useEvents";
+import { eventService } from "@/services/firestore";
+import type { Event, PaginatedEvents } from "@/types";
 
 function HomePage() {
   const { userProfile } = useAuth();
-  const { events, loading } = useEvents();
+  const { data: events = [], status } = useEvents();
   const queryClient = useQueryClient();
 
-  const featuredEvents = events.slice(0, 3);
+  const featuredEvents = events.slice(0, 4);
 
   const prefetchEvents = () => {
-    queryClient.prefetchQuery({
+    queryClient.prefetchInfiniteQuery({
       queryKey: ["events"],
-      queryFn: () => eventService.getEvents(),
+      queryFn: ({ pageParam }: { pageParam: QueryDocumentSnapshot<DocumentData> | undefined }) => eventService.getEvents(10, pageParam),
+      initialPageParam: undefined,
+      getNextPageParam: (lastPage: PaginatedEvents) => (lastPage.lastVisible ?? undefined) as any,
     });
   };
-
-  useEffect(() => {
-    const title = "IngressosZ — Ingressos rápidos e seguros";
-    const description =
-      "Compre e gerencie ingressos com rapidez e segurança. Explore eventos e finalize o pagamento com facilidade.";
-    document.title = title;
-    const setMeta = (name: string, content: string) => {
-      let tag = document.querySelector(
-        `meta[name='${name}']`
-      ) as HTMLMetaElement | null;
-      if (!tag) {
-        tag = document.createElement("meta");
-        tag.setAttribute("name", name);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute("content", content);
-    };
-    const setProperty = (property: string, content: string) => {
-      let tag = document.querySelector(
-        `meta[property='${property}']`
-      ) as HTMLMetaElement | null;
-      if (!tag) {
-        tag = document.createElement("meta");
-        tag.setAttribute("property", property);
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute("content", content);
-    };
-    setMeta("description", description);
-    setProperty("og:title", title);
-    setProperty("og:description", description);
-    const canonical = document.querySelector(
-      "link[rel='canonical']"
-    ) as HTMLLinkElement | null;
-    if (canonical) canonical.href = "/";
-  }, []);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -107,13 +74,13 @@ function HomePage() {
               </Button>
             </div>
 
-            {loading ? (
+            {status === 'pending' ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
             ) : (
               <div className="grid md:grid-cols-3 gap-8">
-                {featuredEvents.map((event) => (
+                {featuredEvents.map((event: Event) => (
                   <EventCard key={event.id} event={event} />
                 ))}
               </div>
