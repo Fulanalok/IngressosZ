@@ -25,43 +25,52 @@
 - Node.js 24 para o backend (`/functions`, ver `engines`).
 - Firebase CLI configurado no ambiente local.
 
-## ⚙️ Configuração rápida
+## ⚙️ Configuração e Instalação
 
-### 1) Frontend
+### 1. Clone o repositório
 
+```bash
+git clone https://github.com/SEU_USUARIO/ingressos-z.git
+cd ingressos-z
+```
+
+### 2. Instale as dependências
+
+**Frontend:**
 ```bash
 cd ingressosZ
 npm install
-npm run dev
 ```
 
-### 2) Backend
-
+**Backend:**
 ```bash
 cd functions
 npm install
-npm run lint
 ```
 
-## 🔐 Variáveis e secrets
+### 3. Variáveis e secrets
 
-### Frontend (`/ingressosZ`)
+#### Frontend (`/ingressosZ`)
 
-As variáveis de ambiente usadas pelo frontend são:
+Crie um arquivo `.env` na raiz da pasta `ingressosZ` e adicione as seguintes variáveis com as chaves do seu projeto Firebase:
 
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-- `VITE_FIREBASE_MEASUREMENT_ID`
-- `VITE_MERCADOPAGO_PUBLIC_KEY`
-- `VITE_FUNCTIONS_REGION` (padrão `southamerica-east1`)
-- `VITE_FUNCTIONS_PORT` (dev, padrão `5001`)
-- `VITE_API_URL` (fallback legado)
+```env
+VITE_FIREBASE_API_KEY="sua_api_key"
+VITE_FIREBASE_AUTH_DOMAIN="seu_auth_domain"
+VITE_FIREBASE_PROJECT_ID="seu_project_id"
+VITE_FIREBASE_STORAGE_BUCKET="seu_storage_bucket"
+VITE_FIREBASE_MESSAGING_SENDER_ID="seu_messaging_sender_id"
+VITE_FIREBASE_APP_ID="seu_app_id"
+VITE_FIREBASE_MEASUREMENT_ID="seu_measurement_id"
+VITE_MERCADOPAGO_PUBLIC_KEY="sua_chave_publica_do_mercado_pago"
+VITE_FUNCTIONS_REGION="southamerica-east1" # (padrão)
+VITE_FUNCTIONS_PORT="5001" # (padrão para dev)
+VITE_API_URL="" # (fallback legado)
+```
+*Você pode encontrar os valores do Firebase no console do Firebase, nas configurações do seu projeto.*
 
-### Backend (`/functions`)
+
+#### Backend (`/functions`)
 
 Secrets/Params do Firebase Functions:
 
@@ -96,6 +105,8 @@ firebase functions:config:set params.WEB_BASE_URL="https://seu-dominio.com"
 cd ingressosZ
 npm run dev
 ```
+O app estará disponível em `http://localhost:5173`.
+
 
 ### Functions (emulador)
 
@@ -103,8 +114,23 @@ npm run dev
 cd functions
 npm run serve
 ```
-
 O frontend faz proxy para `/functions` usando `VITE_FIREBASE_PROJECT_ID` e `VITE_FUNCTIONS_REGION`.
+
+## 🧪 Rodando os Testes
+
+Para garantir a qualidade e a estabilidade do código, execute os testes unitários e de integração.
+
+*   **Para rodar os testes do Frontend:**
+    *   A partir da pasta `/ingressosZ`:
+    ```bash
+    npm test
+    ```
+
+*   **Para rodar os testes do Backend:**
+    *   A partir da pasta `/functions`:
+    ```bash
+    npm test
+    ```
 
 ## 🚀 Deploy do backend
 
@@ -136,3 +162,4 @@ Depois do deploy, pegue a URL da função `receiveWebhook` no console do Firebas
 
 - Frontend: [README.md](./ingressosZ/README.md)
 - Backend: pasta `/functions` com scripts em `package.json`
+ 
