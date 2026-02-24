@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "ingressosz"
-  }
+    "default": "<your-firebase-project-id>"
+  },
+  "targets": {},
+  "etags": {}
 }

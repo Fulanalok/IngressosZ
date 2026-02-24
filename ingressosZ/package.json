@@ -19,6 +19,7 @@
     "dev:open": "vite --open"
   },
   "dependencies": {
+    "@dr.pogodin/react-helmet": "2.0.4",
     "@mercadopago/sdk-react": "^1.0.7",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/vite": "^4.1.12",
@@ -35,7 +36,6 @@
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-helmet-async": "^2.0.5",
     "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "react-intersection-observer": "^10.0.2",

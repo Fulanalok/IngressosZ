@@ -4,14 +4,14 @@ import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
 
 function Navbar() {
-  const { userProfile, logout } = useAuth();
+  const { userProfile, signOut } = useAuth();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut();
     } catch (e) {
       console.error("Erro ao deslogar", e);
     }

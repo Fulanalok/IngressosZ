@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketPurchase, ShareButtons } from "@/components/event";

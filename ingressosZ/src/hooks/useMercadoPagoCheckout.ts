@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { initMercadoPago } from "@mercadopago/sdk-react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import { eventService } from "@/services/firestore";
 import type { Event } from "@/types";
+import { initMercadoPago } from "@mercadopago/sdk-react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
@@ -35,49 +36,73 @@ export function useMercadoPagoCheckout(
 
     try {
       // 1. Criar uma sessão de pagamento no Firestore
-      const paymentSessionRef = await addDoc(collection(db, "paymentSessions"), {
-        eventId: event.id,
-        userId,
-        ticketType,
-        quantity,
-        unitPrice,
-        totalAmount,
-        status: "pending",
-        provider: "mercadopago",
-        createdAt: serverTimestamp(),
-      });
+      const paymentSessionRef = await addDoc(
+        collection(db, "paymentSessions"),
+        {
+          eventId: event.id,
+          userId,
+          ticketType,
+          quantity,
+          unitPrice,
+          totalAmount,
+          status: "pending",
+          provider: "mercadopago",
+          createdAt: serverTimestamp(),
+        }
+      );
 
       const paymentSessionId = paymentSessionRef.id;
 
-      // 2. Chamar a Cloud Function para criar a preferência de pagamento
-      const response = await fetch(`${API_BASE_URL}/create-preference`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentSessionId,
-          eventTitle: event.title,
-          unitPrice,
-          quantity,
-          userEmail,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Erro ao criar preferência: ${errorData.message || "Sem detalhes"}`
+      try {
+        const functions = getFunctions();
+        const createPaymentPreference = httpsCallable(
+          functions,
+          "createPaymentPreference"
         );
-      }
-
-      const data = await response.json();
-      if (data.preferenceId) {
-        setPreferenceId(data.preferenceId);
-      } else {
-        throw new Error("Preference ID não recebido da API.");
+        const result = await createPaymentPreference({
+          eventId: event.id,
+          quantity,
+          userId,
+        });
+        const prefId = (result?.data as any)?.id;
+        if (prefId) {
+          setPreferenceId(prefId);
+          return;
+        }
+      } catch (callableErr) {
+        if (!API_BASE_URL) {
+          throw callableErr;
+        }
+        const response = await fetch(`${API_BASE_URL}/create-preference`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentSessionId,
+            eventTitle: event.title,
+            unitPrice,
+            quantity,
+            userEmail,
+          }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            `Erro ao criar preferência: ${errorData.message || "Sem detalhes"}`
+          );
+        }
+        const data = await response.json();
+        const prefId = data?.preferenceId || data?.id;
+        if (prefId) {
+          setPreferenceId(prefId);
+        } else {
+          throw new Error("Preference ID não recebido da API.");
+        }
       }
     } catch (err) {
       console.error("Erro detalhado ao criar preferência:", err);
-      setError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido.");
+      setError(
+        err instanceof Error ? err.message : "Ocorreu um erro desconhecido."
+      );
       // Opcional: navegar para uma página de erro
       // navigate("/pagamento/erro");
     } finally {

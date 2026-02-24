@@ -3,11 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "react-hot-toast";
 
 function ProfilePage() {
-  const { userProfile, logout } = useAuth();
+  const { userProfile, signOut } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await signOut();
     } catch (e) {
       console.error("Erro ao deslogar", e);
       toast.error("Erro ao sair da conta");

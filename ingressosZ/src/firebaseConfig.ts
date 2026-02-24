@@ -25,21 +25,18 @@ if (!getApps().length) {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const functions = getFunctions(app, "southamerica-east1");
+const functionsRegion =
+  (import.meta.env.VITE_FUNCTIONS_REGION as string) ||
+  "southamerica-east1";
+const functions = getFunctions(app, functionsRegion);
 const analytics = getAnalytics(app);
 
 // Conectar aos emuladores em desenvolvimento
 if (import.meta.env.DEV) {
-  // Pointing to the functions emulator
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
-  
-  // Pointing to the auth emulator
+  const fnPort = Number(import.meta.env.VITE_FUNCTIONS_PORT || "5001");
+  connectFunctionsEmulator(functions, "127.0.0.1", fnPort);
   connectAuthEmulator(auth, "http://127.0.0.1:9099");
-
-  // Pointing to the firestore emulator
   connectFirestoreEmulator(db, "127.0.0.1", 8085);
-  
-  // Pointing to the storage emulator
   connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
 

@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const projectId = env.VITE_FIREBASE_PROJECT_ID || "ingressosz";
   const functionsPort = env.VITE_FUNCTIONS_PORT || "5001";
+  const functionsRegion = env.VITE_FUNCTIONS_REGION || "southamerica-east1";
   const alias =
     mode === "production"
       ? [
@@ -36,7 +37,7 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${functionsPort}`,
           changeOrigin: true,
           rewrite: (path) =>
-            path.replace(/^\/(functions)/, `/${projectId}/us-central1`),
+            path.replace(/^\/(functions)/, `/${projectId}/${functionsRegion}`),
         },
       },
     },

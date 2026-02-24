@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "@dr.pogodin/react-helmet";
 export function SEO({ title, description = "IngressosZ — Ingressos rápidos e seguros", image = "/vite.svg", url, type = "website", jsonLd, }) {
     const siteUrl = window.location.origin;
     const fullUrl = url ? `${siteUrl}${url}` : siteUrl;

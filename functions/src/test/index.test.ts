@@ -1,6 +1,6 @@
-import 'mocha';
-import {expect} from 'chai';
-import functionsTest = require('firebase-functions-test');
+import "mocha";
+import {expect} from "chai";
+import functionsTest = require("firebase-functions-test");
 
 const test = functionsTest();
 
@@ -13,10 +13,10 @@ describe('Cloud Functions', () => {
     // Note: importing index.ts will trigger admin.initializeApp()
     // We should mock it if possible, but for now let's see if it works.
     try {
-      myFunctions = require('../index');
+      myFunctions = require("../index");
     } catch (e) {
       console.warn(
-        'Could not import index.ts probably due to side effects:',
+        "Could not import index.ts probably due to side effects:",
         e
       );
     }
@@ -26,13 +26,13 @@ describe('Cloud Functions', () => {
     test.cleanup();
   });
 
-  it('should export seedDatabase', () => {
+  it("should export seedDatabase", () => {
     if (myFunctions) {
       expect(myFunctions.seedDatabase).to.exist;
     }
   });
 
-  it('should export refundPayment', () => {
+  it("should export refundPayment", () => {
     if (myFunctions) {
       expect(myFunctions.refundPayment).to.exist;
     }

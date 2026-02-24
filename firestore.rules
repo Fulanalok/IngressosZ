@@ -1,81 +1,99 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helper Functions ---
+
+    // Helper function to check if the user is authenticated.
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    function getRole() {
-      return request.auth.token.role;
+
+    // Helper function to identify the application owner.
+    // **IMPORTANT**: Replace 'YOUR_APPLICATION_OWNER_UID_HERE' with the actual UID of your application owner.
+    // A more scalable approach for multiple owners or roles is to use Firebase Custom Claims.
+    // Example using Custom Claims: return isAuthenticated() && request.auth.token.isOwner == true;
+    function isOwner() {
+      return isAuthenticated() && request.auth.uid == 'YOUR_APPLICATION_OWNER_UID_HERE';
     }
 
-    function isAdmin() {
-      return request.auth.token.admin == true;
-    }
-    
-    function isOrganizer() {
-      return isAdmin() || getRole() == 'organizer';
-    }
-    
-    function isValidator() {
-      return isOrganizer() || getRole() == 'validator';
-    }
 
-    // --- Events Collection ---
-    // Anyone can read events. 
-    // Only organizers can write (create/update) THEIR OWN events.
+    // --- 1. Rules for the '/events' Collection ---
+    // This collection holds master data for all events.
     match /events/{eventId} {
+      // The application owner can create, read, update, and delete any event.
+      allow write: if isOwner(); // 'write' covers create, update, and delete.
+
+      // Anyone (even unauthenticated users) can read event details to browse what's available.
       allow read: if true;
-      allow create: if isOrganizer() && request.resource.data.organizerId == request.auth.uid;
-      allow update: if (isOrganizer() && resource.data.organizerId == request.auth.uid) || isAdmin();
-      allow delete: if (isOrganizer() && resource.data.organizerId == request.auth.uid) || isAdmin();
+
+      // When an owner creates an event, validate the data.
+      allow create: if isOwner()
+                     // Ensure the ownerId field is correctly set to the creator's UID.
+                     && request.resource.data.ownerId == request.auth.uid
+                     // Basic validation for required fields and types.
+                     && request.resource.data.name is string
+                     && request.resource.data.date is timestamp
+                     && request.resource.data.price is number
+                     && request.resource.data.location is string
+                     && request.resource.data.totalTickets is number
+                     && request.resource.data.keys().hasAll(['ownerId', 'name', 'date', 'price', 'location', 'totalTickets']);
+
+      // When an owner updates an event, prevent them from changing ownership.
+      allow update: if isOwner()
+                     && resource.data.ownerId == request.auth.uid;
     }
 
-    // --- Tickets Collection ---
-    // Creation: Denied from client. Must be done by backend after payment.
-    // Read: Users can read their own tickets. Validators can read any ticket.
-    // Update: Only validators can update, and only specific fields for validation.
+
+    // --- 2. Rules for the '/tickets' Collection ---
+    // This collection represents individual tickets that can be purchased.
+    // Each ticket document should contain:
+    // - eventId (string): ID of the event it belongs to.
+    // - ownerId (string): UID of the application owner.
+    // - isSold (boolean): True if sold, false otherwise.
+    // - purchasedBy (string, optional): UID of the customer who bought it.
     match /tickets/{ticketId} {
-      allow create: if false; // CRITICAL: Tickets must only be created by the backend.
-      allow read: if isOwner(resource.data.userId) || isValidator();
-      allow update: if isValidator() && 
-                       request.resource.data.keys().hasOnly(['status', 'usedAt', 'validatedBy']);
-      allow delete: if isAdmin();
-    }
-    
-    // --- Users Collection ---
-    // Users can read/update their own profiles.
-    // Organizers can read user details (for guest lists).
-    // Admins have full access.
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isOrganizer();
-      // Prevent users from changing their own roles.
-      allow create: if isOwner(userId);
-      // Allow update if user is owner AND is NOT changing the role (role must remain the same)
-      // OR if user is admin.
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
-      allow delete: if isAdmin();
+      // The application owner can create, update, and delete any ticket.
+      allow write: if isOwner();
+
+      // Anyone (even unauthenticated users) can read available tickets to browse.
+      allow read: if true;
+
+      // Customer 'buying' a ticket:
+      // An authenticated non-owner can perform a very specific update operation.
+      allow update: if isAuthenticated()
+                     && !isOwner() // Must not be the owner
+                     && resource.data.isSold == false // The ticket must currently be unsold
+                     && request.resource.data.isSold == true // The update must set 'isSold' to true
+                     && request.resource.data.purchasedBy == request.auth.uid // The update must assign it to the current user's UID
+                     // Ensure ONLY 'isSold' and 'purchasedBy' fields are changed by the customer.
+                     && request.resource.diff(resource).affectedKeys().hasOnly(['isSold', 'purchasedBy']);
     }
 
-    // --- Payment Sessions Collection ---
-    // Creation/Update: Denied from client. Must be handled by backend.
-    // Read: Users can read their own payment sessions to check status.
-    match /paymentSessions/{sessionId} {
-      allow create: if false; // Backend function creates this.
-      allow update: if false; // Backend webhook updates this.
-      allow read: if isOwner(resource.data.userId);
-      allow delete: if isAdmin();
+
+    // --- 3. Rules for the '/users/{userId}/purchasedTickets' Subcollection ---
+    // This subcollection under each user's document stores a record of tickets they have bought.
+    match /users/{userId}/purchasedTickets/{purchasedTicketId} {
+      // Customers can ONLY read their own purchased tickets.
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+
+      // When a customer successfully buys a ticket (via the '/tickets' rule or a Cloud Function),
+      // a corresponding record is created in their '/purchasedTickets' subcollection.
+      allow create: if isAuthenticated()
+                     && request.auth.uid == userId // Ensure the user is writing to their own subcollection
+                     // Basic validation for required fields and types in the purchase record.
+                     && request.resource.data.ticketId is string
+                     && request.resource.data.eventId is string
+                     && request.resource.data.purchaseDate is timestamp
+                     // Ensure only expected fields are written.
+                     && request.resource.data.keys().hasAll(['ticketId', 'eventId', 'purchaseDate'])
+                     && request.resource.data.size() == 3;
+
+      // Customers cannot update or delete their purchased ticket records directly.
+      allow update, delete: if false;
     }
-    
-    // --- Default Deny ---
-    // Explicitly deny access to any other collections by default.
+
+
+    // --- 4. Default Rule for All Other Collections ---
+    // Deny all read/write access to any other collections not explicitly defined above.
     match /{document=**} {
       allow read, write: if false;
     }

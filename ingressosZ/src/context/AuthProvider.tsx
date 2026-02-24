@@ -1,17 +1,10 @@
-import { getRedirectResult, onAuthStateChanged, signOut, User } from "firebase/auth";
-import { createContext, ReactNode, useEffect, useState } from "react";
 import { auth } from "@/firebaseConfig";
 import { userService } from "@/services/firestore";
 import type { UserProfile } from "@/types";
-
-interface AuthContextType {
-  user: User | null;
-  userProfile: UserProfile | null;
-  loading: boolean;
-  logout: () => Promise<void>;
-}
-
-export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+import type { User } from "firebase/auth";
+import { getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
+import { ReactNode, useEffect, useState } from "react";
+import { AuthContext, type AuthContextType } from "./authContext";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -34,7 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             avatarUrl: currentUser.photoURL || "",
           };
           await userService.createUserProfile(currentUser.uid, newUserProfile);
-          const createdProfile = await userService.getUserProfile(currentUser.uid);
+          const createdProfile = await userService.getUserProfile(
+            currentUser.uid
+          );
           setUserProfile(createdProfile || null);
         }
       } else {
@@ -70,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const logout = async () => {
+  const handleSignOut = async () => {
     try {
       await signOut(auth);
       setUser(null);
@@ -80,7 +75,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = { user, userProfile, loading, logout };
+  const getFreshIdToken: AuthContextType["getFreshIdToken"] = async () => {
+    if (!user) return null;
+    try {
+      const token = await user.getIdToken(true);
+      return token;
+    } catch {
+      return null;
+    }
+  };
+
+  const getAuthHeaders: AuthContextType["getAuthHeaders"] = async () => {
+    const token = await getFreshIdToken();
+    if (!token) return {} as Record<string, string>;
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  const value: AuthContextType = {
+    user,
+    userProfile,
+    loading,
+    signOut: handleSignOut,
+    getFreshIdToken,
+    getAuthHeaders,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
