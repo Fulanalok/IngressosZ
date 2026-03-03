@@ -1,0 +1,11 @@
+
+{
+  "kind": "identitytoolkit#VerifyPasswordResponse",
+  "localId": "testUser123",
+  "email": "test@example.com",
+  "displayName": "Test User",
+  "idToken": "fake-id-token",
+  "registered": true,
+  "refreshToken": "fake-refresh-token",
+  "expiresIn": "3600"
+}
