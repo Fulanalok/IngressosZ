@@ -55,7 +55,7 @@ describe("useMercadoPagoCheckout", () => {
     vi.restoreAllMocks();
   });
 
-  it("não cria preferência quando falta userId", async () => {
+  it("não cria preferência quando falta userId e email", async () => {
     const event = {
       id: "e1",
       title: "Evento",
@@ -70,7 +70,7 @@ describe("useMercadoPagoCheckout", () => {
       getAuthHeaders: async () => ({}),
     });
     const { result } = renderHook(
-      () => useMercadoPagoCheckout(event, "standard", 1, "", "e@example.com"),
+      () => useMercadoPagoCheckout(event, "standard", 1, "", ""),
       { wrapper }
     );
     await act(async () => {

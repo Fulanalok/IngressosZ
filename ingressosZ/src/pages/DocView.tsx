@@ -61,7 +61,7 @@ function DocView() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p><strong>Frontend:</strong> React 19 + TypeScript + Vite + Tailwind CSS v4</p>
-              <p><strong>Backend:</strong> Firebase Cloud Functions v2 + Node.js 20</p>
+              <p><strong>Backend:</strong> Firebase Cloud Functions v2 + Node.js 24</p>
               <p><strong>Banco de Dados:</strong> Firestore (NoSQL)</p>
               <p><strong>Autenticação:</strong> Firebase Auth</p>
               <p><strong>Pagamentos:</strong> Mercado Pago (SDK v2.12)</p>

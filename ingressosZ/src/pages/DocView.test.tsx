@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { expect, test, vi } from "vitest";
+import { test, vi } from "vitest";
 import DocView from "./DocView";
 
 vi.mock("../services/logger", () => ({
-  postClientError: vi.fn(async () => {}),
+  postClientError: vi.fn(async () => ({ ok: true, status: 200 })),
 }));
 
 test("renderiza DocView com título", async () => {

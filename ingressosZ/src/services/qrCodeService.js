@@ -80,4 +80,15 @@ export class QRCodeService {
             return null;
         }
     }
+    static downloadQRCode(dataUrl, fileName = "qr-code.png") {
+        if (!dataUrl) {
+            return;
+        }
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
 }

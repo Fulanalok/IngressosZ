@@ -1,19 +1,16 @@
-import "mocha";
-import {expect} from "chai";
-import functionsTest = require("firebase-functions-test");
+const { describe, it, before, after } = require("mocha");
+const { expect } = require("chai");
+const functionsTest = require("firebase-functions-test");
 
 const test = functionsTest();
 
-describe('Cloud Functions', () => {
+describe("Cloud Functions", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let myFunctions: any;
 
   before(() => {
-    // Use offline mode mocks
-    // Note: importing index.ts will trigger admin.initializeApp()
-    // We should mock it if possible, but for now let's see if it works.
     try {
-      myFunctions = require("../index");
+      myFunctions = require("../../lib/index.js");
     } catch (e) {
       console.warn(
         "Could not import index.ts probably due to side effects:",

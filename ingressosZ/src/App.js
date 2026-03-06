@@ -1,7 +1,13 @@
-import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, } from "react-router-dom";
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 import DevPanel from "@/components/DevPanel";
 import FirebaseDebug from "@/components/FirebaseDebug";
@@ -10,7 +16,10 @@ import { Button } from "@/components/ui/button";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useAuth } from "@/hooks/useAuth";
 import { postClientError } from "@/services/logger";
-const EventDetailPage = lazy(() => import("@/pages/EventDetailPage").then((module) => ({ default: module.default })));
+
+const EventDetailPage = lazy(() =>
+  import("@/pages/EventDetailPage").then((module) => ({ default: module.default }))
+);
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const HomePage = lazy(() => import("@/pages/HomePage"));
 const Login = lazy(() => import("@/pages/Login"));
@@ -24,119 +33,287 @@ const ValidatorPage = lazy(() => import("@/pages/ValidatorPage"));
 const DocViewPage = lazy(() => import("@/pages/DocView"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/admin/AdminPage"));
+
 function App() {
-    function RequireAuth({ children }) {
-        const { user } = useAuth();
-        const location = useLocation();
-        if (!user)
-            return _jsx(Navigate, { to: "/login", state: { from: location }, replace: true });
-        return _jsx(_Fragment, { children: children });
+  function RequireAuth({ children }) {
+    const { user } = useAuth();
+    const location = useLocation();
+    if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+    return <>{children}</>;
+  }
+
+  function ScrollAndFocus() {
+    const location = useLocation();
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const el = document.getElementById("main-content");
+      if (el) el.focus();
+    }, [location]);
+    return null;
+  }
+
+  function RequireRole({ role, children }) {
+    const { userProfile } = useAuth();
+    const allowedRoles = Array.isArray(role)
+      ? role.map((r) => r.toLowerCase())
+      : [role.toLowerCase()];
+    const userRole = String(userProfile?.role || "").toLowerCase();
+    const hasRole = allowedRoles.includes(userRole);
+
+    if (!hasRole) {
+      if (import.meta.env.DEV) {
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
+            <div className="text-4xl mb-4">🛡️</div>
+            <h2 className="text-xl font-bold mb-2">
+              Acesso Restrito (DEV Mode)
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Esta rota exige um dos seguintes papéis:{" "}
+              <code className="bg-muted px-1 rounded">
+                {allowedRoles.join(", ")}
+              </code>
+            </p>
+            <p className="mb-6">
+              Seu papel atual é:{" "}
+              <code className="bg-muted px-1 rounded">
+                {userRole || "nenhum (user)"}
+              </code>
+            </p>
+            <div className="flex gap-4">
+              <Button asChild variant="outline">
+                <Link to="/">Voltar para Início</Link>
+              </Button>
+            </div>
+          </div>
+        );
+      }
+      return <Navigate to="/" replace />;
     }
-    function ScrollAndFocus() {
-        const location = useLocation();
-        useEffect(() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            const el = document.getElementById("main-content");
-            if (el)
-                el.focus();
-        }, [location]);
-        return null;
+    return <>{children}</>;
+  }
+
+  function NotFound() {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🧭</div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            Página não encontrada
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            Verifique o endereço ou volte para a página inicial.
+          </p>
+          <Button asChild>
+            <Link to="/">Voltar para início</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  class ErrorBoundary extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = { hasError: false };
     }
-    function RequireRole({ role, children, }) {
-        const { userProfile } = useAuth();
-        const allowedRoles = Array.isArray(role)
-            ? role.map((r) => r.toLowerCase())
-            : [role.toLowerCase()];
-        const userRole = String(userProfile?.role || "").toLowerCase();
-        const hasRole = allowedRoles.includes(userRole);
-        if (!hasRole) {
-            // Em desenvolvimento, mostramos uma mensagem explicativa em vez de redirecionar silenciosamente
-            if (import.meta.env.DEV) {
-                return (_jsxs("div", { className: "min-h-screen flex flex-col items-center justify-center p-4 text-center", children: [_jsx("div", { className: "text-4xl mb-4", children: "\uD83D\uDEE1\uFE0F" }), _jsx("h2", { className: "text-xl font-bold mb-2", children: "Acesso Restrito (DEV Mode)" }), _jsxs("p", { className: "text-muted-foreground mb-4", children: ["Esta rota exige um dos seguintes pap\u00E9is:", " ", _jsx("code", { className: "bg-muted px-1 rounded", children: allowedRoles.join(", ") })] }), _jsxs("p", { className: "mb-6", children: ["Seu papel atual \u00E9:", " ", _jsx("code", { className: "bg-muted px-1 rounded", children: userRole || "nenhum (user)" })] }), _jsx("div", { className: "flex gap-4", children: _jsx(Button, { asChild: true, variant: "outline", children: _jsx(Link, { to: "/", children: "Voltar para In\u00EDcio" }) }) })] }));
+    static getDerivedStateFromError() {
+      return { hasError: true };
+    }
+    componentDidCatch(error, info) {
+      const payload = {
+        type: "render-error",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        info,
+        route: window.location.pathname,
+        ua: navigator.userAgent,
+        ts: Date.now(),
+      };
+      void postClientError(payload);
+    }
+    reset = () => {
+      this.setState({ hasError: false });
+      this.props.onReset();
+    };
+    render() {
+      if (this.state.hasError) {
+        return (
+          <div className="min-h-screen gradient-bg flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                Algo deu errado
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Tente novamente. Se persistir, volte para a página inicial.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Button onClick={this.reset}>Tentar novamente</Button>
+                <Button variant="secondary" asChild>
+                  <Link to="/">Início</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      return this.props.children;
+    }
+  }
+
+  return (
+    <ThemeProvider>
+      <Toaster richColors position="top-right" closeButton />
+      <BrowserRouter>
+        <a
+          href="#main-content"
+          className="fixed left-4 top-4 -translate-y-full focus:translate-y-0 bg-primary text-primary-foreground px-3 py-2 z-50"
+        >
+          Pular para o conteúdo
+        </a>
+
+        <header>
+          <Navbar />
+        </header>
+
+        <main id="main-content" tabIndex={-1}>
+          <ScrollAndFocus />
+          {(() => {
+            function GlobalErrorListeners() {
+              useEffect(() => {
+                const onError = (e) => {
+                  const payload = {
+                    type: "window-error",
+                    message: e.message,
+                    stack: e.error?.stack,
+                    filename: e.filename,
+                    lineno: e.lineno,
+                    colno: e.colno,
+                    route: window.location.pathname,
+                    ua: navigator.userAgent,
+                    ts: Date.now(),
+                  };
+                  void postClientError(payload);
+                };
+                const onRejection = (e) => {
+                  const payload = {
+                    type: "unhandled-rejection",
+                    reason:
+                      e.reason instanceof Error
+                        ? e.reason.message
+                        : String(e.reason),
+                    stack: e.reason instanceof Error ? e.reason.stack : undefined,
+                    route: window.location.pathname,
+                    ua: navigator.userAgent,
+                    ts: Date.now(),
+                  };
+                  void postClientError(payload);
+                };
+                window.addEventListener("error", onError);
+                window.addEventListener("unhandledrejection", onRejection);
+                return () => {
+                  window.removeEventListener("error", onError);
+                  window.removeEventListener("unhandledrejection", onRejection);
+                };
+              }, []);
+              return null;
             }
-            return _jsx(Navigate, { to: "/", replace: true });
-        }
-        return _jsx(_Fragment, { children: children });
-    }
-    function NotFound() {
-        return (_jsx("div", { className: "min-h-screen gradient-bg flex items-center justify-center", children: _jsxs("div", { className: "text-center", children: [_jsx("div", { className: "text-6xl mb-4", children: "\uD83E\uDDED" }), _jsx("h2", { className: "text-2xl font-bold text-foreground mb-2", children: "P\u00E1gina n\u00E3o encontrada" }), _jsx("p", { className: "text-muted-foreground mb-6", children: "Verifique o endere\u00E7o ou volte para a p\u00E1gina inicial." }), _jsx(Button, { asChild: true, children: _jsx(Link, { to: "/", children: "Voltar para in\u00EDcio" }) })] }) }));
-    }
-    class ErrorBoundary extends React.Component {
-        constructor(props) {
-            super(props);
-            Object.defineProperty(this, "reset", {
-                enumerable: true,
-                configurable: true,
-                writable: true,
-                value: () => {
-                    this.setState({ hasError: false });
-                    this.props.onReset();
-                }
-            });
-            this.state = { hasError: false };
-        }
-        static getDerivedStateFromError() {
-            return { hasError: true };
-        }
-        componentDidCatch(error, info) {
-            const payload = {
-                type: "render-error",
-                message: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-                info,
-                route: window.location.pathname,
-                ua: navigator.userAgent,
-                ts: Date.now(),
-            };
-            void postClientError(payload);
-        }
-        render() {
-            if (this.state.hasError) {
-                return (_jsx("div", { className: "min-h-screen gradient-bg flex items-center justify-center", children: _jsxs("div", { className: "text-center", children: [_jsx("div", { className: "text-6xl mb-4", children: "\u26A0\uFE0F" }), _jsx("h2", { className: "text-2xl font-bold text-foreground mb-2", children: "Algo deu errado" }), _jsx("p", { className: "text-muted-foreground mb-6", children: "Tente novamente. Se persistir, volte para a p\u00E1gina inicial." }), _jsxs("div", { className: "flex items-center justify-center gap-3", children: [_jsx(Button, { onClick: this.reset, children: "Tentar novamente" }), _jsx(Button, { variant: "secondary", asChild: true, children: _jsx(Link, { to: "/", children: "In\u00EDcio" }) })] })] }) }));
+            return <GlobalErrorListeners />;
+          })()}
+          <Suspense
+            fallback={
+              <div className="flex h-screen items-center justify-center">
+                <div className="animate-spin rounded-none h-12 w-12 border-b-2 border-primary"></div>
+              </div>
             }
-            return this.props.children;
-        }
-    }
-    return (_jsxs(ThemeProvider, { children: [_jsx(Toaster, { richColors: true, position: "top-right", closeButton: true }), _jsxs(BrowserRouter, { children: [_jsx("a", { href: "#main-content", className: "fixed left-4 top-4 -translate-y-full focus:translate-y-0 bg-primary text-primary-foreground px-3 py-2 z-50", children: "Pular para o conte\u00FAdo" }), _jsx("header", { children: _jsx(Navbar, {}) }), _jsxs("main", { id: "main-content", tabIndex: -1, children: [_jsx(ScrollAndFocus, {}), (() => {
-                                function GlobalErrorListeners() {
-                                    useEffect(() => {
-                                        const onError = (e) => {
-                                            const payload = {
-                                                type: "window-error",
-                                                message: e.message,
-                                                stack: e.error?.stack,
-                                                filename: e.filename,
-                                                lineno: e.lineno,
-                                                colno: e.colno,
-                                                route: window.location.pathname,
-                                                ua: navigator.userAgent,
-                                                ts: Date.now(),
-                                            };
-                                            void postClientError(payload);
-                                        };
-                                        const onRejection = (e) => {
-                                            const payload = {
-                                                type: "unhandled-rejection",
-                                                reason: e.reason instanceof Error
-                                                    ? e.reason.message
-                                                    : String(e.reason),
-                                                stack: e.reason instanceof Error ? e.reason.stack : undefined,
-                                                route: window.location.pathname,
-                                                ua: navigator.userAgent,
-                                                ts: Date.now(),
-                                            };
-                                            void postClientError(payload);
-                                        };
-                                        window.addEventListener("error", onError);
-                                        window.addEventListener("unhandledrejection", onRejection);
-                                        return () => {
-                                            window.removeEventListener("error", onError);
-                                            window.removeEventListener("unhandledrejection", onRejection);
-                                        };
-                                    }, []);
-                                    return null;
-                                }
-                                return _jsx(GlobalErrorListeners, {});
-                            })(), _jsx(Suspense, { fallback: _jsx("div", { className: "flex h-screen items-center justify-center", children: _jsx("div", { className: "animate-spin rounded-none h-12 w-12 border-b-2 border-primary" }) }), children: _jsx(QueryErrorResetBoundary, { children: ({ reset }) => (_jsx(ErrorBoundary, { onReset: reset, children: _jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(Login, {}) }), _jsx(Route, { path: "/cadastro", element: _jsx(SignUp, {}) }), _jsx(Route, { path: "/dev-auto", element: _jsx(DevAutoPage, {}) }), _jsx(Route, { path: "/debug/firebase", element: _jsx(FirebaseDebug, {}) }), _jsx(Route, { path: "/doc", element: _jsx(DocViewPage, {}) }), _jsx(Route, { path: "/", element: _jsx(RequireAuth, { children: _jsx(HomePage, {}) }) }), _jsx(Route, { path: "/eventos", element: _jsx(RequireAuth, { children: _jsx(EventsPage, {}) }) }), _jsx(Route, { path: "/evento/:eventId", element: _jsx(RequireAuth, { children: _jsx(EventDetailPage, {}) }) }), _jsx(Route, { path: "/meus-ingressos", element: _jsx(RequireAuth, { children: _jsx(MyTicketsPage, {}) }) }), _jsx(Route, { path: "/perfil", element: _jsx(RequireAuth, { children: _jsx(ProfilePage, {}) }) }), _jsx(Route, { path: "/validador", element: _jsx(RequireAuth, { children: _jsx(RequireRole, { role: ["validator", "organizer", "admin"], children: _jsx(ValidatorPage, {}) }) }) }), _jsx(Route, { path: "/teste-qr", element: _jsx(RequireAuth, { children: _jsx(RequireRole, { role: "validator", children: _jsx(QRTestPage, {}) }) }) }), _jsx(Route, { path: "/admin", element: _jsx(RequireAuth, { children: _jsx(RequireRole, { role: "organizer", children: _jsx(AdminPage, {}) }) }) }), _jsx(Route, { path: "/pagamento/sucesso", element: _jsx(RequireAuth, { children: _jsx(PaymentSuccess, {}) }) }), _jsx(Route, { path: "/pagamento/sucesso/:sessionId", element: _jsx(RequireAuth, { children: _jsx(PaymentSuccess, {}) }) }), _jsx(Route, { path: "/pagamento/cancelado", element: _jsx(RequireAuth, { children: _jsx(PaymentCanceled, {}) }) }), _jsx(Route, { path: "*", element: _jsx(NotFound, {}) })] }) })) }) })] }), _jsx(DevPanel, {}), _jsx("div", { "aria-live": "polite", "aria-atomic": "true", className: "sr-only", id: "aria-live-region" })] })] }));
+          >
+            <QueryErrorResetBoundary>
+              {({ reset }) => (
+                <ErrorBoundary onReset={reset}>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/cadastro" element={<SignUp />} />
+                    <Route path="/dev-auto" element={<DevAutoPage />} />
+                    <Route path="/debug/firebase" element={<FirebaseDebug />} />
+                    <Route path="/doc" element={<DocViewPage />} />
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/eventos" element={<EventsPage />} />
+                    <Route path="/evento/:eventId" element={<EventDetailPage />} />
+                    <Route
+                      path="/meus-ingressos"
+                      element={
+                        <RequireAuth>
+                          <MyTicketsPage />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/perfil"
+                      element={
+                        <RequireAuth>
+                          <ProfilePage />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/validador"
+                      element={
+                        <RequireAuth>
+                          <RequireRole role={["validator", "organizer", "admin"]}>
+                            <ValidatorPage />
+                          </RequireRole>
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/teste-qr"
+                      element={
+                        <RequireAuth>
+                          <RequireRole role="validator">
+                            <QRTestPage />
+                          </RequireRole>
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={
+                        <RequireAuth>
+                          <RequireRole role="organizer">
+                            <AdminPage />
+                          </RequireRole>
+                        </RequireAuth>
+                      }
+                    />
+                    <Route path="/pagamento/sucesso" element={<PaymentSuccess />} />
+                    <Route
+                      path="/pagamento/sucesso/:sessionId"
+                      element={<PaymentSuccess />}
+                    />
+                    <Route
+                      path="/pagamento/cancelado"
+                      element={<PaymentCanceled />}
+                    />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </ErrorBoundary>
+              )}
+            </QueryErrorResetBoundary>
+          </Suspense>
+        </main>
+
+        <DevPanel />
+
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+          id="aria-live-region"
+        ></div>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
 }
+
 export default App;

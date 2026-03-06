@@ -256,25 +256,19 @@ function App() {
                     <Route
                       path="/"
                       element={
-                        <RequireAuth>
-                          <HomePage />
-                        </RequireAuth>
+                        <HomePage />
                       }
                     />
                     <Route
                       path="/eventos"
                       element={
-                        <RequireAuth>
-                          <EventsPage />
-                        </RequireAuth>
+                        <EventsPage />
                       }
                     />
                     <Route
                       path="/evento/:eventId"
                       element={
-                        <RequireAuth>
-                          <EventDetailPage />
-                        </RequireAuth>
+                        <EventDetailPage />
                       }
                     />
                     <Route
@@ -330,25 +324,19 @@ function App() {
                     <Route
                       path="/pagamento/sucesso"
                       element={
-                        <RequireAuth>
-                          <PaymentSuccess />
-                        </RequireAuth>
+                        <PaymentSuccess />
                       }
                     />
                     <Route
                       path="/pagamento/sucesso/:sessionId"
                       element={
-                        <RequireAuth>
-                          <PaymentSuccess />
-                        </RequireAuth>
+                        <PaymentSuccess />
                       }
                     />
                     <Route
                       path="/pagamento/cancelado"
                       element={
-                        <RequireAuth>
-                          <PaymentCanceled />
-                        </RequireAuth>
+                        <PaymentCanceled />
                       }
                     />
                     <Route path="*" element={<NotFound />} />

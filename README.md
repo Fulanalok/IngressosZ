@@ -22,7 +22,7 @@
 
 ## ✅ Requisitos
 
-- Node.js 24 para o backend (`/functions`, ver `engines`).
+- Node.js 24 (obrigatório para `/functions`, recomendado para todo o monorepo).
 - Firebase CLI configurado no ambiente local.
 
 ## ⚙️ Configuração e Instalação
@@ -52,7 +52,7 @@ npm install
 
 #### Frontend (`/ingressosZ`)
 
-Crie um arquivo `.env` na raiz da pasta `ingressosZ` e adicione as seguintes variáveis com as chaves do seu projeto Firebase:
+Atualize as chaves do Firebase em `src/firebaseConfig.ts`. Se preferir usar `.env`, adapte o `firebaseConfig.ts` para ler as variáveis abaixo:
 
 ```env
 VITE_FIREBASE_API_KEY="sua_api_key"

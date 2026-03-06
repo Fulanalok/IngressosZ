@@ -46,9 +46,7 @@ service cloud.firestore {
     // - isSold (boolean): True if sold, false otherwise.
     // - purchasedBy (string, optional): UID of the customer who bought it.
     match /tickets/{ticketId} {
-      allow create: if isOwner()
-        || (isAuthenticated()
-          && request.resource.data.userId == request.auth.uid);
+      allow create: if isOwner();
 
       allow update, delete: if isOwner();
 

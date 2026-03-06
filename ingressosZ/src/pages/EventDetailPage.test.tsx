@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import EventDetailPage from "./EventDetailPage";
@@ -90,19 +91,16 @@ describe("EventDetailPage", () => {
     expect(screen.getByText("Loc - Rua A, 123")).toBeInTheDocument();
   });
 
-  it("shows login prompt when user is not authenticated", () => {
+  it("shows purchase button when user is not authenticated", () => {
     eventState.data = mockEvent;
     authState.user = null;
     render(<EventDetailPage />);
-    expect(
-      screen.getByText("Você precisa estar logado para comprar ingressos.")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Ir para o login")).toBeInTheDocument();
+    expect(screen.getByText("Comprar Ingressos")).toBeInTheDocument();
   });
 
   it("shows purchase modal when user clicks buy", () => {
     eventState.data = mockEvent;
-    authState.user = { uid: "u1" };
+    authState.user = null;
     render(<EventDetailPage />);
     fireEvent.click(screen.getByText("Comprar Ingressos"));
     expect(screen.getByTestId("ticket-purchase")).toBeInTheDocument();

@@ -7,6 +7,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
+    "test": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register \"src/test/**/*.test.ts\"",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
@@ -16,21 +17,31 @@
   "main": "lib/index.js",
   "dependencies": {
     "@sentry/node": "^7.119.2",
-    "firebase-admin": "^13.6.0",
-    "firebase-functions": "^7.0.6",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.1.0",
     "mercadopago": "^2.2.3",
     "nodemailer": "^8.0.1",
     "sharp": "^0.33.4"
   },
   "devDependencies": {
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.6",
     "@types/nodemailer": "^6.4.15",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
+    "chai": "^4.4.1",
     "eslint": "^8.57.1",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.29.1",
     "firebase-functions-test": "^2.1.0",
+    "mocha": "^11.7.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "@tootallnate/once": "3.0.1",
+    "diff": "8.0.3",
+    "serialize-javascript": "7.0.4"
   },
   "private": true
 }

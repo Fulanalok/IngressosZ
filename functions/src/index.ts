@@ -2,8 +2,10 @@ import * as Sentry from "@sentry/node";
 import cors from "cors";
 import { createHmac } from "crypto";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { defineSecret, defineString } from "firebase-functions/params";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import * as fs from "fs";
@@ -37,9 +39,26 @@ const webBaseUrl = defineString("WEB_BASE_URL", {
   default: "https://ingressosz.web.app",
 });
 
-const corsHandler = cors({ origin: true });
+const webBase = String(webBaseUrl.value() || "").trim();
+const allowedOrigins = new Set(
+  [webBase, "http://localhost:5173", "http://127.0.0.1:5173"]
+    .filter(Boolean)
+    .map((origin) => origin.replace(/\/+$/, ""))
+);
+const corsHandler = cors({
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    const normalized = origin.replace(/\/+$/, "");
+    callback(null, allowedOrigins.has(normalized));
+  },
+});
 
-admin.initializeApp();
+if (typeof admin.initializeApp === "function") {
+  admin.initializeApp();
+}
 
 export const health = onRequest((req, res) => {
   corsHandler(req, res, () => {
@@ -90,7 +109,7 @@ export const seedDatabase = onCall(
       availableTickets: 500,
       organizerId: request.auth?.uid || "admin",
       imageUrl: "https://placehold.co/600x400/png",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     const purchaseRef = db.collection("purchases").doc();
@@ -100,7 +119,7 @@ export const seedDatabase = onCall(
       paymentId: "mock_payment_123",
       status: "approved",
       items: [{ id: "ticket", quantity: 2, unit_price: 150 }],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     const secret = jwtSecret.value() || "default-dev-secret";
@@ -122,7 +141,7 @@ export const seedDatabase = onCall(
         qrCode: signedToken,
         validated: false,
         status: "valid",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -178,10 +197,12 @@ export const createPaymentPreference = onCall(
       eventId,
       quantity = 1,
       userId,
+      userEmail,
     } = request.data as {
       eventId: string;
       quantity?: number;
       userId: string;
+      userEmail?: string;
     };
 
     if (!eventId || !userId || quantity < 1) {
@@ -226,13 +247,14 @@ export const createPaymentPreference = onCall(
 
     const preference = new Preference(client);
     try {
+      const payerEmail = request.auth?.token.email || userEmail;
       const result = await preference.create({
         body: {
           items,
           payer: {
-            email: request.auth?.token.email,
+            email: payerEmail,
           },
-          metadata: { eventId, userId, quantity },
+          metadata: { eventId, userId, quantity, userEmail: payerEmail },
           back_urls: {
             success: `${webBaseUrl.value()}/pagamento/sucesso`,
             failure: `${webBaseUrl.value()}/pagamento/cancelado`,
@@ -265,6 +287,139 @@ export const createPaymentPreference = onCall(
     }
   }
 );
+
+export const createPaymentPreferencePublic = onRequest(
+  { secrets: [mercadopagoAccessToken] },
+  async (req, res) => {
+    corsHandler(req, res, async () => {
+      if (req.method !== "POST") {
+        res.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const accessToken = mercadopagoAccessToken.value();
+      const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+      if (!accessToken && isEmulator) {
+        res.status(200).json({ id: `pref_${Date.now()}` });
+        return;
+      }
+
+      const {
+        eventId,
+        quantity = 1,
+        userEmail,
+      } = req.body as {
+        eventId?: string;
+        quantity?: number;
+        userEmail?: string;
+      };
+
+      if (!eventId || !userEmail || quantity < 1) {
+        res.status(400).json({ message: "Dados inválidos para compra." });
+        return;
+      }
+
+      const eventDoc = await admin
+        .firestore()
+        .collection("events")
+        .doc(eventId)
+        .get();
+
+      if (!eventDoc.exists) {
+        res.status(404).json({ message: "Evento não encontrado." });
+        return;
+      }
+
+      const eventData = eventDoc.data() as {
+        availableTickets?: number;
+        price?: number;
+        title?: string;
+      };
+
+      if ((eventData.availableTickets || 0) < quantity) {
+        res
+          .status(412)
+          .json({ message: "Ingressos esgotados ou quantidade indisponível." });
+        return;
+      }
+
+      const unitPrice = Number(eventData.price || 0);
+      const title = `Ingresso: ${eventData.title ?? ""}`;
+
+      const items = [
+        {
+          id: eventId,
+          title,
+          quantity,
+          unit_price: unitPrice,
+          currency_id: "BRL",
+        },
+      ];
+
+      const client = new MercadoPagoConfig({
+        accessToken,
+      });
+
+      const preference = new Preference(client);
+      try {
+        const result = await preference.create({
+          body: {
+            items,
+            payer: {
+              email: userEmail,
+            },
+            metadata: { eventId, quantity, userEmail },
+            back_urls: {
+              success: `${webBaseUrl.value()}/pagamento/sucesso`,
+              failure: `${webBaseUrl.value()}/pagamento/cancelado`,
+              pending: `${webBaseUrl.value()}/pagamento/cancelado`,
+            },
+            auto_return: "approved",
+          },
+        });
+        res.status(200).json({ id: result.id });
+      } catch (error) {
+        logger.error("Erro ao criar preferência pública:", error);
+        res.status(500).json({ message: "Erro ao criar preferência." });
+      }
+    });
+  }
+);
+
+const ensureUserFromEmail = async (email: string) => {
+  let accountCreated = false;
+  let userRecord: admin.auth.UserRecord;
+  try {
+    userRecord = await admin.auth().getUserByEmail(email);
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === "auth/user-not-found") {
+      userRecord = await admin.auth().createUser({
+        email,
+        emailVerified: false,
+      });
+      accountCreated = true;
+    } else {
+      throw error;
+    }
+  }
+
+  const userRef = admin.firestore().collection("users").doc(userRecord.uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    await userRef.set({
+      uid: userRecord.uid,
+      email: userRecord.email || email,
+      displayName: userRecord.displayName || "",
+      phone: userRecord.phoneNumber || "",
+      role: "user",
+      avatarUrl: userRecord.photoURL || "",
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  return { userId: userRecord.uid, accountCreated };
+};
 
 export const receiveWebhook = onRequest(
   {
@@ -334,10 +489,40 @@ export const receiveWebhook = onRequest(
           payment.metadata &&
           payment.additional_info?.items
         ) {
-          const { eventId, userId } = payment.metadata as {
+          const {
+            eventId,
+            userId: metadataUserId,
+            userEmail: metadataEmail,
+          } = payment.metadata as {
             eventId: string;
-            userId: string;
+            userId?: string;
+            userEmail?: string;
           };
+          const additionalPayer = payment.additional_info?.payer as {
+            email?: string;
+          } | null;
+          const payerEmail =
+            (payment.payer as { email?: string } | null)?.email ||
+            additionalPayer?.email;
+          let resolvedUserId = metadataUserId;
+          const resolvedEmail = metadataEmail || payerEmail || "";
+          let accountCreated = false;
+          if (!resolvedUserId && resolvedEmail) {
+            const result = await ensureUserFromEmail(resolvedEmail);
+            resolvedUserId = result.userId;
+            accountCreated = result.accountCreated;
+          }
+
+          if (!eventId || !resolvedUserId) {
+            logger.warn("Pagamento sem dados de usuário válidos", {
+              paymentId,
+              eventId,
+              resolvedUserId,
+            });
+            response.status(200).send("OK");
+            return;
+          }
+
           const items = payment.additional_info.items as Array<{
             quantity: number;
           }>;
@@ -360,6 +545,7 @@ export const receiveWebhook = onRequest(
             0
           );
 
+          const newPurchaseRef = purchasesRef.doc();
           await admin.firestore().runTransaction(async (transaction) => {
             const eventRef = admin
               .firestore()
@@ -385,11 +571,13 @@ export const receiveWebhook = onRequest(
 
               const failedPurchaseRef = purchasesRef.doc();
               transaction.set(failedPurchaseRef, {
-                userId,
+                userId: resolvedUserId,
                 eventId,
                 paymentId,
                 status: "refunded_oversold",
                 items,
+                userEmail: resolvedEmail,
+                accountCreated,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 error: "Overselling detected",
               });
@@ -398,19 +586,18 @@ export const receiveWebhook = onRequest(
             }
 
             transaction.update(eventRef, {
-              availableTickets: admin.firestore.FieldValue.increment(
-                -ticketsCount
-              ),
+              availableTickets: FieldValue.increment(-ticketsCount),
             });
 
-            const newPurchaseRef = purchasesRef.doc();
             transaction.set(newPurchaseRef, {
-              userId,
+              userId: resolvedUserId,
               eventId,
               paymentId,
               status: "approved",
               items,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              userEmail: resolvedEmail,
+              accountCreated,
+              createdAt: FieldValue.serverTimestamp(),
             });
 
             const ticketsCollection = admin.firestore().collection("tickets");
@@ -421,7 +608,7 @@ export const receiveWebhook = onRequest(
               const ticketPayload = {
                 tid: newTicketRef.id,
                 eid: eventId,
-                uid: userId,
+                uid: resolvedUserId,
                 ts: Date.now(),
               };
               const signedToken = jwt.sign(ticketPayload, secret, {
@@ -429,7 +616,7 @@ export const receiveWebhook = onRequest(
               });
 
               transaction.set(newTicketRef, {
-                userId,
+                userId: resolvedUserId,
                 eventId,
                 purchaseId: newPurchaseRef.id,
                 qrCode: signedToken,
@@ -440,20 +627,16 @@ export const receiveWebhook = onRequest(
             }
           });
 
-          logger.info(`Compra processada para ${userId} no evento ${eventId}.`);
+          logger.info(
+            `Compra processada para ${resolvedUserId} no evento ${eventId}.`
+          );
 
-          try {
-            const userRecord = await admin.auth().getUser(userId);
-            if (userRecord.email) {
-              const subject = "Seus ingressos chegaram! - IngressosZ";
-              const html =
-                `Olá! Seus ${ticketsCount} ingressos foram confirmados.` +
-                " Acesse o app para visualizar.";
-              await sendEmail(userRecord.email, subject, html);
-            }
-          } catch (emailError) {
-            logger.error("Erro ao enviar email de confirmação:", emailError);
-          }
+          await sendPurchaseEmail(newPurchaseRef.id, {
+            userId: resolvedUserId,
+            eventId,
+            ticketsCount,
+            accountCreated,
+          });
         }
       } catch (error) {
         logger.error("Erro ao processar notificação de pagamento:", error);
@@ -612,7 +795,7 @@ export const validateTicket = onRequest(
 
         await ticketRef.update({
           validated: true,
-          validatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          validatedAt: FieldValue.serverTimestamp(),
           validatedBy: "api",
         });
 
@@ -714,30 +897,242 @@ export const setUserRole = onCall(async (request) => {
   }
 });
 
+export const onTicketCreated = onDocumentCreated(
+  { document: "tickets/{ticketId}", secrets: [smtpEmail, smtpPassword] },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) {
+      return;
+    }
+
+    const data = snapshot.data() as {
+      userId?: string;
+      eventId?: string;
+      purchaseId?: string;
+      purchaseDate?: admin.firestore.Timestamp;
+      userEmail?: string;
+    };
+
+    const updates: Record<string, unknown> = {};
+
+    if (!data.purchaseDate) {
+      updates.purchaseDate = FieldValue.serverTimestamp();
+    }
+
+    if (!data.userEmail && data.userId) {
+      try {
+        const userRecord = await admin.auth().getUser(data.userId);
+        if (userRecord.email) {
+          updates.userEmail = userRecord.email;
+        }
+      } catch (error) {
+        logger.warn("Falha ao buscar email do usuário", error);
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await snapshot.ref.set(updates, { merge: true });
+    }
+
+    if (data.eventId) {
+      try {
+        await admin
+          .firestore()
+          .collection("events")
+          .doc(data.eventId)
+          .update({
+            soldTickets: FieldValue.increment(1),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+      } catch (error) {
+        logger.warn("Falha ao atualizar contadores do evento", error);
+      }
+    }
+
+    if (data.purchaseId) {
+      await sendPurchaseEmail(data.purchaseId, {
+        userId: data.userId,
+        eventId: data.eventId,
+        ticketsCount: 1,
+      });
+    }
+  }
+);
+
+const sendTicketEmail = async (
+  userId: string,
+  eventId: string,
+  ticketsCount: number,
+  options?: { accountCreated?: boolean }
+) => {
+  try {
+    const [userRecord, eventSnap] = await Promise.all([
+      admin.auth().getUser(userId),
+      admin.firestore().collection("events").doc(eventId).get(),
+    ]);
+
+    if (!userRecord.email) {
+      logger.warn("Usuário sem email para envio de ingresso", { userId });
+      return;
+    }
+
+    const event = eventSnap.data() as
+      | { title?: string; date?: string; time?: string; location?: string }
+      | undefined;
+    const eventTitle = event?.title || "IngressosZ";
+    let dateText = "";
+    if (event?.date) {
+      dateText = new Date(event.date).toLocaleDateString("pt-BR");
+    }
+    const timeText = event?.time ? ` ${event.time}` : "";
+    const locationText = event?.location || "";
+    const infoLines = [
+      event?.date ? `Data: ${dateText}${timeText}` : "",
+      locationText ? `Local: ${locationText}` : "",
+    ].filter(Boolean);
+    let accountLine = "";
+    if (options?.accountCreated && userRecord.email) {
+      try {
+        const link = await admin
+          .auth()
+          .generatePasswordResetLink(userRecord.email, {
+            url: `${webBaseUrl.value()}/login`,
+          });
+        accountLine =
+          "<p>Sua conta foi criada automaticamente.</p>" +
+          `<p>Defina sua senha aqui: <a href="${link}">Criar senha</a></p>`;
+      } catch (error) {
+        logger.warn("Falha ao gerar link de senha", error);
+      }
+    }
+
+    const subject = `Ingressos confirmados - ${eventTitle}`;
+    const html =
+      `<p>Olá! Seus ${ticketsCount} ingressos foram confirmados.</p>` +
+      `<p>Evento: ${eventTitle}</p>` +
+      (infoLines.length ? `<p>${infoLines.join("<br/>")}</p>` : "") +
+      accountLine +
+      `<p>Acesse ${webBaseUrl.value()}/meus-ingressos para visualizar.</p>`;
+
+    await sendEmail(userRecord.email, subject, html);
+  } catch (error) {
+    logger.error("Erro ao preparar email de ingresso:", error);
+  }
+};
+
+const sendPurchaseEmail = async (
+  purchaseId: string,
+  fallback?: {
+    userId?: string;
+    eventId?: string;
+    ticketsCount?: number;
+    accountCreated?: boolean;
+  }
+) => {
+  const purchaseRef = admin.firestore().collection("purchases").doc(purchaseId);
+  let shouldSend = false;
+  let userId = fallback?.userId;
+  let eventId = fallback?.eventId;
+  let ticketsCount = fallback?.ticketsCount;
+  let accountCreated = fallback?.accountCreated;
+
+  try {
+    await admin.firestore().runTransaction(async (transaction) => {
+      const purchaseSnap = await transaction.get(purchaseRef);
+      if (!purchaseSnap.exists) {
+        return;
+      }
+
+      const purchase = purchaseSnap.data() as {
+        emailSent?: boolean;
+        userId?: string;
+        eventId?: string;
+        items?: Array<{ quantity?: number }>;
+        accountCreated?: boolean;
+      };
+
+      if (purchase.emailSent) {
+        return;
+      }
+
+      userId = purchase.userId ?? userId;
+      eventId = purchase.eventId ?? eventId;
+      accountCreated = purchase.accountCreated ?? accountCreated;
+      if (!ticketsCount && purchase.items?.length) {
+        ticketsCount = purchase.items.reduce(
+          (acc, item) => acc + Number(item.quantity || 0),
+          0
+        );
+      }
+      if (!ticketsCount) {
+        ticketsCount = 1;
+      }
+
+      transaction.update(purchaseRef, {
+        emailSent: true,
+        emailSentAt: FieldValue.serverTimestamp(),
+      });
+      shouldSend = true;
+    });
+  } catch (error) {
+    logger.error("Erro ao preparar envio de email da compra:", error);
+    return;
+  }
+
+  if (!shouldSend) {
+    return;
+  }
+
+  if (!userId || !eventId) {
+    logger.warn("Dados insuficientes para email da compra", {
+      purchaseId,
+      userId,
+      eventId,
+    });
+    return;
+  }
+
+  await sendTicketEmail(userId, eventId, ticketsCount ?? 1, {
+    accountCreated: Boolean(accountCreated),
+  });
+};
+
 const sendEmail = async (to: string, subject: string, html: string) => {
   try {
     const email = smtpEmail.value();
     const password = smtpPassword.value();
     const host = smtpHost.value();
     const port = parseInt(smtpPort.value(), 10);
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    const isLocalHost = host === "localhost" || host === "127.0.0.1";
+    const requiresAuth = !(isEmulator && isLocalHost);
+    const fromEmail =
+      email || (isEmulator && isLocalHost ? "no-reply@localhost" : "");
 
-    if (!email || !password) {
+    if (!fromEmail || (requiresAuth && (!email || !password))) {
       logger.warn("Credenciais de email não configuradas. Email não enviado.");
       return;
     }
 
-    const transporter = nodemailer.createTransport({
+    const transportOptions: Record<string, unknown> = {
       host,
       port,
       secure: port === 465,
-      auth: {
+    };
+
+    if (requiresAuth && email && password) {
+      transportOptions.auth = {
         user: email,
         pass: password,
-      },
-    });
+      };
+    }
+
+    const transporter = nodemailer.createTransport(
+      transportOptions as nodemailer.TransportOptions
+    );
 
     await transporter.sendMail({
-      from: `"IngressosZ" <${email}>`,
+      from: `"IngressosZ" <${fromEmail}>`,
       to,
       subject,
       html,

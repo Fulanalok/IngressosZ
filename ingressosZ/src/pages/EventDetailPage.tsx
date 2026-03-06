@@ -124,19 +124,12 @@ export function EventDetailPage() {
 
             <div className="mt-8 pt-6 border-t border-gray-200">
               {event.availableTickets > 0 ? (
-                user ? (
-                  <button 
-                    onClick={() => setShowPurchase(true)} 
-                    className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 shadow-lg"
-                  >
-                    Comprar Ingressos
-                  </button>
-                ) : (
-                  <div className="text-center bg-gray-100 p-4 rounded-lg">
-                    <p className="font-semibold">Você precisa estar logado para comprar ingressos.</p>
-                    <button onClick={() => navigate("/login")} className="mt-2 text-blue-600 hover:underline">Ir para o login</button>
-                  </div>
-                )
+                <button 
+                  onClick={() => setShowPurchase(true)} 
+                  className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 shadow-lg"
+                >
+                  Comprar Ingressos
+                </button>
               ) : (
                 <div className="text-center bg-red-100 p-4 rounded-lg">
                   <p className="font-bold text-red-700">Ingressos Esgotados!</p>
@@ -146,7 +139,7 @@ export function EventDetailPage() {
           </div>
         </div>
 
-        {showPurchase && user && (
+        {showPurchase && (
           <TicketPurchase 
             event={event} 
             user={user} 

@@ -5,12 +5,13 @@ import { useMercadoPagoCheckout } from "@/hooks/useMercadoPagoCheckout";
 import { TICKET_TYPES } from "@/constants/ticketTypes";
 import type { Event } from "@/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 
 
 interface TicketPurchaseProps {
   event: Event;
-  user: User;
+  user?: User | null;
   onClose: () => void;
 }
 
@@ -18,7 +19,9 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   const [selectedTicketType, setSelectedTicketType] = useState<"standard" | "vip" | "premium">("standard");
   const [quantity, setQuantity] = useState(1);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "succeeded" | "failed">("idle");
+  const [guestEmail, setGuestEmail] = useState("");
   const hasPublicKey = Boolean(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+  const buyerEmail = user?.email || guestEmail.trim();
 
   const {
     createPreference,
@@ -29,8 +32,8 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
     event,
     selectedTicketType,
     quantity,
-    user.uid,
-    user.email || ""
+    user?.uid,
+    buyerEmail
   );
 
   const unitPrice = useMemo(() => {
@@ -157,6 +160,22 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
 
           {/* Erro */}
           {checkoutError && <p className="text-red-500 text-sm">{checkoutError}</p>}
+          {!user && (
+            <div>
+              <label htmlFor="guest-email" className="block text-sm font-medium text-foreground mb-2">
+                Email para receber o ingresso
+              </label>
+              <Input
+                id="guest-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -179,7 +198,12 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
               </div>
               <Button
                 onClick={handlePurchase}
-                disabled={checkoutLoading || maxQuantity < quantity || !hasPublicKey}
+                disabled={
+                  checkoutLoading ||
+                  maxQuantity < quantity ||
+                  !hasPublicKey ||
+                  (!user && !guestEmail.trim())
+                }
                 className="w-full h-12 text-lg"
               >
                 {checkoutLoading ? "Processando..." : "Ir para Pagamento"}

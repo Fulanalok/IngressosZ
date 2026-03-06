@@ -2,24 +2,24 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   # Job de Verificação (Roda em todo PR e Push)
   quality-check:
     name: 🛡️ Quality Check (Lint & Tests)
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "24"
+          cache: "npm"
 
       - name: Install Dependencies
         run: npm run install:all
@@ -40,20 +40,29 @@ jobs:
         working-directory: ./functions
         run: npm run test
 
+      - name: 🧪 E2E (Cypress)
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: ./ingressosZ
+          install: false
+          start: npm run dev -- --host 127.0.0.1 --port 5173
+          wait-on: http://127.0.0.1:5173
+          wait-on-timeout: 120
+
   # Job de Build (Garante que o projeto compila)
   build-check:
     name: 🏗️ Build Verification
     needs: quality-check
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "24"
+          cache: "npm"
 
       - name: Install Dependencies
         run: npm run install:all

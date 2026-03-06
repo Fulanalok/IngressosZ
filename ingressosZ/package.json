@@ -22,6 +22,7 @@
     "@dr.pogodin/react-helmet": "2.0.4",
     "@mercadopago/sdk-react": "^1.0.7",
     "@radix-ui/react-slot": "^1.2.4",
+    "@sentry/react": "^9.46.0",
     "@tailwindcss/vite": "^4.1.12",
     "@tanstack/react-query": "^5.51.1",
     "@types/qrcode": "^1.5.5",

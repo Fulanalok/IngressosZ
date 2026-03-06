@@ -1,16 +1,16 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getStorage, connectStorageEmulator } from "firebase/storage";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
-import { getAnalytics } from "firebase/analytics";
+import { getApps, initializeApp } from "firebase/app";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
+import { connectStorageEmulator, getStorage } from "firebase/storage";
 const firebaseConfig = {
-  apiKey: "REDACTED_FIREBASE_API_KEY",
-  authDomain: "<your-project>.firebaseapp.com",
-  projectId: "<your-firebase-project-id>",
-  storageBucket: "<your-project>.firebasestorage.app",
-  messagingSenderId: "849448511679",
-  appId: "1:849448511679:web:033c7d8892c37fd86ebe0a"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
 };
 let app;
 if (!getApps().length) {
@@ -22,16 +22,11 @@ else {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const functionsRegion = import.meta.env.VITE_FUNCTIONS_REGION ||
-    "southamerica-east1";
+const functionsRegion = import.meta.env.VITE_FUNCTIONS_REGION || "southamerica-east1";
 const functions = getFunctions(app, functionsRegion);
 const useEmulators = import.meta.env.DEV &&
     String(import.meta.env.VITE_USE_EMULATORS ?? "false").toLowerCase() ===
         "true";
-let analytics = null;
-if (!useEmulators && import.meta.env.PROD && firebaseConfig.measurementId) {
-    analytics = getAnalytics(app);
-}
 // Conectar aos emuladores em desenvolvimento
 if (useEmulators) {
     const fnPort = Number(import.meta.env.VITE_FUNCTIONS_PORT ??
@@ -45,4 +40,4 @@ if (useEmulators) {
     connectFirestoreEmulator(db, "127.0.0.1", firestorePort);
     connectStorageEmulator(storage, "127.0.0.1", storagePort);
 }
-export { app, auth, db, storage, functions, analytics, firebaseConfig };
+export { app, auth, db, firebaseConfig, functions, storage };

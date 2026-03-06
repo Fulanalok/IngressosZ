@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import type { User } from "firebase/auth";
+import { Timestamp } from "firebase/firestore";
 import { expect, test, vi } from "vitest";
 import App from "../App";
 import { AuthContext, type AuthContextType } from "../context/authContext";
@@ -12,13 +13,16 @@ function createClient() {
   });
 }
 
-vi.mock("../pages/Login", () => ({
+vi.mock("@/pages/Login", () => ({
   default: () => <div>Bem-vindo de volta!</div>,
 }));
-vi.mock("../pages/HomePage", () => ({
+vi.mock("@/pages/HomePage", () => ({
   default: () => <div>Explorar Eventos</div>,
 }));
-vi.mock("../pages/ValidatorPage", () => ({
+vi.mock("@/pages/EventsPage", () => ({
+  default: () => <div>Lista de Eventos</div>,
+}));
+vi.mock("@/pages/ValidatorPage", () => ({
   default: () => <div>Resultado da Validação</div>,
 }));
 
@@ -46,10 +50,10 @@ function baseValue(partial: Partial<AuthContextType>): AuthContextType {
   };
 }
 
-test("redireciona não autenticado para /login", async () => {
+test("permite acesso público a /eventos", async () => {
   renderWithAuth("/eventos", baseValue({ user: null, userProfile: null }));
-  await screen.findByText("Bem-vindo de volta!");
-  expect(window.location.pathname).toBe("/login");
+  await screen.findByText("Lista de Eventos");
+  expect(window.location.pathname).toBe("/eventos");
 });
 
 test("bloqueia acesso a /validador sem papel validator", async () => {
@@ -59,7 +63,7 @@ test("bloqueia acesso a /validador sem papel validator", async () => {
     email: "u@e.com",
     displayName: "User",
     role: "user",
-    createdAt: "2020-01-01T00:00:00Z",
+    createdAt: Timestamp.fromDate(new Date("2020-01-01T00:00:00Z")),
   };
   renderWithAuth("/validador", baseValue({ user, userProfile: profile }));
   await screen.findByText("Acesso Restrito (DEV Mode)");
@@ -73,7 +77,7 @@ test("permite acesso a /validador com papel validator", async () => {
     email: "v@e.com",
     displayName: "Validador",
     role: "validator",
-    createdAt: "2020-01-01T00:00:00Z",
+    createdAt: Timestamp.fromDate(new Date("2020-01-01T00:00:00Z")),
   };
   renderWithAuth("/validador", baseValue({ user, userProfile: profile }));
   await screen.findByText("Resultado da Validação");

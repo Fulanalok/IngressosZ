@@ -13,12 +13,11 @@ export default defineConfig(({ mode }) => {
     env.VITE_FIREBASE_EMULATOR_FUNCTIONS_PORT ||
     "5001";
   const functionsRegion = env.VITE_FUNCTIONS_REGION || "southamerica-east1";
-  const alias = [];
-
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: [{ find: "@", replacement: path.resolve(__dirname, "./src") }],
+      extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".json"],
     },
     server: {
       host: true,

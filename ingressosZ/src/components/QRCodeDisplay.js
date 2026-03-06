@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect } from "react";
 import { QRCodeService } from "../services/qrCodeService";
-function QRCodeDisplay({ ticketId, qrCode, eventId, size = 200, }) {
+function QRCodeDisplay({ qrCode, size = 200, }) {
     const [qrCodeImage, setQrCodeImage] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
@@ -11,9 +11,7 @@ function QRCodeDisplay({ ticketId, qrCode, eventId, size = 200, }) {
                 setIsLoading(true);
                 setError("");
                 // Gerar dados do QR code
-                const qrData = QRCodeService.generateTicketQRData(ticketId, qrCode, eventId);
-                // Gerar imagem do QR code
-                const qrImage = await QRCodeService.generateQRCode(qrData);
+                const qrImage = await QRCodeService.generateQRCode(qrCode);
                 setQrCodeImage(qrImage);
             }
             catch (err) {
@@ -25,7 +23,7 @@ function QRCodeDisplay({ ticketId, qrCode, eventId, size = 200, }) {
             }
         };
         generateQRCode();
-    }, [ticketId, qrCode, eventId]);
+    }, [qrCode]);
     if (isLoading) {
         return (_jsx("div", { className: "bg-gray-100 border-2 border-dashed border-gray-300 rounded-none flex items-center justify-center", style: { width: size, height: size }, children: _jsxs("div", { className: "text-center text-gray-500", children: [_jsx("div", { className: "animate-spin rounded-none h-8 w-8 border-b-2 border-gray-400 mx-auto mb-2" }), _jsx("div", { className: "text-xs", children: "Gerando QR" })] }) }));
     }
