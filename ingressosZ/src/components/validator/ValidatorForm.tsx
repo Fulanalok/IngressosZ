@@ -44,7 +44,7 @@ export function ValidatorForm({
               id="ticketCode"
               type="text"
               value={ticketCode}
-              onChange={(e) => setTicketCode(e.target.value.toUpperCase())}
+              onChange={(e) => setTicketCode(e.target.value)}
               placeholder="Ex: TICKET-1735210800000-ABC123"
               required
               className="pl-10 font-mono tracking-widest"
