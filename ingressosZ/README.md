@@ -62,21 +62,21 @@ O frontend se comunica com o backend em `/functions` ou via `VITE_API_URL` para 
 
 - **Criação de preferência de pagamento**
 
-  - Implementado no hook [useMercadoPagoCheckout.ts](file:///c:/Users/lucasvilhena/projetos/IngressosZ-main/ingressosZ/src/hooks/useMercadoPagoCheckout.ts).
+  - Implementado no hook [useMercadoPagoCheckout.ts](src/hooks/useMercadoPagoCheckout.ts).
   - Usa a função callable `createPaymentPreference` do Firebase Functions.
   - Se necessário (legado), faz fallback para `${VITE_API_URL}/create-preference`.
   - O ID da preferência retornado é usado para inicializar o fluxo de checkout do Mercado Pago no frontend.
 
 - **Validação de ingressos (Página do Validador)**
 
-  - Implementado no hook [useTicketValidator.ts](file:///c:/Users/lucasvilhena/projetos/IngressosZ-main/ingressosZ/src/hooks/validator/useTicketValidator.ts), consumido em [ValidatorPage.tsx](file:///c:/Users/lucasvilhena/projetos/IngressosZ-main/ingressosZ/src/pages/ValidatorPage.tsx).
+  - Implementado no hook [useTicketValidator.ts](src/hooks/validator/useTicketValidator.ts), consumido em [ValidatorPage.tsx](src/pages/ValidatorPage.tsx).
   - Envia o conteúdo do QR Code para a função HTTP `validateTicket` em `/functions/validateTicket`.
   - Inclui o ID Token atual do usuário no header `Authorization: Bearer <ID_TOKEN>`.
   - A resposta retorna dados do evento e do ingresso (status, e-mail do portador, etc.) para exibir o resultado na tela.
 
 - **Admin (definir usuário como admin)**
 
-  - Implementado em [SetAdminRole.tsx](file:///c:/Users/lucasvilhena/projetos/IngressosZ-main/ingressosZ/src/components/admin/SetAdminRole.tsx) usando `httpsCallable` para a função `setAdminRole`.
+  - Implementado em [SetAdminRole.tsx](src/components/admin/SetAdminRole.tsx) usando `httpsCallable` para a função `setAdminRole`.
 
 - **Webhook de pagamento**
   - A função `receiveWebhook` é chamada diretamente pelo Mercado Pago (não pelo frontend).

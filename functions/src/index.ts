@@ -7,6 +7,7 @@ import * as logger from "firebase-functions/logger";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import { setGlobalOptions } from "firebase-functions/v2/options";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import * as fs from "fs";
 import * as jwt from "jsonwebtoken";
@@ -21,13 +22,16 @@ import * as os from "os";
 import * as path from "path";
 import sharp from "sharp";
 
+const sentryDsn = defineString("SENTRY_DSN");
+
 Sentry.init({
-  dsn: process.env.SENTRY_DSN,
+  dsn: sentryDsn.value() || process.env.SENTRY_DSN,
   integrations: [],
   tracesSampleRate: 1.0,
   profilesSampleRate: 1.0,
 });
 
+setGlobalOptions({ region: "southamerica-east1" });
 const mercadopagoAccessToken = defineSecret("MP_ACCESS_TOKEN");
 const mpWebhookSecret = defineSecret("MP_WEBHOOK_SECRET");
 const jwtSecret = defineSecret("JWT_SECRET");
@@ -122,7 +126,12 @@ export const seedDatabase = onCall(
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    const secret = jwtSecret.value() || "default-dev-secret";
+    const isEmulatorSeed = process.env.FUNCTIONS_EMULATOR === "true";
+    const secret =
+      jwtSecret.value() || (isEmulatorSeed ? "default-dev-secret" : null);
+    if (!secret) {
+      throw new HttpsError("internal", "JWT_SECRET não configurado.");
+    }
     for (let i = 0; i < 2; i += 1) {
       const ticketRef = db.collection("tickets").doc();
       const ticketPayload = {
@@ -198,16 +207,28 @@ export const createPaymentPreference = onCall(
       quantity = 1,
       userId,
       userEmail,
+      ticketType,
+      paymentSessionId,
     } = request.data as {
       eventId: string;
       quantity?: number;
       userId: string;
       userEmail?: string;
+      ticketType?: string;
+      paymentSessionId?: string;
     };
 
-    if (!eventId || !userId || quantity < 1) {
+    const authUid = request.auth?.uid;
+    if (!authUid) {
+      throw new HttpsError("permission-denied", "Autenticação obrigatória.");
+    }
+    if (userId && userId !== authUid) {
+      throw new HttpsError("permission-denied", "Usuário inválido.");
+    }
+    if (!eventId || quantity < 1) {
       throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
     }
+    const resolvedUserId = authUid;
 
     const eventDoc = await admin
       .firestore()
@@ -223,6 +244,7 @@ export const createPaymentPreference = onCall(
       availableTickets?: number;
       price?: number;
       title?: string;
+      pricing?: Record<string, number>;
     };
 
     if ((eventData.availableTickets || 0) < quantity) {
@@ -232,8 +254,21 @@ export const createPaymentPreference = onCall(
       );
     }
 
-    const unitPrice = Number(eventData.price || 0);
-    const title = `Ingresso: ${eventData.title ?? ""}`;
+    let validType: string | null = null;
+    if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
+      validType = ticketType;
+    }
+    let unitPrice = Number(eventData.price || 0);
+    if (validType && eventData.pricing?.[validType] != null) {
+      unitPrice = Number(eventData.pricing[validType]);
+    }
+    const typeLabels: Record<string, string> = {
+      standard: "Padrão",
+      vip: "VIP",
+      premium: "Premium",
+    };
+    const typeLabel = validType ? ` - ${typeLabels[validType]}` : "";
+    const title = `Ingresso${typeLabel}: ${eventData.title ?? ""}`;
 
     const items = [
       {
@@ -254,7 +289,14 @@ export const createPaymentPreference = onCall(
           payer: {
             email: payerEmail,
           },
-          metadata: { eventId, userId, quantity, userEmail: payerEmail },
+          metadata: {
+            eventId,
+            userId: resolvedUserId,
+            quantity,
+            userEmail: payerEmail,
+            ticketType: validType || "standard",
+            paymentSessionId,
+          },
           back_urls: {
             success: `${webBaseUrl.value()}/pagamento/sucesso`,
             failure: `${webBaseUrl.value()}/pagamento/cancelado`,
@@ -307,15 +349,55 @@ export const createPaymentPreferencePublic = onRequest(
       const {
         eventId,
         quantity = 1,
+        userId,
         userEmail,
+        ticketType,
+        paymentSessionId,
       } = req.body as {
         eventId?: string;
         quantity?: number;
+        userId?: string;
         userEmail?: string;
+        ticketType?: string;
+        paymentSessionId?: string;
       };
 
-      if (!eventId || !userEmail || quantity < 1) {
+      if (
+        !eventId ||
+        !userId ||
+        !userEmail ||
+        !paymentSessionId ||
+        quantity < 1
+      ) {
         res.status(400).json({ message: "Dados inválidos para compra." });
+        return;
+      }
+
+      const paymentSessionRef = admin
+        .firestore()
+        .collection("paymentSessions")
+        .doc(paymentSessionId);
+      const paymentSessionSnap = await paymentSessionRef.get();
+      if (!paymentSessionSnap.exists) {
+        res
+          .status(404)
+          .json({ message: "Sessão de pagamento não encontrada." });
+        return;
+      }
+      const paymentSession = paymentSessionSnap.data() as {
+        userId?: string;
+        eventId?: string;
+        status?: string;
+      };
+      if (
+        paymentSession.userId !== userId ||
+        paymentSession.eventId !== eventId
+      ) {
+        res.status(403).json({ message: "Sessão inválida para este usuário." });
+        return;
+      }
+      if (paymentSession.status && paymentSession.status !== "pending") {
+        res.status(409).json({ message: "Sessão já processada." });
         return;
       }
 
@@ -334,17 +416,34 @@ export const createPaymentPreferencePublic = onRequest(
         availableTickets?: number;
         price?: number;
         title?: string;
+        pricing?: Record<string, number>;
+        inventory?: Record<string, number>;
       };
+      let validType = "standard";
+      if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
+        validType = ticketType;
+      }
+      const availableForType =
+        eventData.inventory?.[validType] ?? eventData.availableTickets ?? 0;
 
-      if ((eventData.availableTickets || 0) < quantity) {
+      if (availableForType < quantity) {
         res
           .status(412)
           .json({ message: "Ingressos esgotados ou quantidade indisponível." });
         return;
       }
 
-      const unitPrice = Number(eventData.price || 0);
-      const title = `Ingresso: ${eventData.title ?? ""}`;
+      const typeLabels: Record<string, string> = {
+        standard: "Standard",
+        vip: "VIP",
+        premium: "Premium",
+      };
+      const unitPrice = Number(
+        eventData.pricing?.[validType] ?? eventData.price ?? 0
+      );
+      const title = `Ingresso ${typeLabels[validType]}: ${
+        eventData.title ?? ""
+      }`;
 
       const items = [
         {
@@ -368,7 +467,14 @@ export const createPaymentPreferencePublic = onRequest(
             payer: {
               email: userEmail,
             },
-            metadata: { eventId, quantity, userEmail },
+            metadata: {
+              eventId,
+              userId,
+              quantity,
+              userEmail,
+              ticketType: validType,
+              paymentSessionId,
+            },
             back_urls: {
               success: `${webBaseUrl.value()}/pagamento/sucesso`,
               failure: `${webBaseUrl.value()}/pagamento/cancelado`,
@@ -381,6 +487,385 @@ export const createPaymentPreferencePublic = onRequest(
       } catch (error) {
         logger.error("Erro ao criar preferência pública:", error);
         res.status(500).json({ message: "Erro ao criar preferência." });
+      }
+    });
+  }
+);
+
+export const createPixPayment = onCall(
+  { secrets: [mercadopagoAccessToken] },
+  async (request) => {
+    const accessToken = mercadopagoAccessToken.value();
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    if (!accessToken && isEmulator) {
+      return {
+        id: `pix_${Date.now()}`,
+        status: "pending",
+        qrCode: `pix_${Date.now()}`,
+        qrCodeBase64: "",
+        ticketUrl: "",
+      };
+    }
+
+    const client = new MercadoPagoConfig({
+      accessToken,
+    });
+
+    const {
+      eventId,
+      quantity = 1,
+      userId,
+      userEmail,
+      ticketType,
+      paymentSessionId,
+    } = request.data as {
+      eventId: string;
+      quantity?: number;
+      userId: string;
+      userEmail?: string;
+      ticketType?: string;
+      paymentSessionId?: string;
+    };
+
+    const authUid = request.auth?.uid;
+    if (!authUid) {
+      throw new HttpsError("permission-denied", "Autenticação obrigatória.");
+    }
+    if (userId && userId !== authUid) {
+      throw new HttpsError("permission-denied", "Usuário inválido.");
+    }
+    if (!eventId || quantity < 1) {
+      throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
+    }
+    const resolvedUserId = authUid;
+
+    const eventDoc = await admin
+      .firestore()
+      .collection("events")
+      .doc(eventId)
+      .get();
+
+    if (!eventDoc.exists) {
+      throw new HttpsError("not-found", "Evento não encontrado.");
+    }
+
+    const eventData = eventDoc.data() as {
+      availableTickets?: number;
+      price?: number;
+      title?: string;
+      pricing?: Record<string, number>;
+    };
+
+    if ((eventData.availableTickets || 0) < quantity) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Ingressos esgotados ou quantidade indisponível."
+      );
+    }
+
+    let validType: string | null = null;
+    if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
+      validType = ticketType;
+    }
+    let unitPrice = Number(eventData.price || 0);
+    if (validType && eventData.pricing?.[validType] != null) {
+      unitPrice = Number(eventData.pricing[validType]);
+    }
+    const totalAmount = unitPrice * quantity;
+    const typeLabels: Record<string, string> = {
+      standard: "Padrão",
+      vip: "VIP",
+      premium: "Premium",
+    };
+    const typeLabel = validType ? ` - ${typeLabels[validType]}` : "";
+    const title = `Ingresso${typeLabel}: ${eventData.title ?? ""}`;
+
+    const items = [
+      {
+        id: eventId,
+        title,
+        quantity,
+        unit_price: unitPrice,
+        currency_id: "BRL",
+      },
+    ];
+
+    const payment = new Payment(client);
+    try {
+      const payerEmail = request.auth?.token.email || userEmail;
+      const result = await payment.create({
+        body: {
+          transaction_amount: totalAmount,
+          description: title,
+          payment_method_id: "pix",
+          payer: {
+            email: payerEmail,
+          },
+          metadata: {
+            eventId,
+            userId: resolvedUserId,
+            quantity,
+            userEmail: payerEmail,
+            ticketType: validType || "standard",
+            paymentSessionId,
+          },
+          additional_info: {
+            items,
+            payer: {
+              email: payerEmail,
+            },
+          },
+          external_reference: paymentSessionId,
+        },
+      });
+
+      const transactionData = (
+        result as {
+          point_of_interaction?: {
+            transaction_data?: {
+              qr_code?: string;
+              qr_code_base64?: string;
+              ticket_url?: string;
+            };
+          };
+        }
+      )?.point_of_interaction?.transaction_data;
+
+      if (!transactionData?.qr_code) {
+        throw new HttpsError(
+          "internal",
+          "Não foi possível obter o QR Code do Pix."
+        );
+      }
+
+      return {
+        id: result.id,
+        status: result.status,
+        qrCode: transactionData.qr_code,
+        qrCodeBase64: transactionData.qr_code_base64 || "",
+        ticketUrl: transactionData.ticket_url || "",
+      };
+    } catch (error) {
+      logger.error("Erro ao criar pagamento Pix:", error);
+      if (isEmulator) {
+        const status = (error as { status?: number } | null)?.status;
+        const code = (error as { code?: string } | null)?.code;
+        if (
+          status === 401 ||
+          status === 403 ||
+          code === "PA_UNAUTHORIZED_RESULT_FROM_POLICIES"
+        ) {
+          return {
+            id: `pix_${Date.now()}`,
+            status: "pending",
+            qrCode: `pix_${Date.now()}`,
+            qrCodeBase64: "",
+            ticketUrl: "",
+          };
+        }
+      }
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal",
+        "Não foi possível criar o pagamento Pix."
+      );
+    }
+  }
+);
+
+export const createPixPaymentPublic = onRequest(
+  { secrets: [mercadopagoAccessToken] },
+  async (req, res) => {
+    corsHandler(req, res, async () => {
+      if (req.method !== "POST") {
+        res.status(405).send("Method Not Allowed");
+        return;
+      }
+
+      const accessToken = mercadopagoAccessToken.value();
+      const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+      if (!accessToken && isEmulator) {
+        res.status(200).json({
+          id: `pix_${Date.now()}`,
+          status: "pending",
+          qrCode: `pix_${Date.now()}`,
+          qrCodeBase64: "",
+          ticketUrl: "",
+        });
+        return;
+      }
+
+      const {
+        eventId,
+        quantity = 1,
+        userId,
+        userEmail,
+        ticketType,
+        paymentSessionId,
+      } = req.body as {
+        eventId?: string;
+        quantity?: number;
+        userId?: string;
+        userEmail?: string;
+        ticketType?: string;
+        paymentSessionId?: string;
+      };
+
+      if (
+        !eventId ||
+        !userId ||
+        !userEmail ||
+        !paymentSessionId ||
+        quantity < 1
+      ) {
+        res.status(400).json({ message: "Dados inválidos para compra." });
+        return;
+      }
+
+      const paymentSessionRef = admin
+        .firestore()
+        .collection("paymentSessions")
+        .doc(paymentSessionId);
+      const paymentSessionSnap = await paymentSessionRef.get();
+      if (!paymentSessionSnap.exists) {
+        res
+          .status(404)
+          .json({ message: "Sessão de pagamento não encontrada." });
+        return;
+      }
+      const paymentSession = paymentSessionSnap.data() as {
+        userId?: string;
+        eventId?: string;
+        status?: string;
+      };
+      if (
+        paymentSession.userId !== userId ||
+        paymentSession.eventId !== eventId
+      ) {
+        res.status(403).json({ message: "Sessão inválida para este usuário." });
+        return;
+      }
+      if (paymentSession.status && paymentSession.status !== "pending") {
+        res.status(409).json({ message: "Sessão já processada." });
+        return;
+      }
+
+      const eventDoc = await admin
+        .firestore()
+        .collection("events")
+        .doc(eventId)
+        .get();
+
+      if (!eventDoc.exists) {
+        res.status(404).json({ message: "Evento não encontrado." });
+        return;
+      }
+
+      const eventData = eventDoc.data() as {
+        availableTickets?: number;
+        price?: number;
+        title?: string;
+        pricing?: Record<string, number>;
+        inventory?: Record<string, number>;
+      };
+      let validType = "standard";
+      if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
+        validType = ticketType;
+      }
+      const availableForType =
+        eventData.inventory?.[validType] ?? eventData.availableTickets ?? 0;
+
+      if (availableForType < quantity) {
+        res
+          .status(412)
+          .json({ message: "Ingressos esgotados ou quantidade indisponível." });
+        return;
+      }
+
+      const typeLabels: Record<string, string> = {
+        standard: "Standard",
+        vip: "VIP",
+        premium: "Premium",
+      };
+      const unitPrice = Number(
+        eventData.pricing?.[validType] ?? eventData.price ?? 0
+      );
+      const totalAmount = unitPrice * quantity;
+      const title = `Ingresso ${typeLabels[validType]}: ${
+        eventData.title ?? ""
+      }`;
+
+      const items = [
+        {
+          id: eventId,
+          title,
+          quantity,
+          unit_price: unitPrice,
+          currency_id: "BRL",
+        },
+      ];
+
+      const client = new MercadoPagoConfig({
+        accessToken,
+      });
+
+      const payment = new Payment(client);
+      try {
+        const result = await payment.create({
+          body: {
+            transaction_amount: totalAmount,
+            description: title,
+            payment_method_id: "pix",
+            payer: {
+              email: userEmail,
+            },
+            metadata: {
+              eventId,
+              userId,
+              quantity,
+              userEmail,
+              ticketType: validType,
+              paymentSessionId,
+            },
+            additional_info: {
+              items,
+              payer: {
+                email: userEmail,
+              },
+            },
+            external_reference: paymentSessionId,
+          },
+        });
+
+        const transactionData = (
+          result as {
+            point_of_interaction?: {
+              transaction_data?: {
+                qr_code?: string;
+                qr_code_base64?: string;
+                ticket_url?: string;
+              };
+            };
+          }
+        )?.point_of_interaction?.transaction_data;
+
+        if (!transactionData?.qr_code) {
+          res.status(502).json({ message: "QR Code Pix não retornado." });
+          return;
+        }
+
+        res.status(200).json({
+          id: result.id,
+          status: result.status,
+          qrCode: transactionData.qr_code,
+          qrCodeBase64: transactionData.qr_code_base64 || "",
+          ticketUrl: transactionData.ticket_url || "",
+        });
+      } catch (error) {
+        logger.error("Erro ao criar pagamento Pix público:", error);
+        res.status(500).json({ message: "Erro ao criar pagamento Pix." });
       }
     });
   }
@@ -493,11 +978,23 @@ export const receiveWebhook = onRequest(
             eventId,
             userId: metadataUserId,
             userEmail: metadataEmail,
+            ticketType: metadataTicketType,
+            paymentSessionId: metadataPaymentSessionId,
           } = payment.metadata as {
             eventId: string;
             userId?: string;
             userEmail?: string;
+            ticketType?: string;
+            paymentSessionId?: string;
           };
+          let resolvedTicketType = "standard";
+          if (
+            metadataTicketType &&
+            ["standard", "vip", "premium"].includes(metadataTicketType)
+          ) {
+            resolvedTicketType = metadataTicketType;
+          }
+          const paymentSessionId = metadataPaymentSessionId;
           const additionalPayer = payment.additional_info?.payer as {
             email?: string;
           } | null;
@@ -546,6 +1043,8 @@ export const receiveWebhook = onRequest(
           );
 
           const newPurchaseRef = purchasesRef.doc();
+          let oversold = false;
+          let failedPurchaseId = "";
           await admin.firestore().runTransaction(async (transaction) => {
             const eventRef = admin
               .firestore()
@@ -559,7 +1058,11 @@ export const receiveWebhook = onRequest(
               );
             }
 
-            const data = eventDoc.data() as { availableTickets?: number };
+            const data = eventDoc.data() as {
+              availableTickets?: number;
+              date?: string;
+              time?: string;
+            };
             const currentStock = data.availableTickets || 0;
 
             if (currentStock < ticketsCount) {
@@ -570,6 +1073,8 @@ export const receiveWebhook = onRequest(
               });
 
               const failedPurchaseRef = purchasesRef.doc();
+              oversold = true;
+              failedPurchaseId = failedPurchaseRef.id;
               transaction.set(failedPurchaseRef, {
                 userId: resolvedUserId,
                 eventId,
@@ -601,7 +1106,27 @@ export const receiveWebhook = onRequest(
             });
 
             const ticketsCollection = admin.firestore().collection("tickets");
-            const secret = jwtSecret.value() || "default-dev-secret";
+            const jwtRawSecret = jwtSecret.value();
+            if (!jwtRawSecret) {
+              logger.error(
+                "JWT_SECRET não configurado. Tickets não serão emitidos."
+              );
+              throw new Error("JWT_SECRET ausente em produção.");
+            }
+            const secret = jwtRawSecret;
+
+            let ticketExpiresInSeconds: number;
+            if (data.date) {
+              const timeStr = data.time || "23:59";
+              const eventDateTime = new Date(`${data.date}T${timeStr}:00`);
+              eventDateTime.setDate(eventDateTime.getDate() + 1);
+              const secsUntilExpiry = Math.floor(
+                (eventDateTime.getTime() - Date.now()) / 1000
+              );
+              ticketExpiresInSeconds = Math.max(secsUntilExpiry, 86400);
+            } else {
+              ticketExpiresInSeconds = 90 * 24 * 60 * 60;
+            }
 
             for (let i = 0; i < ticketsCount; i += 1) {
               const newTicketRef = ticketsCollection.doc();
@@ -612,13 +1137,14 @@ export const receiveWebhook = onRequest(
                 ts: Date.now(),
               };
               const signedToken = jwt.sign(ticketPayload, secret, {
-                expiresIn: "30d",
+                expiresIn: ticketExpiresInSeconds,
               });
 
               transaction.set(newTicketRef, {
                 userId: resolvedUserId,
                 eventId,
                 purchaseId: newPurchaseRef.id,
+                ticketType: resolvedTicketType,
                 qrCode: signedToken,
                 validated: false,
                 status: "valid",
@@ -626,6 +1152,33 @@ export const receiveWebhook = onRequest(
               });
             }
           });
+
+          if (paymentSessionId) {
+            await admin
+              .firestore()
+              .collection("paymentSessions")
+              .doc(paymentSessionId)
+              .set(
+                {
+                  status: oversold ? "failed" : "approved",
+                  paymentId,
+                  purchaseId: oversold ? failedPurchaseId : newPurchaseRef.id,
+                  ticketType: resolvedTicketType,
+                  updatedAt: FieldValue.serverTimestamp(),
+                  errorMessage: oversold ? "Overselling detected" : "",
+                },
+                { merge: true }
+              );
+          }
+
+          if (oversold) {
+            logger.error("Pagamento aprovado com oversell", {
+              paymentId,
+              eventId,
+            });
+            response.status(200).send("OK");
+            return;
+          }
 
           logger.info(
             `Compra processada para ${resolvedUserId} no evento ${eventId}.`
@@ -707,7 +1260,14 @@ export const validateTicket = onRequest(
           return;
         }
 
-        const secret = jwtSecret.value() || "default-dev-secret";
+        const jwtRawSecret = jwtSecret.value();
+        if (!jwtRawSecret) {
+          res
+            .status(500)
+            .json({ success: false, message: "Erro de configuração interna." });
+          return;
+        }
+        const secret = jwtRawSecret;
         let decoded: jwt.JwtPayload | string;
         try {
           decoded = jwt.verify(qrCode, secret);
@@ -765,6 +1325,7 @@ export const validateTicket = onRequest(
           qrCode: string;
           validated?: boolean;
           validatedAt?: admin.firestore.Timestamp;
+          ticketType?: string;
         } | null;
 
         if (!ticket) {
@@ -818,11 +1379,21 @@ export const validateTicket = onRequest(
           logger.warn("Usuário do ingresso não encontrado:", userId);
         }
 
+        const ticketTypeLabels: Record<string, string> = {
+          standard: "Padrão",
+          vip: "VIP",
+          premium: "Premium",
+        };
+        const ticketTypeLabel =
+          ticketTypeLabels[ticket?.ticketType ?? ""] ??
+          ticket?.ticketType ??
+          "Geral";
+
         res.status(200).json({
           success: true,
           ticket: {
             eventTitle: event?.title || "Evento Desconhecido",
-            ticketType: "Geral",
+            ticketType: ticketTypeLabel,
             holderEmail,
             eventDate: event?.date,
             eventTime: event?.time,

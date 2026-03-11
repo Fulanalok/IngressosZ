@@ -1,86 +1,182 @@
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { userService } from "@/services/firestore";
+import type { UserProfile } from "@/types";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import React, { useState } from "react";
 
-import React, { useState } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  organizer: "Organizador",
+  validator: "Validador",
+  user: "Usuário",
+};
 
 const SetAdminRole: React.FC = () => {
-  const [uid, setUid] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [role, setRole] = useState<'admin' | 'organizer' | 'validator'>('admin');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [email, setEmail] = useState("");
+  const [foundUser, setFoundUser] = useState<UserProfile | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [role, setRole] = useState<"admin" | "organizer" | "validator">(
+    "validator"
+  );
+  const [applying, setApplying] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-  const handleSetAdmin = async () => {
-    if (!uid.trim()) {
-      setMessage({ type: 'error', text: 'Por favor, insira um UID.' });
-      return;
-    }
-
-    setIsLoading(true);
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSearching(true);
+    setFoundUser(null);
     setMessage(null);
+    try {
+      const user = await userService.searchUserByEmail(email);
+      if (user) {
+        setFoundUser(user);
+        setRole(
+          user.role === "admin" ||
+            user.role === "organizer" ||
+            user.role === "validator"
+            ? user.role
+            : "validator"
+        );
+      } else {
+        setMessage({
+          type: "error",
+          text: "Nenhum usuário encontrado com esse e-mail.",
+        });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Erro ao buscar usuário." });
+    } finally {
+      setSearching(false);
+    }
+  };
 
+  const handleApply = async () => {
+    if (!foundUser) return;
+    setApplying(true);
+    setMessage(null);
     try {
       const functions = getFunctions();
-      const fnName = role === 'admin' ? 'setAdminRole' : 'setUserRole';
+      const fnName = role === "admin" ? "setAdminRole" : "setUserRole";
       const callable = httpsCallable(functions, fnName);
-      const result = await callable(role === 'admin' ? { uid } : { uid, role });
-
-      // O tipo de 'result.data' é 'any' por padrão, então fazemos um type cast seguro.
+      const result = await callable(
+        role === "admin" ? { uid: foundUser.uid } : { uid: foundUser.uid, role }
+      );
       const data = result.data as { success?: boolean; message?: string };
-
       if (data.success) {
-        setMessage({ type: 'success', text: data.message || 'Operação concluída com sucesso!' });
-        setUid('');
+        setMessage({
+          type: "success",
+          text: data.message || "Papel aplicado com sucesso!",
+        });
+        setFoundUser({ ...foundUser, role });
       } else {
-        // Se a função retornar um erro de forma estruturada, mas sem lançar uma exceção
-        setMessage({ type: 'error', text: data.message || 'Ocorreu um erro desconhecido.' });
+        setMessage({
+          type: "error",
+          text: data.message || "Erro desconhecido.",
+        });
       }
-    } catch (error: any) {
-      console.error("Error calling setAdminRole function:", error);
-      // Os erros do https.onCall vêm com uma propriedade 'message'
-      setMessage({ type: 'error', text: error.message || 'Falha ao executar a operação.' });
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error ? error.message : "Falha ao aplicar papel.";
+      setMessage({ type: "error", text: msg });
     } finally {
-      setIsLoading(false);
+      setApplying(false);
     }
   };
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Definir papel do usuário</CardTitle>
+        <CardTitle>Gerenciar papéis de usuário</CardTitle>
         <CardDescription>
-          Insira o UID e selecione o papel. Apenas administradores podem executar esta ação.
+          Busque pelo e-mail e defina o papel. Apenas administradores podem
+          executar esta ação.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col space-y-4">
+      <CardContent className="space-y-4">
+        {/* Busca por e-mail */}
+        <form onSubmit={handleSearch} className="flex gap-2">
           <Input
-            type="text"
-            value={uid}
-            onChange={(e) => setUid(e.target.value)}
-            placeholder="UID do Usuário"
-            disabled={isLoading}
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setFoundUser(null);
+              setMessage(null);
+            }}
+            placeholder="E-mail do usuário"
+            disabled={searching || applying}
+            className="flex-1"
           />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as typeof role)}
-            className="border rounded p-2"
-            disabled={isLoading}
-          >
-            <option value="admin">Admin</option>
-            <option value="organizer">Organizer</option>
-            <option value="validator">Validator</option>
-          </select>
-          <Button onClick={handleSetAdmin} disabled={isLoading}>
-            {isLoading ? 'Processando...' : 'Aplicar papel'}
+          <Button type="submit" disabled={searching || !email.trim()}>
+            {searching ? "Buscando…" : "Buscar"}
           </Button>
-          {message && (
-            <div className={`p-2 text-center rounded ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-              {message.text}
+        </form>
+
+        {/* Usuário encontrado */}
+        {foundUser && (
+          <div className="rounded-lg border p-4 space-y-3 bg-muted/40">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium">E-mail:</span> {foundUser.email}
+              </p>
+              <p>
+                <span className="font-medium">Papel atual:</span>{" "}
+                <span className="capitalize px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">
+                  {ROLE_LABELS[foundUser.role] ?? foundUser.role}
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground font-mono break-all">
+                UID: {foundUser.uid}
+              </p>
             </div>
-          )}
-        </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Novo papel</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as typeof role)}
+                className="w-full border rounded p-2 text-sm bg-background"
+                disabled={applying}
+              >
+                <option value="validator">Validador</option>
+                <option value="organizer">Organizador</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            <Button
+              onClick={handleApply}
+              disabled={applying || role === foundUser.role}
+              className="w-full"
+            >
+              {applying ? "Aplicando…" : `Definir como ${ROLE_LABELS[role]}`}
+            </Button>
+          </div>
+        )}
+
+        {message && (
+          <div
+            className={`p-3 text-sm text-center rounded ${
+              message.type === "success"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

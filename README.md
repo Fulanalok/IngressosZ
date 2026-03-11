@@ -30,10 +30,12 @@ O projeto já cobre os blocos fundamentais, com integração real de pagamento e
 - **Webhook de pagamento** com verificação de assinatura (HMAC quando configurado).
 - **Emissão de tickets** com QR Code assinado e persistência no Firestore.
 - **Validador de ingressos** via endpoint HTTP seguro com autenticação.
+- **Compra autenticada**: criação de preferência exige usuário logado.
 - **Administração** de eventos e roles (organizer/admin).
 - **E-mails transacionais** para confirmação de compra e entrega de tickets.
 - **Upload e otimização de imagens** para banners de eventos via Cloud Storage.
 - **Observabilidade** com Sentry no frontend e backend.
+- **Dados de teste** gerados por funções seed no backend (sem criação no cliente).
 
 Isso coloca o produto em um estágio avançado de MVP funcional, pronto para testes comerciais controlados.
 
@@ -46,6 +48,62 @@ Isso coloca o produto em um estágio avançado de MVP funcional, pronto para tes
 - **Banco:** Firestore.
 - **Pagamentos:** Mercado Pago (Checkout Pro).
 - **Observabilidade:** Sentry (frontend e functions).
+
+### Diagrama de arquitetura
+
+```mermaid
+flowchart TD
+    subgraph Browser["🖥️ Frontend (React SPA)"]
+        UI["Páginas / Componentes"]
+        Hooks["Hooks + TanStack Query"]
+        MP_SDK["Mercado Pago SDK (Wallet)"]
+    end
+
+    subgraph Firebase["☁️ Firebase"]
+        Auth["Firebase Auth"]
+        Firestore["Firestore"]
+        Storage["Cloud Storage"]
+        subgraph Functions["Cloud Functions v2"]
+            createPref["createPaymentPreference\n(callable)"]
+            receiveWH["receiveWebhook\n(HTTP público)"]
+            validateT["validateTicket\n(HTTP autenticado)"]
+            setAdmin["setAdminRole\n(callable)"]
+            uploadImg["uploadEventImage\n(callable)"]
+        end
+    end
+
+    subgraph External["🌐 Externos"]
+        MP["Mercado Pago API"]
+        SMTP["SMTP (e-mail)"]
+        Sentry["Sentry"]
+    end
+
+    UI --> Hooks
+    Hooks -->|"callable / HTTP"| createPref
+    Hooks -->|"callable"| setAdmin
+    Hooks -->|"callable"| uploadImg
+    Hooks -->|"Bearer token"| validateT
+    Hooks -->|"listener / query"| Firestore
+    Hooks -->|"signIn / signOut"| Auth
+
+    MP_SDK -->|"checkout"| MP
+
+    createPref -->|"cria preferência"| MP
+    MP -->|"webhook"| receiveWH
+
+    receiveWH -->|"valida assinatura HMAC"| MP
+    receiveWH -->|"gera purchases + tickets"| Firestore
+    receiveWH -->|"desconta estoque"| Firestore
+    receiveWH -->|"envia confirmação"| SMTP
+
+    validateT -->|"verifica ID Token"| Auth
+    validateT -->|"lê / atualiza ticket"| Firestore
+
+    uploadImg -->|"salva banner"| Storage
+
+    Browser -->|"erros / traces"| Sentry
+    Functions -->|"erros / traces"| Sentry
+```
 
 ## ⚙️ Configuração local
 
@@ -134,6 +192,12 @@ npm run serve
 
 O frontend faz proxy para `/functions` usando `VITE_FIREBASE_PROJECT_ID` e `VITE_FUNCTIONS_REGION`.
 
+> **Emuladores disponíveis:** O `firebase.json` configura emuladores para Auth (9099), Functions (5001), Firestore (8086) e Storage (9199), com UI habilitada. Para rodar todos os emuladores juntos:
+>
+> ```bash
+> npx firebase-tools emulators:start
+> ```
+
 ## 🧪 Testes
 
 Frontend (Vitest):
@@ -150,7 +214,17 @@ cd functions
 npm test
 ```
 
-## 🚀 Deploy do backend
+## 🚀 Deploy
+
+### Frontend
+
+```bash
+cd ingressosZ
+npm run build
+firebase deploy --only hosting
+```
+
+### Backend
 
 ```bash
 cd functions
@@ -159,14 +233,21 @@ firebase deploy --only functions
 
 Depois do deploy, configure a URL da função `receiveWebhook` no painel do Mercado Pago.
 
+### Completo (hosting + functions)
+
+```bash
+firebase deploy
+```
+
 ## 🔁 Fluxos principais (detalhados)
 
 ### Checkout, preferência e pagamento
 
-1. O frontend cria um `paymentSession` no Firestore.
-2. O app chama `createPaymentPreference` (callable) ou o endpoint público quando necessário.
-3. O Mercado Pago responde com o `preferenceId`.
-4. O componente `Wallet` do Mercado Pago inicia o checkout.
+1. Usuário autenticado inicia a compra.
+2. O frontend cria um `paymentSession` no Firestore.
+3. O app chama `createPaymentPreference` (callable) ou o endpoint público quando necessário.
+4. O Mercado Pago responde com o `preferenceId`.
+5. O componente `Wallet` do Mercado Pago inicia o checkout.
 
 ### Webhook e emissão de tickets
 
@@ -174,7 +255,7 @@ Depois do deploy, configure a URL da função `receiveWebhook` no painel do Merc
 2. O backend valida assinatura (quando `MP_WEBHOOK_SECRET` está configurado).
 3. Em pagamento aprovado:
    - cria `purchases`;
-   - desconta estoque do evento;
+   - desconta estoque do evento no backend;
    - gera `tickets` com QR Code assinado;
    - dispara e-mail com dados da compra.
 

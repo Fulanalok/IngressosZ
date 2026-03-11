@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { ticketService } from "@/services/firestore";
 import type { Ticket } from "@/types";
@@ -40,20 +40,6 @@ export function useTicket(ticketId: string | undefined) {
     queryKey: [TICKETS_QUERY_KEY, ticketId], 
     queryFn: () => ticketService.getTicketById(ticketId!), 
     enabled: !!ticketId 
-  });
-}
-
-export function useCreateTicket() {
-  const queryClient = useQueryClient();
-
-  return useMutation({ 
-    mutationFn: async (ticketData: Omit<Ticket, "id">) => {
-      return await ticketService.createTicket(ticketData);
-    }, 
-    onSuccess: (_, variables) => {
-      // Invalida a query de ingressos do usuário para buscar os dados atualizados
-      queryClient.invalidateQueries({ queryKey: [TICKETS_QUERY_KEY, variables.userId] });
-    }
   });
 }
 

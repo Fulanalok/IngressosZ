@@ -20,9 +20,7 @@ function DevAutoPage() {
                     await signInAnonymously(auth);
                 }
                 setStatus("Criando eventos de teste...");
-                const eventIds = await TestDataService.createTestEvents();
-                setStatus("Criando ingressos de teste...");
-                await TestDataService.createTestTickets(eventIds);
+                await TestDataService.createTestEvents();
                 setStatus("Concluído! Redirecionando...");
                 navigate("/meus-ingressos", { replace: true });
             }

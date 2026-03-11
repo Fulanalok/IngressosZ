@@ -49,8 +49,6 @@ vi.mock("../services/firestore", async (orig) => {
     return () => {}; // Unsubscribe mock
   });
 
-  const createTicket = vi.fn(async () => "t2");
-
   const getTicketForValidation = vi.fn();
 
   return {
@@ -59,7 +57,6 @@ vi.mock("../services/firestore", async (orig) => {
       ...mod.ticketService,
       getUserTickets,
       subscribeToUserTickets,
-      createTicket,
       getTicketForValidation,
     },
   };

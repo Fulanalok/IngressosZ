@@ -1,18 +1,14 @@
-import { db } from "@/firebaseConfig";
-import { eventService } from "@/services/firestore";
+import { db, functions } from "@/firebaseConfig";
 import { initMercadoPago } from "@mercadopago/sdk-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-
 if (MP_PUBLIC_KEY) {
   initMercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
 }
-
 export function useMercadoPagoCheckout(
   event,
   ticketType,
@@ -24,66 +20,66 @@ export function useMercadoPagoCheckout(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-
   const unitPrice = event.pricing?.[ticketType] ?? event.price;
   const totalAmount = unitPrice * quantity;
-
   const createPreference = async () => {
     const normalizedEmail = userEmail?.trim();
-    if (!event || (!userId && !normalizedEmail)) return;
-
+    if (!event || !userId || !normalizedEmail) {
+      setError("Faça login para continuar.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
-
     try {
-      const paymentSessionRef = await addDoc(collection(db, "paymentSessions"), {
-        eventId: event.id,
-        userId: userId || "guest",
-        userEmail: normalizedEmail || "",
-        ticketType,
-        quantity,
-        unitPrice,
-        totalAmount,
-        status: "pending",
-        provider: "mercadopago",
-        createdAt: serverTimestamp(),
-      });
-
+      const paymentSessionRef = await addDoc(
+        collection(db, "paymentSessions"),
+        {
+          eventId: event.id,
+          userId,
+          userEmail: normalizedEmail || "",
+          ticketType,
+          quantity,
+          unitPrice,
+          totalAmount,
+          status: "pending",
+          provider: "mercadopago",
+          createdAt: serverTimestamp(),
+        }
+      );
       const paymentSessionId = paymentSessionRef.id;
-
-      if (userId) {
-        try {
-          const functions = getFunctions();
-          const createPaymentPreference = httpsCallable(
-            functions,
-            "createPaymentPreference"
-          );
-          const result = await createPaymentPreference({
-            eventId: event.id,
-            quantity,
-            userId,
-            userEmail: normalizedEmail || "",
-          });
-          const prefId = result?.data?.id;
-          if (prefId) {
-            setPreferenceId(prefId);
-            return;
-          }
-        } catch (callableErr) {
-          if (!API_BASE_URL) {
-            throw callableErr;
-          }
+      try {
+        const createPaymentPreference = httpsCallable(
+          functions,
+          "createPaymentPreference"
+        );
+        const result = await createPaymentPreference({
+          eventId: event.id,
+          quantity,
+          ticketType,
+          userId,
+          userEmail: normalizedEmail || "",
+          paymentSessionId,
+        });
+        const prefId = result?.data?.id;
+        if (prefId) {
+          setPreferenceId(prefId);
+          return;
+        }
+      } catch (callableErr) {
+        if (!API_BASE_URL) {
+          throw callableErr;
         }
       }
-
       const baseUrl = API_BASE_URL || "/functions";
       const response = await fetch(`${baseUrl}/createPaymentPreferencePublic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentSessionId,
           eventId: event.id,
           quantity,
+          ticketType,
+          paymentSessionId,
+          userId,
           userEmail: normalizedEmail,
         }),
       });
@@ -96,7 +92,8 @@ export function useMercadoPagoCheckout(
         );
       }
       const responseText = await response.text();
-      const data = responseText.trim().length > 0 ? JSON.parse(responseText) : {};
+      const data =
+        responseText.trim().length > 0 ? JSON.parse(responseText) : {};
       const prefId = data?.preferenceId || data?.id;
       if (prefId) {
         setPreferenceId(prefId);
@@ -112,14 +109,9 @@ export function useMercadoPagoCheckout(
       setIsLoading(false);
     }
   };
-
   const handlePaymentSuccess = async (paymentId) => {
     setIsLoading(true);
     try {
-      for (let i = 0; i < quantity; i++) {
-        await eventService.decrementAvailableTickets(event.id, 1);
-      }
-
       navigate(`/pagamento/sucesso?payment_id=${paymentId}`);
     } catch (err) {
       console.error("Erro no pós-pagamento (cliente):", err);
@@ -128,7 +120,6 @@ export function useMercadoPagoCheckout(
       setIsLoading(false);
     }
   };
-
   return {
     createPreference,
     preferenceId,

@@ -6,6 +6,10 @@ import { useMercadoPagoCheckout } from "./useMercadoPagoCheckout";
 
 const mockNavigate = vi.fn();
 
+const { mockHttpsCallable } = vi.hoisted(() => ({
+  mockHttpsCallable: vi.fn(),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
     "react-router-dom"
@@ -16,8 +20,9 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-vi.mock("../firebaseConfig", () => ({
+vi.mock("@/firebaseConfig", () => ({
   db: {},
+  functions: {},
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -26,16 +31,9 @@ vi.mock("firebase/firestore", () => ({
   serverTimestamp: vi.fn(),
 }));
 
-const mockHttpsCallable = vi.fn();
 vi.mock("firebase/functions", () => ({
   getFunctions: vi.fn(() => ({})),
   httpsCallable: vi.fn(() => mockHttpsCallable),
-}));
-
-vi.mock("../services/firestore", () => ({
-  eventService: {
-    decrementAvailableTickets: vi.fn(),
-  },
 }));
 
 import type { AuthContextType } from "../context/authContext";
@@ -77,7 +75,7 @@ describe("useMercadoPagoCheckout", () => {
       const res = await result.current.createPreference();
       expect(res).toBeUndefined();
     });
-    expect(result.current.error).toBeNull();
+    expect(result.current.error).toBe("Faça login para continuar.");
   });
 
   it("define preferenceId quando a API retorna preferenceId", async () => {
@@ -122,10 +120,6 @@ describe("useMercadoPagoCheckout", () => {
       title: "Evento",
       price: 100,
     } as any;
-    const decSpy = vi.spyOn(
-      (await import("../services/firestore")).eventService,
-      "decrementAvailableTickets"
-    );
     const wrapper = wrapperWithAuth({
       user: {
         uid: "u1",
@@ -144,7 +138,6 @@ describe("useMercadoPagoCheckout", () => {
     await act(async () => {
       await result.current.handlePaymentSuccess("pay-1");
     });
-    expect(decSpy).toHaveBeenCalledTimes(2);
     expect(mockNavigate).toHaveBeenCalledWith(
       "/pagamento/sucesso?payment_id=pay-1"
     );

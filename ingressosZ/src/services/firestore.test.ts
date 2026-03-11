@@ -180,12 +180,6 @@ describe("Firestore Services", () => {
       expect(onError).toHaveBeenCalledWith(error);
     });
 
-    it("createTicket adds doc", async () => {
-      (addDoc as any).mockResolvedValue({ id: "t1" });
-      const id = await ticketService.createTicket({ eventId: "e1" } as any);
-      expect(id).toBe("t1");
-    });
-
     it("getTicketForValidation returns valid ticket", async () => {
       (getDoc as any).mockResolvedValue({
         exists: () => true,

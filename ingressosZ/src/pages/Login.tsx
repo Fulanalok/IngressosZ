@@ -1,6 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
 import { FirebaseError } from "firebase/app";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +17,13 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
@@ -27,7 +37,6 @@ function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log("Usuário logado com sucesso!");
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao fazer login:", err);
@@ -67,6 +76,31 @@ function Login() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setForgotLoading(true);
+    setForgotMessage(null);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotMessage({
+        type: "success",
+        text: "Se esse e-mail estiver cadastrado, você receberá um link para redefinir a senha em instantes.",
+      });
+    } catch (err) {
+      if (err instanceof FirebaseError && err.code === "auth/invalid-email") {
+        setForgotMessage({ type: "error", text: "E-mail inválido." });
+      } else {
+        setForgotMessage({
+          type: "error",
+          text: "Não foi possível enviar o e-mail. Tente novamente.",
+        });
+      }
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -172,6 +206,20 @@ function Login() {
                 </div>
               )}
 
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgot(true);
+                    setForgotEmail(email);
+                    setForgotMessage(null);
+                  }}
+                  className="text-sm text-primary hover:opacity-80 underline-offset-2 hover:underline"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
+
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
@@ -186,6 +234,53 @@ function Login() {
                 )}
               </Button>
             </form>
+
+            {/* Recuperação de senha */}
+            {showForgot && (
+              <div className="mt-4 rounded-lg border border-border p-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  Redefinir senha
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-2">
+                  <Input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    required
+                    disabled={forgotLoading}
+                  />
+                  {forgotMessage && (
+                    <p
+                      className={`text-xs ${
+                        forgotMessage.type === "success"
+                          ? "text-green-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {forgotMessage.text}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="flex-1"
+                    >
+                      {forgotLoading ? "Enviando…" : "Enviar link"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setShowForgot(false)}
+                      disabled={forgotLoading}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
           </CardContent>
 
           <CardFooter className="mt-0 flex-col">

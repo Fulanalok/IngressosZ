@@ -37,7 +37,9 @@ export async function postClientError(
         const projectId = String(
           import.meta.env.VITE_FIREBASE_PROJECT_ID || ""
         );
-        const region = String(import.meta.env.VITE_FUNCTIONS_REGION || "us-central1");
+        const region = String(
+          import.meta.env.VITE_FUNCTIONS_REGION || "us-central1"
+        );
         const fnPort = String(
           import.meta.env.VITE_FUNCTIONS_PORT ??
             import.meta.env.VITE_FIREBASE_EMULATOR_FUNCTIONS_PORT ??
@@ -47,6 +49,8 @@ export async function postClientError(
           return `http://127.0.0.1:${fnPort}/${projectId}/${region}`;
         }
       }
+      const apiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+      if (apiUrl) return apiUrl.replace(/\/+$/, "");
       return "/functions";
     })();
 

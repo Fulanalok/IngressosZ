@@ -19,7 +19,6 @@ vi.mock("../firebaseConfig", () => ({
 vi.mock("../services/testDataService", () => ({
   TestDataService: {
     createTestEvents: vi.fn(),
-    createTestTickets: vi.fn(),
   },
 }));
 
@@ -37,7 +36,6 @@ describe("DevAutoPage", () => {
 
   it("calls seedDatabase function on mount", async () => {
     (TestDataService.createTestEvents as any).mockResolvedValue(["e1"]);
-    (TestDataService.createTestTickets as any).mockResolvedValue(undefined);
 
     render(<DevAutoPage />);
 
@@ -49,7 +47,6 @@ describe("DevAutoPage", () => {
 
     await waitFor(() => {
       expect(TestDataService.createTestEvents).toHaveBeenCalled();
-      expect(TestDataService.createTestTickets).toHaveBeenCalledWith(["e1"]);
       expect(
         screen.getByText("Concluído! Redirecionando...")
       ).toBeInTheDocument();
@@ -62,7 +59,6 @@ describe("DevAutoPage", () => {
   it("authenticates anonymously if no user", async () => {
     (auth as any).currentUser = null;
     (TestDataService.createTestEvents as any).mockResolvedValue(["e1"]);
-    (TestDataService.createTestTickets as any).mockResolvedValue(undefined);
 
     render(<DevAutoPage />);
 

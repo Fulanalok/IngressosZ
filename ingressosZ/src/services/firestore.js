@@ -81,10 +81,6 @@ export const ticketService = {
             ? { id: snapshot.id, ...snapshot.data() }
             : null;
     },
-    async createTicket(ticketData) {
-        const docRef = await addDoc(collection(db, "tickets"), ticketData);
-        return docRef.id;
-    },
     async getTicketForValidation(ticketId) {
         const ticketRef = doc(db, "tickets", ticketId);
         const ticketSnap = await getDoc(ticketRef);

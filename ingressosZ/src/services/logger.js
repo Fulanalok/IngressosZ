@@ -39,6 +39,9 @@ export async function postClientError(details) {
                     return `http://127.0.0.1:${fnPort}/${projectId}/${region}`;
                 }
             }
+            const apiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+            if (apiUrl)
+                return apiUrl.replace(/\/+$/, "");
             return "/functions";
         })();
         let lastStatus = 0;

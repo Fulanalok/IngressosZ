@@ -18,7 +18,13 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import type { Event, PaginatedEvents, PaymentSession, Ticket, UserProfile } from "../types";
+import type {
+  Event,
+  PaginatedEvents,
+  PaymentSession,
+  Ticket,
+  UserProfile,
+} from "../types";
 
 // =============================================================================
 // Event Service
@@ -40,7 +46,9 @@ export const eventService = {
     }
     const snapshot = await getDocs(eventsQuery);
     return {
-      events: snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Event)),
+      events: snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Event)
+      ),
       lastVisible: snapshot.docs[snapshot.docs.length - 1],
     };
   },
@@ -87,10 +95,13 @@ export const eventService = {
     await deleteDoc(doc(db, "events", eventId));
   },
 
-  async decrementAvailableTickets(eventId: string, quantity: number): Promise<void> {
+  async decrementAvailableTickets(
+    eventId: string,
+    quantity: number
+  ): Promise<void> {
     const eventRef = doc(db, "events", eventId);
     await updateDoc(eventRef, {
-        availableTickets: increment(-quantity),
+      availableTickets: increment(-quantity),
     });
   },
 };
@@ -142,11 +153,6 @@ export const ticketService = {
     return snapshot.exists()
       ? ({ id: snapshot.id, ...snapshot.data() } as Ticket)
       : null;
-  },
-
-  async createTicket(ticketData: Omit<Ticket, "id">): Promise<string> {
-    const docRef = await addDoc(collection(db, "tickets"), ticketData);
-    return docRef.id;
   },
 
   async getTicketForValidation(ticketId: string): Promise<Ticket | null> {
@@ -226,6 +232,20 @@ export const userService = {
     return onSnapshot(doc(db, "users", userId), (docSnap) => {
       callback(docSnap.exists() ? (docSnap.data() as UserProfile) : null);
     });
+  },
+
+  async searchUserByEmail(email: string): Promise<UserProfile | null> {
+    const q = query(
+      collection(db, "users"),
+      where("email", "==", email.trim().toLowerCase()),
+      limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return {
+      uid: snapshot.docs[0].id,
+      ...snapshot.docs[0].data(),
+    } as UserProfile;
   },
 };
 

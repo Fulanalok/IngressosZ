@@ -22,7 +22,7 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => authState,
 }));
 
-vi.mock("react-hot-toast", () => ({
+vi.mock("sonner", () => ({
   toast: mockToast,
 }));
 
@@ -74,7 +74,7 @@ describe("ProfilePage", () => {
   it("renders with default values when userProfile is null", () => {
     authState.userProfile = null;
     render(<ProfilePage />);
-    expect(screen.getByText("Usuário")).toBeInTheDocument();
+    expect(screen.getAllByText("Usuário").length).toBeGreaterThan(0);
     expect(screen.queryByText("Test User")).not.toBeInTheDocument();
   });
 });

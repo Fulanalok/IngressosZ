@@ -21,7 +21,7 @@ describe("postClientError", () => {
     } as unknown as Response);
     await postClientError({ type: "t", message: "m" });
     const call = spy.mock.calls[0]!;
-    expect(call[0]).toBe("/functions/logClientError");
+    expect(String(call[0])).toMatch(/\/logClientError$/);
     const mod = await import("../firebaseConfig");
     expect(typeof mod.auth.currentUser!.getIdToken).toBe("function");
     expect(mod.auth.currentUser!.getIdToken).toHaveBeenCalled();

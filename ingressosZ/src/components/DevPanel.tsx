@@ -1,8 +1,7 @@
-import { Timestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { ticketService, userService } from "../services/firestore";
+import { userService } from "../services/firestore";
 import { seedSampleEvents } from "../utils/seedData";
 
 function DevPanel() {
@@ -71,40 +70,6 @@ function DevPanel() {
   const handleDevAuto = () => {
     // Navegar para rota de auto-setup (dev-only)
     navigate("/dev-auto");
-  };
-
-  const handleCreateSampleTicket = async () => {
-    if (!user) {
-      setMessage("❌ Você precisa estar logado para criar ingressos");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-
-    try {
-      // Criar um ingresso de exemplo
-      const sampleTicket = {
-        eventId: "sample-event-1",
-        userId: user.uid,
-        userEmail: user.email || "usuario@exemplo.com",
-        status: "active" as const,
-        price: 85.0,
-        ticketType: "standard" as const,
-        purchaseDate: Timestamp.now(),
-        qrCode: "sample-qr-code",
-      };
-
-      await ticketService.createTicket(sampleTicket);
-      setMessage("✅ Ingresso de exemplo criado com sucesso!");
-    } catch (error) {
-      setMessage(
-        "❌ Erro ao criar ingresso: " +
-          (error instanceof Error ? error.message : "Erro desconhecido")
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Só exibe em ambiente de desenvolvimento
@@ -196,22 +161,6 @@ function DevPanel() {
           {loading ? "⏳ Executando..." : "⚙️ Dev Auto"}
         </button>
 
-        <button
-          onClick={handleCreateSampleTicket}
-          disabled={loading || !user}
-          style={{
-            width: "100%",
-            backgroundColor: loading || !user ? "#6c757d" : "#17a2b8",
-            color: "white",
-            border: "none",
-            padding: "8px 12px",
-            borderRadius: "4px",
-            cursor: loading || !user ? "not-allowed" : "pointer",
-            fontSize: "12px",
-          }}
-        >
-          {loading ? "⏳ Criando..." : "🎫 Criar Ingresso Teste"}
-        </button>
       </div>
 
       {message && (

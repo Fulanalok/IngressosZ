@@ -1,9 +1,8 @@
-import { db } from "@/firebaseConfig";
-import { eventService } from "@/services/firestore";
+import { db, functions } from "@/firebaseConfig";
 import type { Event } from "@/types";
 import { initMercadoPago } from "@mercadopago/sdk-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +21,14 @@ export function useMercadoPagoCheckout(
   userEmail?: string
 ) {
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [pixData, setPixData] = useState<{
+    paymentId: string;
+    qrCode: string;
+    qrCodeBase64?: string;
+    ticketUrl?: string;
+    status?: string;
+    paymentSessionId?: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -31,17 +38,21 @@ export function useMercadoPagoCheckout(
 
   const createPreference = async () => {
     const normalizedEmail = userEmail?.trim();
-    if (!event || (!userId && !normalizedEmail)) return;
+    if (!event || !userId || !normalizedEmail) {
+      setError("Faça login para continuar.");
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
+    setPixData(null);
 
     try {
       const paymentSessionRef = await addDoc(
         collection(db, "paymentSessions"),
         {
           eventId: event.id,
-          userId: userId || "guest",
+          userId,
           userEmail: normalizedEmail || "",
           ticketType,
           quantity,
@@ -55,55 +66,54 @@ export function useMercadoPagoCheckout(
 
       const paymentSessionId = paymentSessionRef.id;
 
-      if (userId) {
-        try {
-          const functions = getFunctions();
-          const createPaymentPreference = httpsCallable(
-            functions,
-            "createPaymentPreference"
-          );
-          const result = await createPaymentPreference({
-            eventId: event.id,
-            quantity,
-            userId,
-            userEmail: normalizedEmail || "",
-          });
-          const prefId = (result?.data as any)?.id;
-          if (prefId) {
-            setPreferenceId(prefId);
-            return;
-          }
-        } catch (callableErr) {
-          if (!API_BASE_URL) {
-            throw callableErr;
-          }
+      try {
+        const createPaymentPreference = httpsCallable(
+          functions,
+          "createPaymentPreference"
+        );
+        const result = await createPaymentPreference({
+          eventId: event.id,
+          quantity,
+          ticketType,
+          userId,
+          userEmail: normalizedEmail || "",
+          paymentSessionId,
+        });
+        const prefId = (result?.data as any)?.id;
+        if (prefId) {
+          setPreferenceId(prefId);
+          return;
+        }
+      } catch (callableErr) {
+        if (!API_BASE_URL) {
+          throw callableErr;
         }
       }
 
       const baseUrl = API_BASE_URL || "/functions";
-      const response = await fetch(
-        `${baseUrl}/createPaymentPreferencePublic`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paymentSessionId,
-            eventId: event.id,
-            quantity,
-            userEmail: normalizedEmail,
-          }),
-        }
-      );
-        if (!response.ok) {
-          const errorText = await response.text();
-          const errorData =
-            errorText.trim().length > 0 ? JSON.parse(errorText) : {};
-          throw new Error(
-            `Erro ao criar preferência: ${errorData.message || "Sem detalhes"}`
-          );
-        }
+      const response = await fetch(`${baseUrl}/createPaymentPreferencePublic`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: event.id,
+          quantity,
+          ticketType,
+          paymentSessionId,
+          userId,
+          userEmail: normalizedEmail,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        const errorData =
+          errorText.trim().length > 0 ? JSON.parse(errorText) : {};
+        throw new Error(
+          `Erro ao criar preferência: ${errorData.message || "Sem detalhes"}`
+        );
+      }
       const responseText = await response.text();
-      const data = responseText.trim().length > 0 ? JSON.parse(responseText) : {};
+      const data =
+        responseText.trim().length > 0 ? JSON.parse(responseText) : {};
       const prefId = data?.preferenceId || data?.id;
       if (prefId) {
         setPreferenceId(prefId);
@@ -120,13 +130,120 @@ export function useMercadoPagoCheckout(
     }
   };
 
+  const createPixPayment = async () => {
+    const normalizedEmail = userEmail?.trim();
+    if (!event || !userId || !normalizedEmail) {
+      setError("Faça login para continuar.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setPreferenceId(null);
+
+    try {
+      const paymentSessionRef = await addDoc(
+        collection(db, "paymentSessions"),
+        {
+          eventId: event.id,
+          userId,
+          userEmail: normalizedEmail || "",
+          ticketType,
+          quantity,
+          unitPrice,
+          totalAmount,
+          status: "pending",
+          provider: "mercadopago",
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      const paymentSessionId = paymentSessionRef.id;
+
+      try {
+        const createPixPaymentCallable = httpsCallable(
+          functions,
+          "createPixPayment"
+        );
+        const result = await createPixPaymentCallable({
+          eventId: event.id,
+          quantity,
+          ticketType,
+          userId,
+          userEmail: normalizedEmail || "",
+          paymentSessionId,
+        });
+        const data = (result?.data as any) || {};
+        const qrCode = data?.qrCode || data?.qr_code;
+        const paymentId = data?.paymentId || data?.id;
+        if (qrCode && paymentId) {
+          setPixData({
+            paymentId,
+            qrCode,
+            qrCodeBase64: data?.qrCodeBase64 || data?.qr_code_base64 || "",
+            ticketUrl: data?.ticketUrl || data?.ticket_url || "",
+            status: data?.status,
+            paymentSessionId,
+          });
+          return;
+        }
+      } catch (callableErr) {
+        if (!API_BASE_URL) {
+          throw callableErr;
+        }
+      }
+
+      const baseUrl = API_BASE_URL || "/functions";
+      const response = await fetch(`${baseUrl}/createPixPaymentPublic`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: event.id,
+          quantity,
+          ticketType,
+          paymentSessionId,
+          userId,
+          userEmail: normalizedEmail,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        const errorData =
+          errorText.trim().length > 0 ? JSON.parse(errorText) : {};
+        throw new Error(
+          `Erro ao criar Pix: ${errorData.message || "Sem detalhes"}`
+        );
+      }
+      const responseText = await response.text();
+      const data =
+        responseText.trim().length > 0 ? JSON.parse(responseText) : {};
+      const qrCode = data?.qrCode || data?.qr_code;
+      const paymentId = data?.paymentId || data?.id;
+      if (qrCode && paymentId) {
+        setPixData({
+          paymentId,
+          qrCode,
+          qrCodeBase64: data?.qrCodeBase64 || data?.qr_code_base64 || "",
+          ticketUrl: data?.ticketUrl || data?.ticket_url || "",
+          status: data?.status,
+          paymentSessionId,
+        });
+      } else {
+        throw new Error("QR Code Pix não recebido da API.");
+      }
+    } catch (err) {
+      console.error("Erro detalhado ao criar Pix:", err);
+      setError(
+        err instanceof Error ? err.message : "Ocorreu um erro desconhecido."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handlePaymentSuccess = async (paymentId: string) => {
     setIsLoading(true);
     try {
-      for (let i = 0; i < quantity; i++) {
-        await eventService.decrementAvailableTickets(event.id, 1);
-      }
-
       navigate(`/pagamento/sucesso?payment_id=${paymentId}`);
     } catch (err) {
       console.error("Erro no pós-pagamento (cliente):", err);
@@ -138,7 +255,9 @@ export function useMercadoPagoCheckout(
 
   return {
     createPreference,
+    createPixPayment,
     preferenceId,
+    pixData,
     isLoading,
     error,
     totalAmount,

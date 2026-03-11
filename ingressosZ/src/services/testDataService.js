@@ -4,26 +4,23 @@ export class TestDataService {
     // Verificar se há dados de teste específicos
     static async hasTestData() {
         try {
-            // Verificar se existem os códigos QR específicos
-            const ticketsQuery = query(collection(db, "tickets"));
-            const ticketsSnapshot = await getDocs(ticketsQuery);
-            const testCodes = [
-                "TICKET-1756219017406-fh2k739l1",
-                "TICKET-JT1ZHCGOVQYIECOUAZCF",
-                "TICKET-1756219017407-usado123",
-                "TICKET-1756295230187-lxfcondum",
+            const eventsQuery = query(collection(db, "events"));
+            const eventsSnapshot = await getDocs(eventsQuery);
+            const testTitles = [
+                "Festival de Música 2024",
+                "Stand-up Comedy Night",
             ];
-            const existingCodes = [];
-            ticketsSnapshot.forEach((doc) => {
+            const existingTitles = [];
+            eventsSnapshot.forEach((doc) => {
                 const data = doc.data();
-                if (testCodes.includes(data.qrCode)) {
-                    existingCodes.push(data.qrCode);
+                if (testTitles.includes(data.title)) {
+                    existingTitles.push(data.title);
                 }
             });
             if (import.meta.env.DEV) {
-                console.log("Códigos encontrados:", existingCodes);
+                console.log("Eventos encontrados:", existingTitles);
             }
-            return existingCodes.length >= testCodes.length;
+            return existingTitles.length >= testTitles.length;
         }
         catch (error) {
             console.error("Erro ao verificar dados de teste:", error);
@@ -86,84 +83,6 @@ export class TestDataService {
             throw error;
         }
     }
-    // Criar ingressos de teste
-    static async createTestTickets(eventIds) {
-        try {
-            if (!auth.currentUser) {
-                throw new Error("Usuário não autenticado para criar ingressos de teste");
-            }
-            const tickets = [
-                // Ingressos válidos
-                {
-                    userId: auth.currentUser.uid,
-                    userEmail: auth.currentUser.email || "usuario1@teste.com",
-                    eventId: eventIds[0],
-                    ticketType: "VIP",
-                    price: 150.0,
-                    quantity: 1,
-                    status: "active",
-                    qrCode: "TICKET-1756219017406-fh2k739l1",
-                    purchaseDate: new Date().toISOString(),
-                    validatedAt: null,
-                    validatedBy: null,
-                },
-                {
-                    userId: auth.currentUser.uid,
-                    userEmail: auth.currentUser.email || "usuario2@teste.com",
-                    eventId: eventIds[0],
-                    ticketType: "Geral",
-                    price: 150.0,
-                    quantity: 1,
-                    status: "active",
-                    qrCode: "TICKET-JT1ZHCGOVQYIECOUAZCF",
-                    purchaseDate: new Date().toISOString(),
-                    validatedAt: null,
-                    validatedBy: null,
-                },
-                // Ingresso já usado
-                {
-                    userId: auth.currentUser.uid,
-                    userEmail: auth.currentUser.email || "usuario3@teste.com",
-                    eventId: eventIds[1],
-                    ticketType: "VIP",
-                    price: 80.0,
-                    quantity: 1,
-                    status: "used",
-                    qrCode: "TICKET-1756219017407-usado123",
-                    purchaseDate: new Date(Date.now() - 86400000).toISOString(), // 1 dia atrás
-                    validatedAt: new Date().toISOString(),
-                    validatedBy: auth.currentUser.uid,
-                },
-                // Ingresso adicional para teste
-                {
-                    userId: auth.currentUser.uid,
-                    userEmail: auth.currentUser.email || "usuario4@teste.com",
-                    eventId: eventIds[0],
-                    ticketType: "Geral",
-                    price: 100.0,
-                    quantity: 1,
-                    status: "active",
-                    qrCode: "TICKET-1756295230187-lxfcondum",
-                    purchaseDate: new Date().toISOString(),
-                    validatedAt: null,
-                    validatedBy: null,
-                },
-            ];
-            const ticketIds = [];
-            for (const ticket of tickets) {
-                const docRef = await addDoc(collection(db, "tickets"), ticket);
-                ticketIds.push(docRef.id);
-                if (import.meta.env.DEV) {
-                    console.log("Ingresso criado:", docRef.id, ticket.qrCode);
-                }
-            }
-            return ticketIds;
-        }
-        catch (error) {
-            console.error("Erro ao criar ingressos de teste:", error);
-            throw error;
-        }
-    }
     // Inicializar dados de teste completos
     static async initializeTestData(force = false) {
         try {
@@ -190,19 +109,9 @@ export class TestDataService {
             if (import.meta.env.DEV) {
                 console.log("📅 Criando eventos de teste...");
             }
-            const eventIds = await this.createTestEvents();
-            // Criar ingressos
-            if (import.meta.env.DEV) {
-                console.log("🎫 Criando ingressos de teste...");
-            }
-            await this.createTestTickets(eventIds);
+            await this.createTestEvents();
             if (import.meta.env.DEV) {
                 console.log("✅ Dados de teste criados com sucesso!");
-                console.log("🔍 Códigos de teste disponíveis:");
-                console.log("  - TICKET-1756219017406-fh2k739l1 (válido)");
-                console.log("  - TICKET-JT1ZHCGOVQYIECOUAZCF (válido)");
-                console.log("  - TICKET-1756219017407-usado123 (já usado)");
-                console.log("  - TICKET-1756295230187-lxfcondum (válido)");
             }
         }
         catch (error) {

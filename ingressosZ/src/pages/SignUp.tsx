@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/useAuth";
 import { FirebaseError } from "firebase/app";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import React, { useEffect, useState } from "react";
@@ -7,7 +8,6 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardFooter } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { auth } from "../firebaseConfig";
-import { useAuth } from "@/hooks/useAuth";
 
 function SignUp() {
   const [email, setEmail] = useState("");
@@ -39,13 +39,8 @@ function SignUp() {
     setLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      await createUserWithEmailAndPassword(auth, email, password);
 
-      console.log("Usuário criado com sucesso!", userCredential.user);
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao criar usuário:", err);
