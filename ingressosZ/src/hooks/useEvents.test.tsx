@@ -12,6 +12,15 @@ vi.mock("../services/firestore", () => ({
   },
 }));
 
+vi.mock("firebase/firestore", () => ({
+  doc: vi.fn(),
+  onSnapshot: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("../firebaseConfig", () => ({
+  db: {},
+}));
+
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {

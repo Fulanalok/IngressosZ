@@ -1,17 +1,25 @@
-import { collection, addDoc, getDocs, query } from "firebase/firestore";
-import { db, auth } from "../firebaseConfig";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 
 export class TestDataService {
   // Verificar se há dados de teste específicos
   static async hasTestData(): Promise<boolean> {
     try {
-      const eventsQuery = query(collection(db, "events"));
+      const testTitles = ["Festival de Música 2024", "Stand-up Comedy Night"];
+      const eventsQuery = query(
+        collection(db, "events"),
+        where("title", "in", testTitles),
+        limit(testTitles.length)
+      );
       const eventsSnapshot = await getDocs(eventsQuery);
-
-      const testTitles = [
-        "Festival de Música 2024",
-        "Stand-up Comedy Night",
-      ];
 
       const existingTitles: string[] = [];
       eventsSnapshot.forEach((doc) => {
@@ -45,15 +53,16 @@ export class TestDataService {
           date: "2024-03-15",
           time: "20:00",
           location: "Parque Ibirapuera - São Paulo",
+          address: "Av. Pedro Álvares Cabral, Vila Mariana, São Paulo - SP",
           price: 150.0,
+          maxTickets: 1000,
           availableTickets: 1000,
-          totalTickets: 1000,
           category: "Música",
-          imageUrl:
+          image:
             "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500",
-          organizerId: "test-organizer",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          organizerId: auth.currentUser!.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         },
         {
           title: "Stand-up Comedy Night",
@@ -62,15 +71,16 @@ export class TestDataService {
           date: "2024-03-20",
           time: "21:00",
           location: "Teatro Municipal - Rio de Janeiro",
+          address: "Praça Floriano, Centro, Rio de Janeiro - RJ",
           price: 80.0,
+          maxTickets: 500,
           availableTickets: 500,
-          totalTickets: 500,
           category: "Comédia",
-          imageUrl:
+          image:
             "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500",
-          organizerId: "test-organizer",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          organizerId: auth.currentUser!.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         },
       ];
 
@@ -97,7 +107,7 @@ export class TestDataService {
   static async initializeTestData(force: boolean = false) {
     try {
       if (import.meta.env.DEV) {
-        console.log("🚀 Iniciando criação de dados de teste...");
+        console.log("Iniciando criação de dados de teste...");
       }
 
       // Verificar se já há dados (apenas se não for forçado)
@@ -105,29 +115,29 @@ export class TestDataService {
         const hasData = await this.hasTestData();
         if (hasData) {
           if (import.meta.env.DEV) {
-            console.log("✅ Dados de teste já existem no Firestore");
-            console.log("💡 Use force=true para recriar os dados");
+            console.log("Dados de teste já existem no Firestore");
+            console.log("Use force=true para recriar os dados");
           }
           return;
         }
       } else {
         if (import.meta.env.DEV) {
-          console.log("🔄 Modo força ativado - recriando dados...");
+          console.log("Modo força ativado - recriando dados...");
         }
       }
 
       // Criar eventos
       if (import.meta.env.DEV) {
-        console.log("📅 Criando eventos de teste...");
+        console.log("Criando eventos de teste...");
       }
       await this.createTestEvents();
 
       if (import.meta.env.DEV) {
-        console.log("✅ Dados de teste criados com sucesso!");
+        console.log("Dados de teste criados com sucesso!");
       }
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.log("❌ Erro ao inicializar dados de teste:", error);
+        console.log("Erro ao inicializar dados de teste:", error);
       }
       throw error;
     }

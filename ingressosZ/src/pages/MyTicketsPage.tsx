@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
 import Ticket from "@/components/Ticket";
 import { TicketSkeleton } from "@/components/TicketSkeleton";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserTickets } from "@/hooks/useTickets";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 function MyTicketsPage() {
   const { user } = useAuth();
@@ -18,17 +19,17 @@ function MyTicketsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen gradient-bg transition-colors">
-         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="text-center mb-8 space-y-4">
-               <div className="h-16 w-16 bg-muted animate-pulse rounded-full mx-auto"></div>
-               <div className="h-10 w-64 bg-muted animate-pulse rounded mx-auto"></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {[...Array(3)].map((_, i) => (
-                  <TicketSkeleton key={i} />
-               ))}
-            </div>
-         </div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8 space-y-4">
+            <Skeleton className="h-16 w-16 rounded-full mx-auto" />
+            <Skeleton className="h-10 w-64 mx-auto" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <TicketSkeleton key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -38,7 +39,6 @@ function MyTicketsPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎟️</div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Meus Ingressos
           </h1>
@@ -51,7 +51,6 @@ function MyTicketsPage() {
         {/* Error State */}
         {error && (
           <div className="card max-w-md mx-auto text-center mb-8 bg-background">
-            <div className="text-6xl mb-4">⚠️</div>
             <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">
               Erro ao carregar ingressos
             </h3>
@@ -66,7 +65,6 @@ function MyTicketsPage() {
             {tickets.length === 0 ? (
               /* Empty State */
               <div className="card max-w-lg mx-auto text-center bg-white dark:bg-gray-800">
-                <div className="text-8xl mb-6">🎫</div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                   Você ainda não possui ingressos
                 </h2>
@@ -75,10 +73,7 @@ function MyTicketsPage() {
                   lugar?
                 </p>
                 <Button asChild className="text-lg px-8 py-3">
-                  <Link to="/eventos">
-                    <span className="mr-2">🎉</span>
-                    Descobrir Eventos
-                  </Link>
+                  <Link to="/eventos">Descobrir Eventos</Link>
                 </Button>
               </div>
             ) : (
@@ -100,11 +95,11 @@ function MyTicketsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {tickets.map((ticket) => (
-                      <div key={ticket.id} className="h-full">
-                         <Ticket ticket={ticket} />
-                      </div>
-                    ))}
+                  {tickets.map((ticket) => (
+                    <div key={ticket.id} className="h-full">
+                      <Ticket ticket={ticket} />
+                    </div>
+                  ))}
                 </div>
 
                 {/* Quick Actions */}
@@ -115,8 +110,7 @@ function MyTicketsPage() {
                       to="/eventos"
                       className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-lg p-4 text-center transition-colors backdrop-blur-sm"
                     >
-                      <div className="text-2xl mb-2">🎉</div>
-                      <div className="font-semibold">Mais Eventos</div>
+                      <div className="font-semibold">Explorar Eventos</div>
                       <div className="text-sm opacity-90">
                         Descubra novos eventos
                       </div>
@@ -125,11 +119,8 @@ function MyTicketsPage() {
                       to="/perfil"
                       className="bg-white/20 hover:bg-white/30 dark:bg-black/20 dark:hover:bg-black/30 rounded-lg p-4 text-center transition-colors backdrop-blur-sm"
                     >
-                      <div className="text-2xl mb-2">👤</div>
                       <div className="font-semibold">Meu Perfil</div>
-                      <div className="text-sm opacity-90">
-                        Gerenciar conta
-                      </div>
+                      <div className="text-sm opacity-90">Gerenciar conta</div>
                     </Link>
                   </div>
                 </div>
@@ -138,32 +129,6 @@ function MyTicketsPage() {
           </>
         )}
 
-        {/* Tips Section */}
-        <div className="mt-12 grid md:grid-cols-3 gap-6">
-          <div className="card text-center bg-background">
-            <div className="text-3xl mb-4">📱</div>
-            <h3 className="font-semibold text-foreground mb-2">
-              Acesso Mobile
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Seus ingressos estão sempre disponíveis no seu celular
-            </p>
-          </div>
-          <div className="card text-center bg-background">
-            <div className="text-3xl mb-4">🔐</div>
-            <h3 className="font-semibold text-foreground mb-2">Segurança</h3>
-            <p className="text-sm text-muted-foreground">
-              Ingressos com código QR único e verificação de segurança
-            </p>
-          </div>
-          <div className="card text-center bg-background">
-            <div className="text-3xl mb-4">💬</div>
-            <h3 className="font-semibold text-foreground mb-2">Suporte</h3>
-            <p className="text-sm text-muted-foreground">
-              Precisa de ajuda? Nossa equipe está pronta para te atender
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

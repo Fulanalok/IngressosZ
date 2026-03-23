@@ -67,7 +67,9 @@ describe("HomePage", () => {
 
     const cards = screen.getAllByTestId("featured-event-card");
     expect(cards).toHaveLength(4);
-    expect(screen.getByText("Evento Destaque 1")).toBeInTheDocument();
+    // Usamos getAllByText e pegamos o primeiro pois o título do primeiro evento
+    // também aparece no Hero Section como "Próximo destaque"
+    expect(screen.getAllByText("Evento Destaque 1")[0]).toBeInTheDocument();
     expect(screen.getByText("Evento Extra")).toBeInTheDocument();
   });
 

@@ -53,7 +53,6 @@ function QRCodeDisplay({
     className="bg-red-50 border-2 border-red-200 rounded-none flex items-center justify-center"
         style={{ width: size, height: size }}>
         <div className="text-center text-red-600">
-          <div className="text-2xl mb-1">⚠️</div>
           <div className="text-xs">Erro no QR</div>
         </div>
       </div>

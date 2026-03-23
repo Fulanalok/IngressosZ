@@ -16,19 +16,30 @@ service firebase.storage {
     function isOrganizer() {
       return hasRole('organizer') || hasRole('admin');
     }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidImageUpload(maxSizeMb) {
+      return isImage()
+        && request.resource.size < maxSizeMb * 1024 * 1024;
+    }
 
     // --- Event Images ---
     // Public read access for event images
     // Only organizers/admins can upload
     match /events/{allPaths=**} {
       allow read: if true;
-      allow write: if isOrganizer();
+      allow write: if isOrganizer() && isValidImageUpload(5);
     }
     
     // --- User Profile Images (future proofing) ---
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidImageUpload(5);
     }
 
     // Default deny

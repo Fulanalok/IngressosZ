@@ -5,11 +5,11 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "ownerId",
+          "fieldPath": "organizerId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "name",
+          "fieldPath": "title",
           "order": "ASCENDING"
         },
         {
@@ -25,7 +25,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "totalTickets",
+          "fieldPath": "maxTickets",
           "order": "ASCENDING"
         },
         {
@@ -109,15 +109,15 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "ownerId",
+          "fieldPath": "userId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "isSold",
+          "fieldPath": "status",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "purchasedBy",
+          "fieldPath": "purchaseId",
           "order": "ASCENDING"
         },
         {

@@ -37,6 +37,7 @@ const mpWebhookSecret = defineSecret("MP_WEBHOOK_SECRET");
 const jwtSecret = defineSecret("JWT_SECRET");
 const smtpEmail = defineSecret("SMTP_EMAIL");
 const smtpPassword = defineSecret("SMTP_PASSWORD");
+const recaptchaV2Secret = defineSecret("RECAPTCHA_V2_SECRET");
 const smtpHost = defineString("SMTP_HOST", { default: "smtp.gmail.com" });
 const smtpPort = defineString("SMTP_PORT", { default: "465" });
 const webBaseUrl = defineString("WEB_BASE_URL", {
@@ -79,22 +80,60 @@ export const health = onRequest((req, res) => {
   });
 });
 
-export const logClientError = onRequest((req, res) => {
-  corsHandler(req, res, () => {
-    if (req.method !== "POST") {
-      res.status(405).send("Method Not Allowed");
-      return;
-    }
-    let payload: Record<string, unknown> | { payload: unknown };
-    if (typeof req.body === "object" && req.body !== null) {
-      payload = req.body as Record<string, unknown>;
-    } else {
-      payload = { payload: req.body };
-    }
-    logger.warn("ClientError", payload as Record<string, unknown>);
-    res.status(204).send("");
+export const logClientError = onCall((request) => {
+  const payload = request.data as Record<string, unknown>;
+  const uid = request.auth?.uid || payload.uid || "anonymous";
+
+  logger.warn("ClientError", {
+    ...payload,
+    uid,
+    ip: request.rawRequest.ip,
   });
+
+  return { success: true };
 });
+
+export const verifyRecaptchaV2 = onCall(
+  { secrets: [recaptchaV2Secret], cors: true },
+  async (request) => {
+    const token = (request.data as { token?: string } | null)?.token;
+    if (!token || typeof token !== "string") {
+      throw new HttpsError("invalid-argument", "Token do reCAPTCHA ausente.");
+    }
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    const testSecret = "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe";
+    const secret = recaptchaV2Secret.value() || (isEmulator ? testSecret : "");
+    if (!secret) {
+      throw new HttpsError(
+        "failed-precondition",
+        "RECAPTCHA_V2_SECRET não configurado."
+      );
+    }
+
+    const body = new URLSearchParams({
+      secret,
+      response: token,
+    });
+    const verifyResponse = await fetch(
+      "https://www.google.com/recaptcha/api/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      }
+    );
+    const data = (await verifyResponse.json()) as {
+      success?: boolean;
+      "error-codes"?: string[];
+    };
+    if (!data.success) {
+      throw new HttpsError("permission-denied", "reCAPTCHA inválido.", {
+        codes: data["error-codes"] ?? [],
+      });
+    }
+    return { success: true };
+  }
+);
 
 export const seedDatabase = onCall(
   { secrets: [jwtSecret] },
@@ -103,26 +142,35 @@ export const seedDatabase = onCall(
     const batch = db.batch();
 
     const eventRef1 = db.collection("events").doc();
+    const organizerId = request.auth?.uid || "admin";
     batch.set(eventRef1, {
       title: "Festival de Rock 2024",
       description: "O maior festival de rock do ano!",
       date: "2024-12-25",
       time: "18:00",
       location: "Arena Central",
+      address: "Av. Central, 1000 - São Paulo - SP",
       price: 150.0,
+      maxTickets: 500,
       availableTickets: 500,
-      organizerId: request.auth?.uid || "admin",
-      imageUrl: "https://placehold.co/600x400/png",
+      inventory: { standard: 300, vip: 100, premium: 100 },
+      pricing: { standard: 150, vip: 220, premium: 300 },
+      category: "Música",
+      organizerId,
+      createdBy: organizerId,
+      image: "https://placehold.co/600x400/png",
       createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     const purchaseRef = db.collection("purchases").doc();
     batch.set(purchaseRef, {
-      userId: request.auth?.uid || "user_test",
+      userId: organizerId,
       eventId: eventRef1.id,
       paymentId: "mock_payment_123",
       status: "approved",
       items: [{ id: "ticket", quantity: 2, unit_price: 150 }],
+      userEmail: request.auth?.token?.email || "user_test@example.com",
       createdAt: FieldValue.serverTimestamp(),
     });
 
@@ -137,19 +185,23 @@ export const seedDatabase = onCall(
       const ticketPayload = {
         tid: ticketRef.id,
         eid: eventRef1.id,
-        uid: request.auth?.uid || "user_test",
+        uid: organizerId,
         ts: Date.now() + i,
       };
       const signedToken = jwt.sign(ticketPayload, secret, {
         expiresIn: "365d",
       });
       batch.set(ticketRef, {
-        userId: request.auth?.uid || "user_test",
+        userId: organizerId,
         eventId: eventRef1.id,
         purchaseId: purchaseRef.id,
+        ticketType: "standard",
+        price: 150,
+        userEmail: request.auth?.token?.email || "user_test@example.com",
         qrCode: signedToken,
         validated: false,
         status: "valid",
+        purchaseDate: FieldValue.serverTimestamp(),
         createdAt: FieldValue.serverTimestamp(),
       });
     }
@@ -1062,8 +1114,13 @@ export const receiveWebhook = onRequest(
               availableTickets?: number;
               date?: string;
               time?: string;
+              price?: number;
+              pricing?: Record<string, number>;
             };
             const currentStock = data.availableTickets || 0;
+            const unitPrice = Number(
+              data.pricing?.[resolvedTicketType] ?? data.price ?? 0
+            );
 
             if (currentStock < ticketsCount) {
               logger.error("Overselling detected", {
@@ -1145,9 +1202,12 @@ export const receiveWebhook = onRequest(
                 eventId,
                 purchaseId: newPurchaseRef.id,
                 ticketType: resolvedTicketType,
+                price: unitPrice,
+                userEmail: resolvedEmail,
                 qrCode: signedToken,
                 validated: false,
                 status: "valid",
+                purchaseDate: FieldValue.serverTimestamp(),
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
               });
             }
@@ -1358,6 +1418,7 @@ export const validateTicket = onRequest(
           validated: true,
           validatedAt: FieldValue.serverTimestamp(),
           validatedBy: "api",
+          status: "used",
         });
 
         const eventSnap = await admin
@@ -1437,11 +1498,15 @@ export const setAdminRole = onCall(async (request) => {
 });
 
 export const setUserRole = onCall(async (request) => {
-  if (request.auth?.token.admin !== true) {
-    throw new HttpsError(
-      "permission-denied",
-      "Apenas administradores podem realizar esta operação."
-    );
+  const isAdmin = request.auth?.token.admin === true;
+  const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+  if (!isAdmin) {
+    if (!isEmulator || !request.auth?.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Apenas administradores podem realizar esta operação."
+      );
+    }
   }
   const { uid, role } = request.data as {
     uid?: string;
@@ -1449,6 +1514,18 @@ export const setUserRole = onCall(async (request) => {
   };
   if (!uid || !role) {
     throw new HttpsError("invalid-argument", "UID e role são obrigatórios.");
+  }
+  if (!isAdmin && request.auth?.uid !== uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "No emulador, apenas o próprio usuário pode alterar o role."
+    );
+  }
+  if (!isAdmin && role === "admin") {
+    throw new HttpsError(
+      "permission-denied",
+      "No emulador, não é permitido promover usuário para admin."
+    );
   }
   try {
     await admin.auth().setCustomUserClaims(uid, {

@@ -12,19 +12,19 @@ function FirebaseDebug() {
 
       try {
         // Verificar se a configuração está presente
-        newDetails.push(`✅ Firebase Config carregado`);
+        newDetails.push(`Firebase Config carregado`);
         const projectId = auth.app?.options?.projectId || "(sem projectId)";
         const apiKeyPrefix = auth.app?.options?.apiKey
           ? auth.app.options.apiKey.substring(0, 10) + "..."
           : "(sem apiKey)";
         const authDomain = auth.app?.options?.authDomain || "(sem authDomain)";
-        newDetails.push(`📋 Project ID: ${projectId}`);
-        newDetails.push(`🔑 API Key: ${apiKeyPrefix}`);
-        newDetails.push(`🌐 Auth Domain: ${authDomain}`);
+        newDetails.push(`Project ID: ${projectId}`);
+        newDetails.push(`API Key: ${apiKeyPrefix}`);
+        newDetails.push(`Auth Domain: ${authDomain}`);
 
         // Verificar currentUser
         newDetails.push(
-          `👤 Usuário atual: ${auth.currentUser ? "Logado" : "Não logado"}`
+          `Usuário atual: ${auth.currentUser ? "Logado" : "Não logado"}`
         );
 
         // Tentar uma operação simples de inicialização do Auth
@@ -40,15 +40,15 @@ function FirebaseDebug() {
             });
           });
         }
-        newDetails.push(`✅ Auth service inicializado`);
+        newDetails.push(`Auth service inicializado`);
 
-        setStatus("✅ Firebase conectado com sucesso!");
+        setStatus("Firebase conectado com sucesso!");
       } catch (error) {
         console.error("Erro na verificação:", error);
         newDetails.push(
-          `❌ Erro: ${error instanceof Error ? error.message : String(error)}`
+          `Erro: ${error instanceof Error ? error.message : String(error)}`
         );
-        setStatus("❌ Erro na configuração do Firebase");
+        setStatus("Erro na configuração do Firebase");
       }
 
       setDetails(newDetails);
@@ -59,7 +59,7 @@ function FirebaseDebug() {
 
   return (
     <div className="card max-w-md mx-auto">
-      <h3 className="text-lg font-bold mb-4">🔍 Debug Firebase</h3>
+      <h3 className="text-lg font-bold mb-4">Debug Firebase</h3>
       <div className="mb-4">
         <strong>Status:</strong> {status}
       </div>

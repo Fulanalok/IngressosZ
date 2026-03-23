@@ -30,7 +30,7 @@ export interface Ticket {
   userEmail: string;
   purchaseDate: Timestamp;
   qrCode: string;
-  status: "active" | "used" | "cancelled";
+  status: "active" | "valid" | "used" | "cancelled";
   price: number;
   ticketType: "standard" | "vip" | "premium";
   validatedAt?: Timestamp;

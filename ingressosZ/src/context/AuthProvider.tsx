@@ -1,5 +1,6 @@
 import { auth } from "@/firebaseConfig";
 import { userService } from "@/services/firestore";
+import { logger } from "@/services/logger";
 import type { UserProfile } from "@/types";
 import type { User } from "firebase/auth";
 import { getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch((error) => {
-        console.error("Erro no login com redirecionamento: ", error);
+        logger.error("Erro no login com redirecionamento", error);
       });
   }, []);
 
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setUserProfile(null);
     } catch (error) {
-      console.error("Erro ao fazer logout:", error);
+      logger.error("Erro ao fazer logout", error);
     }
   };
 

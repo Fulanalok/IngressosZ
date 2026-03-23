@@ -1,3 +1,10 @@
+import DevPanel from "@/components/DevPanel";
+import FirebaseDebug from "@/components/FirebaseDebug";
+import Navbar from "@/components/Navbar";
+import { Button } from "@/components/ui/button";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { useAuth } from "@/hooks/useAuth";
+import { logger } from "@/services/logger";
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import React, { Suspense, lazy, useEffect } from "react";
 import {
@@ -9,16 +16,11 @@ import {
   useLocation,
 } from "react-router-dom";
 import { Toaster } from "sonner";
-import DevPanel from "@/components/DevPanel";
-import FirebaseDebug from "@/components/FirebaseDebug";
-import Navbar from "@/components/Navbar";
-import { Button } from "@/components/ui/button";
-import { ThemeProvider } from "@/context/ThemeContext";
-import { useAuth } from "@/hooks/useAuth";
-import { postClientError } from "@/services/logger";
 
 const EventDetailPage = lazy(() =>
-  import("@/pages/EventDetailPage").then((module) => ({ default: module.default }))
+  import("@/pages/EventDetailPage").then((module) => ({
+    default: module.default,
+  }))
 );
 const EventsPage = lazy(() => import("@/pages/EventsPage"));
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -70,7 +72,6 @@ function App() {
       if (import.meta.env.DEV) {
         return (
           <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
-            <div className="text-4xl mb-4">🛡️</div>
             <h2 className="text-xl font-bold mb-2">
               Acesso Restrito (DEV Mode)
             </h2>
@@ -102,7 +103,6 @@ function App() {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🧭</div>
           <h2 className="text-2xl font-bold text-foreground mb-2">
             Página não encontrada
           </h2>
@@ -128,16 +128,10 @@ function App() {
       return { hasError: true };
     }
     componentDidCatch(error: unknown, info: unknown) {
-      const payload = {
+      logger.error("Render Error", error, {
         type: "render-error",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
         info,
-        route: window.location.pathname,
-        ua: navigator.userAgent,
-        ts: Date.now(),
-      };
-      void postClientError(payload);
+      });
     }
     reset = () => {
       this.setState({ hasError: false });
@@ -148,7 +142,6 @@ function App() {
         return (
           <div className="min-h-screen gradient-bg flex items-center justify-center">
             <div className="text-center">
-              <div className="text-6xl mb-4">⚠️</div>
               <h2 className="text-2xl font-bold text-foreground mb-2">
                 Algo deu errado
               </h2>
@@ -173,14 +166,6 @@ function App() {
     <ThemeProvider>
       <Toaster richColors position="top-right" closeButton />
       <BrowserRouter>
-        {/* Skip link acessível para teclado */}
-        <a
-          href="#main-content"
-          className="fixed left-4 top-4 -translate-y-full focus:translate-y-0 bg-primary text-primary-foreground px-3 py-2 z-50"
-        >
-          Pular para o conteúdo
-        </a>
-
         <header>
           <Navbar />
         </header>
@@ -191,33 +176,18 @@ function App() {
             function GlobalErrorListeners() {
               useEffect(() => {
                 const onError = (e: ErrorEvent) => {
-                  const payload = {
+                  logger.error("Window Error", e.error, {
                     type: "window-error",
                     message: e.message,
-                    stack: e.error?.stack,
                     filename: e.filename,
                     lineno: e.lineno,
                     colno: e.colno,
-                    route: window.location.pathname,
-                    ua: navigator.userAgent,
-                    ts: Date.now(),
-                  };
-                  void postClientError(payload);
+                  });
                 };
                 const onRejection = (e: PromiseRejectionEvent) => {
-                  const payload = {
+                  logger.error("Unhandled Rejection", e.reason, {
                     type: "unhandled-rejection",
-                    reason:
-                      e.reason instanceof Error
-                        ? e.reason.message
-                        : String(e.reason),
-                    stack:
-                      e.reason instanceof Error ? e.reason.stack : undefined,
-                    route: window.location.pathname,
-                    ua: navigator.userAgent,
-                    ts: Date.now(),
-                  };
-                  void postClientError(payload);
+                  });
                 };
                 window.addEventListener("error", onError);
                 window.addEventListener("unhandledrejection", onRejection);
@@ -253,23 +223,11 @@ function App() {
                     <Route path="/debug/firebase" element={<FirebaseDebug />} />
                     <Route path="/doc" element={<DocViewPage />} />
 
-                    <Route
-                      path="/"
-                      element={
-                        <HomePage />
-                      }
-                    />
-                    <Route
-                      path="/eventos"
-                      element={
-                        <EventsPage />
-                      }
-                    />
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/eventos" element={<EventsPage />} />
                     <Route
                       path="/evento/:eventId"
-                      element={
-                        <EventDetailPage />
-                      }
+                      element={<EventDetailPage />}
                     />
                     <Route
                       path="/meus-ingressos"
@@ -323,21 +281,15 @@ function App() {
                     {/* Rotas de pagamento */}
                     <Route
                       path="/pagamento/sucesso"
-                      element={
-                        <PaymentSuccess />
-                      }
+                      element={<PaymentSuccess />}
                     />
                     <Route
                       path="/pagamento/sucesso/:sessionId"
-                      element={
-                        <PaymentSuccess />
-                      }
+                      element={<PaymentSuccess />}
                     />
                     <Route
                       path="/pagamento/cancelado"
-                      element={
-                        <PaymentCanceled />
-                      }
+                      element={<PaymentCanceled />}
                     />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

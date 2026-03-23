@@ -4,30 +4,10 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "./Login";
 
-// Mock firebase/app
-vi.mock("firebase/app", () => {
-  return {
-    FirebaseError: class extends Error {
-      code: string;
-      constructor(code: string, message: string) {
-        super(message);
-        this.code = code;
-        this.name = "FirebaseError";
-      }
-    },
-    initializeApp: vi.fn(),
-  };
-});
-
-// Mock firebase/auth
-vi.mock("firebase/auth", () => ({
-  getAuth: vi.fn(),
-  signInWithEmailAndPassword: vi.fn(),
-}));
-
 // Mock firebaseConfig
 vi.mock("../firebaseConfig", () => ({
   auth: {},
+  functions: {},
 }));
 
 // Mock react-router-dom

@@ -1,33 +1,13 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "@dr.pogodin/react-helmet";
+import { EventDetailSkeleton } from "@/components/EventDetailSkeleton";
 import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketPurchase, ShareButtons } from "@/components/event";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FiCalendar, FiClock, FiMapPin, FiChevronLeft } from "react-icons/fi";
-
-function EventDetailSkeleton() {
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl animate-pulse">
-      <div className="bg-gray-300 h-8 w-1/4 mb-4 rounded"></div>
-      <div className="bg-white shadow-2xl rounded-lg overflow-hidden">
-        <div className="bg-gray-300 h-64 w-full"></div>
-        <div className="p-6 md:p-8">
-          <div className="bg-gray-300 h-8 w-3/4 mb-4 rounded"></div>
-          <div className="flex items-center text-gray-400 mb-6 space-x-4">
-            <div className="bg-gray-300 h-6 w-1/2 rounded"></div>
-            <div className="bg-gray-300 h-6 w-1/2 rounded"></div>
-          </div>
-          <div className="bg-gray-300 h-6 w-full mb-4 rounded"></div>
-          <div className="bg-gray-300 h-6 w-full mb-4 rounded"></div>
-          <div className="bg-gray-300 h-6 w-2/3 rounded"></div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -106,6 +86,12 @@ export function EventDetailPage() {
                 <div className="flex items-center">
                     <FiClock className="mr-2 text-blue-500" />
                     <span>{event.time}</span>
+                </div>
+                <div className={`flex items-center font-semibold transition-all duration-500 ${
+                    event.availableTickets <= 10 ? "text-red-600 animate-pulse" : "text-green-600"
+                }`}>
+                    <span className="mr-2">●</span>
+                    <span>{event.availableTickets} disponíveis</span>
                 </div>
             </div>
 

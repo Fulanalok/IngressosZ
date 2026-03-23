@@ -13,6 +13,7 @@ import {
   useTicketValidator,
   type ValidationResultState,
 } from "../hooks/validator/useTicketValidator";
+import { logger } from "../services/logger";
 import { TestDataService } from "../services/testDataService";
 
 function ValidatorPage() {
@@ -66,12 +67,12 @@ function ValidatorPage() {
       // Forçar recriação dos dados
       await TestDataService.initializeTestData(true);
       alert(
-        "✅ Dados de teste criados com sucesso!\n\nCódigos disponíveis:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n\nCódigo usado (para teste):\n- TICKET-1756219017407-usado123"
+        "Dados de teste criados com sucesso!\n\nCódigos disponíveis:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n\nCódigo usado (para teste):\n- TICKET-1756219017407-usado123"
       );
     } catch (error) {
-      console.error("Erro ao criar dados:", error);
+      logger.error("Erro ao criar dados de teste no Validator", error);
       alert(
-        "⚠️ Firebase indisponível - Usando modo offline!\n\nCódigos de teste funcionais:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n- TICKET-1756219017407-usado123 (usado)\n\nO validador funcionará normalmente!"
+        "Firebase indisponível - Usando modo offline!\n\nCódigos de teste funcionais:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n- TICKET-1756219017407-usado123 (usado)\n\nO validador funcionará normalmente!"
       );
     } finally {
       setIsCreatingTestData(false);
@@ -105,7 +106,6 @@ function ValidatorPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🔍</div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Validador de Ingressos
           </h1>
@@ -143,10 +143,7 @@ function ValidatorPage() {
           {/* Validation Form */}
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">
-                <span className="mr-2 text-4xl align-middle">📱</span>
-                Validar Ingresso
-              </CardTitle>
+              <CardTitle className="text-2xl">Validar Ingresso</CardTitle>
               <p className="text-muted-foreground">
                 Digite o código do ingresso para validar
               </p>
@@ -170,10 +167,7 @@ function ValidatorPage() {
           {/* Validation Result */}
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">
-                <span className="mr-2 text-4xl align-middle">📋</span>
-                Resultado da Validação
-              </CardTitle>
+              <CardTitle className="text-2xl">Resultado da Validação</CardTitle>
             </CardHeader>
             <CardContent>
               <div id="validation-result" role="status" aria-live="polite">

@@ -1,10 +1,13 @@
-import { db, functions } from "@/firebaseConfig";
+import { appCheck, db, functions } from "@/firebaseConfig";
+import { logger } from "@/services/logger";
 import type { Event } from "@/types";
 import { initMercadoPago } from "@mercadopago/sdk-react";
+import { getToken } from "firebase/app-check";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
@@ -12,6 +15,16 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 if (MP_PUBLIC_KEY) {
   initMercadoPago(MP_PUBLIC_KEY, { locale: "pt-BR" });
 }
+
+const getAppCheckHeaders = async (): Promise<Record<string, string>> => {
+  if (!appCheck) return {};
+  try {
+    const tokenResponse = await getToken(appCheck, false);
+    return { "X-Firebase-AppCheck": tokenResponse.token };
+  } catch {
+    return {};
+  }
+};
 
 export function useMercadoPagoCheckout(
   event: Event,
@@ -48,6 +61,7 @@ export function useMercadoPagoCheckout(
     setPixData(null);
 
     try {
+      toast.loading("Iniciando checkout...", { id: "checkout" });
       const paymentSessionRef = await addDoc(
         collection(db, "paymentSessions"),
         {
@@ -82,6 +96,7 @@ export function useMercadoPagoCheckout(
         const prefId = (result?.data as any)?.id;
         if (prefId) {
           setPreferenceId(prefId);
+          toast.success("Checkout iniciado!", { id: "checkout" });
           return;
         }
       } catch (callableErr) {
@@ -91,9 +106,10 @@ export function useMercadoPagoCheckout(
       }
 
       const baseUrl = API_BASE_URL || "/functions";
+      const appCheckHeaders = await getAppCheckHeaders();
       const response = await fetch(`${baseUrl}/createPaymentPreferencePublic`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...appCheckHeaders },
         body: JSON.stringify({
           eventId: event.id,
           quantity,
@@ -117,14 +133,16 @@ export function useMercadoPagoCheckout(
       const prefId = data?.preferenceId || data?.id;
       if (prefId) {
         setPreferenceId(prefId);
+        toast.success("Checkout iniciado!", { id: "checkout" });
       } else {
         throw new Error("Preference ID não recebido da API.");
       }
     } catch (err) {
-      console.error("Erro detalhado ao criar preferência:", err);
-      setError(
-        err instanceof Error ? err.message : "Ocorreu um erro desconhecido."
-      );
+      logger.error("Erro ao criar preferência", err);
+      const msg =
+        err instanceof Error ? err.message : "Erro ao iniciar checkout.";
+      setError(msg);
+      toast.error(msg, { id: "checkout" });
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +160,7 @@ export function useMercadoPagoCheckout(
     setPreferenceId(null);
 
     try {
+      toast.loading("Gerando PIX...", { id: "pix" });
       const paymentSessionRef = await addDoc(
         collection(db, "paymentSessions"),
         {
@@ -185,6 +204,7 @@ export function useMercadoPagoCheckout(
             status: data?.status,
             paymentSessionId,
           });
+          toast.success("PIX gerado!", { id: "pix" });
           return;
         }
       } catch (callableErr) {
@@ -194,9 +214,10 @@ export function useMercadoPagoCheckout(
       }
 
       const baseUrl = API_BASE_URL || "/functions";
+      const appCheckHeaders = await getAppCheckHeaders();
       const response = await fetch(`${baseUrl}/createPixPaymentPublic`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...appCheckHeaders },
         body: JSON.stringify({
           eventId: event.id,
           quantity,
@@ -228,14 +249,15 @@ export function useMercadoPagoCheckout(
           status: data?.status,
           paymentSessionId,
         });
+        toast.success("PIX gerado!", { id: "pix" });
       } else {
         throw new Error("QR Code Pix não recebido da API.");
       }
     } catch (err) {
-      console.error("Erro detalhado ao criar Pix:", err);
-      setError(
-        err instanceof Error ? err.message : "Ocorreu um erro desconhecido."
-      );
+      logger.error("Erro ao criar Pix", err);
+      const msg = err instanceof Error ? err.message : "Erro ao gerar PIX.";
+      setError(msg);
+      toast.error(msg, { id: "pix" });
     } finally {
       setIsLoading(false);
     }

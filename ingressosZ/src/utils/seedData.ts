@@ -1,5 +1,12 @@
-import { collection, addDoc } from "firebase/firestore";
-import { db, auth } from "../firebaseConfig";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+} from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import type { Event } from "../types";
 
 // Dados de exemplo para eventos
@@ -112,17 +119,17 @@ export async function seedSampleEvents() {
 
     const eventsCollection = collection(db, "events");
     const promises = sampleEvents.map(async (eventData) => {
-      const now = new Date().toISOString();
       return addDoc(eventsCollection, {
         ...eventData,
-        createdAt: now,
-        updatedAt: now,
+        organizerId: auth.currentUser!.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         createdBy: auth.currentUser!.uid,
       });
     });
 
     const results = await Promise.all(promises);
-    console.log(`✅ ${results.length} eventos adicionados com sucesso!`);
+    console.log(`${results.length} eventos adicionados com sucesso!`);
 
     results.forEach((docRef, index) => {
       console.log(`- ${sampleEvents[index].title}: ${docRef.id}`);
@@ -130,7 +137,7 @@ export async function seedSampleEvents() {
 
     return results.map((docRef) => docRef.id);
   } catch (error) {
-    console.error("❌ Erro ao adicionar eventos de exemplo:", error);
+    console.error("Erro ao adicionar eventos de exemplo:", error);
     throw error;
   }
 }
@@ -138,9 +145,9 @@ export async function seedSampleEvents() {
 // Função para verificar se já existem eventos
 export async function checkIfEventsExist() {
   try {
-    // Esta função seria implementada para verificar se já há eventos no banco
-    // Por enquanto, apenas retornamos false para permitir a adição
-    return false;
+    const eventsQuery = query(collection(db, "events"), limit(1));
+    const snapshot = await getDocs(eventsQuery);
+    return !snapshot.empty;
   } catch (error) {
     console.error("Erro ao verificar eventos existentes:", error);
     return false;

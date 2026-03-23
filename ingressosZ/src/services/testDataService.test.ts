@@ -8,6 +8,9 @@ vi.mock("firebase/firestore", () => ({
   addDoc: vi.fn(),
   getDocs: vi.fn(),
   query: vi.fn(),
+  where: vi.fn(),
+  limit: vi.fn(),
+  serverTimestamp: vi.fn(),
 }));
 
 // Mock firebaseConfig

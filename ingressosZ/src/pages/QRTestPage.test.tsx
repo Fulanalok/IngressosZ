@@ -39,7 +39,7 @@ describe("QRTestPage", () => {
     expect(screen.getByTestId("qr-test-display")).toHaveTextContent("test-ticket-123");
     
     // Instructions
-    expect(screen.getByText("📋 Como Testar")).toBeInTheDocument();
+    expect(screen.getByText("Como Testar")).toBeInTheDocument();
     expect(screen.getByText("Abrir Nova Aba")).toBeInTheDocument();
     expect(screen.getByText("Iniciar Scanner")).toBeInTheDocument();
     

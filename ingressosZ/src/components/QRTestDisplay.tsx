@@ -36,7 +36,7 @@ function QRTestDisplay({
     <div className="max-w-md mx-auto bg-white rounded-none shadow-lg p-6">
       <div className="text-center">
         <h3 className="text-xl font-bold text-gray-900 mb-2">
-          🧪 QR Code de Teste
+          QR Code de Teste
         </h3>
         <p className="text-gray-600 mb-4">
           Use este QR code para testar o scanner e a validação
@@ -60,7 +60,7 @@ function QRTestDisplay({
 
             <div className="bg-blue-50 p-3 rounded-none">
               <p className="text-sm text-blue-800">
-                💡 <strong>Como testar:</strong>
+                <strong>Como testar:</strong>
               </p>
               <ol className="text-xs text-blue-700 mt-1 space-y-1">
                 <li>1. Abra uma nova aba do navegador</li>

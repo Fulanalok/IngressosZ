@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom";
+import React from "react";
 import { vi } from "vitest";
 
 Object.defineProperty(window, "matchMedia", {
@@ -34,6 +35,14 @@ if (typeof window.scrollTo !== "function") {
 
 // Mock global do Firebase para evitar erros de inicialização com config vazia
 vi.mock("firebase/app", () => ({
+  FirebaseError: class extends Error {
+    code: string;
+    constructor(code: string, message: string) {
+      super(message);
+      this.code = code;
+      this.name = "FirebaseError";
+    }
+  },
   initializeApp: vi.fn(() => ({})),
   getApps: vi.fn(() => []),
 }));
@@ -50,6 +59,10 @@ vi.mock("firebase/auth", async () => {
     })),
     connectAuthEmulator: vi.fn(),
     GoogleAuthProvider: vi.fn(),
+    createUserWithEmailAndPassword: vi.fn(),
+    signInWithEmailAndPassword: vi.fn(),
+    sendPasswordResetEmail: vi.fn(),
+    signInAnonymously: vi.fn(),
   };
 });
 
@@ -83,6 +96,7 @@ vi.mock("firebase/functions", async () => {
     ...actual,
     getFunctions: vi.fn(() => ({})),
     connectFunctionsEmulator: vi.fn(),
+    httpsCallable: () => async () => ({ data: { success: true } }),
   };
 });
 
@@ -94,4 +108,21 @@ vi.mock("firebase/analytics", async () => {
     ...actual,
     getAnalytics: vi.fn(() => ({})),
   };
+});
+
+vi.mock("react-google-recaptcha", () => {
+  const RecaptchaMock = ({
+    onChange,
+  }: {
+    onChange?: (token: string | null) => void;
+  }) => {
+    const didCallRef = React.useRef(false);
+    React.useLayoutEffect(() => {
+      if (didCallRef.current) return;
+      didCallRef.current = true;
+      onChange?.("test-recaptcha-token");
+    }, [onChange]);
+    return React.createElement("div", { "data-testid": "recaptcha" });
+  };
+  return { default: RecaptchaMock };
 });

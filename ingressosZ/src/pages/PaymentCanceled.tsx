@@ -9,7 +9,6 @@ function PaymentCanceled() {
       <main className="page-container py-10">
         <Card className="text-center">
           <CardHeader className="items-center">
-            <div className="text-6xl mb-2">❌</div>
             <CardTitle className="text-foreground">Pagamento cancelado</CardTitle>
             <CardDescription className="text-muted-foreground">
               Sua sessão de pagamento foi cancelada. Você pode tentar novamente quando quiser.

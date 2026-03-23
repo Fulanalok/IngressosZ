@@ -10,7 +10,7 @@ export const TICKET_TYPES: Record<string, TicketTypeInfo> = {
     name: "Padrão",
     multiplier: 1,
     description: "Acesso geral ao evento",
-    icon: "🎫",
+    icon: "",
   },
   vip: {
     name: "VIP",
@@ -22,6 +22,6 @@ export const TICKET_TYPES: Record<string, TicketTypeInfo> = {
     name: "Premium",
     multiplier: 3,
     description: "Experiência premium completa",
-    icon: "💎",
+    icon: "",
   },
 };

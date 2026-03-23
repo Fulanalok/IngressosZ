@@ -1,4 +1,4 @@
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkIfEventsExist, seedSampleEvents } from "./seedData";
 
@@ -6,6 +6,10 @@ import { checkIfEventsExist, seedSampleEvents } from "./seedData";
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(),
   addDoc: vi.fn(),
+  getDocs: vi.fn(),
+  query: vi.fn(),
+  limit: vi.fn(),
+  serverTimestamp: vi.fn(),
 }));
 
 vi.mock("../firebaseConfig", () => ({
@@ -58,11 +62,22 @@ describe("seedData", () => {
   });
 
   describe("checkIfEventsExist", () => {
-    it("returns false (placeholder implementation)", async () => {
+    it("returns true when there are events", async () => {
+      (getDocs as any).mockResolvedValue({ empty: false });
+      const result = await checkIfEventsExist();
+      expect(result).toBe(true);
+    });
+
+    it("returns false when there are no events", async () => {
+      (getDocs as any).mockResolvedValue({ empty: true });
       const result = await checkIfEventsExist();
       expect(result).toBe(false);
     });
 
-    // If the function logic changes to actually check, we would add more tests here
+    it("returns false on error", async () => {
+      (getDocs as any).mockRejectedValue(new Error("Firestore error"));
+      const result = await checkIfEventsExist();
+      expect(result).toBe(false);
+    });
   });
 });

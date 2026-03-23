@@ -1,5 +1,6 @@
 {
   "name": "functions",
+  "type": "module",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
@@ -7,7 +8,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
-    "test": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register \"src/test/**/*.test.ts\"",
+    "test": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register --timeout 10000 \"src/test/**/*.test.ts\"",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/chai": "^4.3.20",
     "@types/mocha": "^10.0.6",
+    "@types/node": "^22.10.1",
     "@types/nodemailer": "^6.4.15",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",

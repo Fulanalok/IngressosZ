@@ -4,13 +4,15 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import React, { useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import React, { useEffect, useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardFooter } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { auth } from "../firebaseConfig";
+import { auth, functions } from "../firebaseConfig";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -27,21 +29,43 @@ function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const recaptchaRef = useRef<ReCAPTCHA | null>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [recaptchaError, setRecaptchaError] = useState("");
+  const testSiteKey = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+  const siteKey =
+    import.meta.env.VITE_RECAPTCHA_V2_SITE_KEY ||
+    (import.meta.env.DEV ? testSiteKey : "");
   const from = (location.state as { from?: { pathname?: string } } | null)?.from
     ?.pathname;
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setRecaptchaError("");
     setLoading(true);
 
     try {
+      if (!siteKey) {
+        setRecaptchaError("reCAPTCHA não configurado.");
+        return;
+      }
+      if (!recaptchaToken) {
+        setRecaptchaError("Confirme o reCAPTCHA para continuar.");
+        return;
+      }
+      const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
+      await verifyRecaptcha({ token: recaptchaToken });
       await signInWithEmailAndPassword(auth, email, password);
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao fazer login:", err);
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
+      const errorCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as FirebaseError).code
+          : null;
+      if (errorCode) {
+        switch (errorCode) {
           case "auth/invalid-credential":
           case "auth/wrong-password":
           case "auth/user-not-found":
@@ -74,6 +98,8 @@ function Login() {
         setError("Ocorreu um erro ao fazer login.");
         toast.error("Ocorreu um erro inesperado.");
       }
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -119,7 +145,6 @@ function Login() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="text-6xl mb-4">🎫</div>
           <h2 className="text-3xl font-bold text-foreground">
             Bem-vindo de volta!
           </h2>
@@ -151,13 +176,10 @@ function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="seu@email.com"
-                    className="pl-10"
+                    className="pl-4"
                     aria-invalid={!!error}
                     aria-describedby={error ? "login-error" : undefined}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-muted-foreground">📧</span>
-                  </div>
                 </div>
               </div>
 
@@ -176,13 +198,10 @@ function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="Sua senha"
-                    className="pl-10"
+                    className="pl-4"
                     aria-invalid={!!error}
                     aria-describedby={error ? "login-error" : undefined}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-muted-foreground">🔒</span>
-                  </div>
                 </div>
               </div>
 
@@ -194,9 +213,6 @@ function Login() {
                   className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
                 >
                   <div className="flex">
-                    <div className="flex-shrink-0">
-                      <span className="text-red-500 dark:text-red-400">⚠️</span>
-                    </div>
                     <div className="ml-3">
                       <p className="text-sm text-red-800 dark:text-red-300">
                         {error}
@@ -220,6 +236,35 @@ function Login() {
                 </button>
               </div>
 
+              {siteKey ? (
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={siteKey}
+                    onChange={(token: string | null) =>
+                      setRecaptchaToken(token)
+                    }
+                    onExpired={() => setRecaptchaToken(null)}
+                  />
+                </div>
+              ) : (
+                <div className="text-center text-sm text-muted-foreground">
+                  reCAPTCHA não configurado neste ambiente
+                </div>
+              )}
+
+              {recaptchaError && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
+                >
+                  <p className="text-sm text-red-800 dark:text-red-300">
+                    {recaptchaError}
+                  </p>
+                </div>
+              )}
+
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
@@ -227,10 +272,7 @@ function Login() {
                     Entrando...
                   </>
                 ) : (
-                  <>
-                    <span className="mr-2">🚀</span>
-                    Entrar
-                  </>
+                  <>Entrar</>
                 )}
               </Button>
             </form>
@@ -297,10 +339,7 @@ function Login() {
 
             <div className="mt-6 w-full">
               <Button variant="secondary" asChild className="w-full">
-                <Link to="/cadastro">
-                  <span className="mr-2">✨</span>
-                  Criar conta gratuita
-                </Link>
+                <Link to="/cadastro">Criar conta gratuita</Link>
               </Button>
             </div>
           </CardFooter>

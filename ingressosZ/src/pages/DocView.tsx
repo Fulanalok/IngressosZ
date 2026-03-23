@@ -47,7 +47,6 @@ function DocView() {
     <div className="min-h-screen gradient-bg">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">📘</div>
           <h1 className="text-4xl font-bold text-foreground mb-2">Documentação do Sistema (DocView)</h1>
           <p className="text-muted-foreground">
             Visão geral técnica, status do ambiente e ferramentas de desenvolvimento.
@@ -73,7 +72,7 @@ function DocView() {
               <CardTitle>Ambiente de Desenvolvimento</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-             <p><strong>Status:</strong> {import.meta.env.VITE_USE_EMULATORS === "true" ? "🟢 Emuladores Ativos" : "☁️ Produção / Remoto"}</p>
+             <p><strong>Status:</strong> {import.meta.env.VITE_USE_EMULATORS === "true" ? "Emuladores Ativos" : "Produção / Remoto"}</p>
              <div className="bg-muted p-2 rounded mt-2">
                 <p className="font-mono text-xs">Auth: porta 9099</p>
                 <p className="font-mono text-xs">Firestore: porta 8080</p>
@@ -158,7 +157,7 @@ function DocView() {
                   Enviar Log de Teste
                 </Button>
                 {logSent && (
-                  <span className="text-green-600 font-medium animate-pulse">Log enviado com sucesso! ✅</span>
+                  <span className="text-green-600 font-medium animate-pulse">Log enviado com sucesso!</span>
                 )}
                 {logResponse && (
                   <span className="text-xs text-muted-foreground">{logResponse}</span>

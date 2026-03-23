@@ -33,14 +33,14 @@ function CameraTest() {
 
       if (error.name === "NotAllowedError") {
         setError(
-          "❌ Acesso à câmera negado. Clique no ícone de câmera na barra de endereço e permita o acesso."
+          "Acesso à câmera negado. Clique no ícone de câmera na barra de endereço e permita o acesso."
         );
       } else if (error.name === "NotFoundError") {
-        setError("❌ Nenhuma câmera encontrada no dispositivo.");
+        setError("Nenhuma câmera encontrada no dispositivo.");
       } else if (error.name === "NotReadableError") {
-        setError("❌ Câmera está sendo usada por outro aplicativo.");
+        setError("Câmera está sendo usada por outro aplicativo.");
       } else {
-        setError(`❌ Erro: ${error.message}`);
+        setError(`Erro: ${error.message}`);
       }
     }
   };
@@ -65,7 +65,7 @@ function CameraTest() {
   return (
     <div className="card">
       <h3 className="text-xl font-bold text-gray-900 mb-4">
-        🔍 Teste de Câmera
+        Teste de Câmera
       </h3>
 
       <div className="space-y-4">
@@ -78,7 +78,7 @@ function CameraTest() {
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700 text-white"
             }`}>
-            {isActive ? "✅ Câmera Ativa" : "🎥 Ligar Câmera"}
+            {isActive ? "Câmera Ativa" : "Ligar Câmera"}
           </button>
 
           <button
@@ -89,7 +89,7 @@ function CameraTest() {
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 text-white"
             }`}>
-            🛑 Parar Câmera
+            Parar Câmera
           </button>
         </div>
 
@@ -100,7 +100,7 @@ function CameraTest() {
             <div className="mt-3 bg-red-100 p-3 rounded text-xs text-red-700">
               <strong>Passos para resolver:</strong>
               <ol className="mt-1 space-y-1">
-                <li>1. Clique no ícone 🔒 ou 📷 na barra de endereço</li>
+                <li>1. Clique no ícone de câmera na barra de endereço</li>
                 <li>2. Selecione "Permitir" para câmera</li>
                 <li>3. Recarregue a página se necessário</li>
                 <li>4. Tente novamente</li>
@@ -123,7 +123,6 @@ function CameraTest() {
           {!isActive && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
               <div className="text-center text-white">
-                <div className="text-6xl mb-4">📷</div>
                 <p>Clique em "Ligar Câmera" para testar</p>
               </div>
             </div>
@@ -140,10 +139,10 @@ function CameraTest() {
         </div>
 
         <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-blue-900 mb-2">ℹ️ Informações</h4>
+          <h4 className="font-semibold text-blue-900 mb-2">Informações</h4>
           <div className="text-sm text-blue-800 space-y-1">
             <p>
-              <strong>Status:</strong> {isActive ? "🟢 Ativa" : "🔴 Inativa"}
+              <strong>Status:</strong> {isActive ? "Ativa" : "Inativa"}
             </p>
             <p>
               <strong>Navegador:</strong>{" "}
@@ -156,8 +155,8 @@ function CameraTest() {
             <p>
               <strong>HTTPS:</strong>{" "}
               {location.protocol === "https:"
-                ? "✅ Sim"
-                : "❌ Não (pode afetar algumas funcionalidades)"}
+                ? "Sim"
+                : "Não (pode afetar algumas funcionalidades)"}
             </p>
           </div>
         </div>

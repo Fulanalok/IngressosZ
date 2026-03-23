@@ -155,7 +155,6 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   if (permissionDenied || cameraError) {
     return (
       <div className="bg-red-50 border-2 border-red-200 rounded-none p-8 text-center">
-        <div className="text-6xl mb-4">🚫</div>
         <h3 className="text-lg font-semibold text-red-900 mb-2">
           Problema com a Câmera
         </h3>
@@ -186,14 +185,14 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
             className="bg-primary hover:opacity-90 text-white py-2 px-4 rounded-none font-medium transition-colors"
             aria-label="Permitir câmera"
           >
-            📷 Permitir Câmera
+            Permitir Câmera
           </button>
           <button
             onClick={() => window.location.reload()}
             className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-none font-medium transition-colors"
             aria-label="Recarregar página"
           >
-            🔄 Recarregar
+            Recarregar
           </button>
         </div>
       </div>
@@ -203,7 +202,6 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
   if (!hasCamera) {
     return (
       <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-none p-8 text-center">
-        <div className="text-6xl mb-4">📷</div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           Câmera não encontrada
         </h3>
@@ -241,7 +239,7 @@ function QRScanner({ onScan, onError, isActive }: QRScannerProps) {
         {/* Instrução */}
         <div className="absolute bottom-2 left-0 right-0 text-center">
           <p id="scan-instruction" className="text-white text-sm bg-black bg-opacity-50 inline-block px-3 py-1 rounded-none">
-            📱 Aponte a câmera para o QR code
+            Aponte a câmera para o QR code
           </p>
         </div>
       </div>

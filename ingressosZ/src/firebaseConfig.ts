@@ -1,4 +1,8 @@
 import { getApps, initializeApp } from "firebase/app";
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
@@ -19,6 +23,22 @@ if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApps()[0];
+}
+
+const appCheckSiteKey = import.meta.env.VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY;
+const appCheckDebugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+let appCheck: ReturnType<typeof initializeAppCheck> | undefined;
+if (appCheckSiteKey && typeof self !== "undefined") {
+  if (import.meta.env.DEV && appCheckDebugToken) {
+    (
+      self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }
+    ).FIREBASE_APPCHECK_DEBUG_TOKEN =
+      appCheckDebugToken === "true" ? true : appCheckDebugToken;
+  }
+  appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
 }
 
 const auth = getAuth(app);
@@ -54,4 +74,4 @@ if (useEmulators) {
   connectStorageEmulator(storage, "127.0.0.1", storagePort);
 }
 
-export { app, auth, db, firebaseConfig, functions, storage };
+export { app, appCheck, auth, db, firebaseConfig, functions, storage };

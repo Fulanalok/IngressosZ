@@ -71,7 +71,9 @@ function ProfilePage() {
           {/* Avatar e nome */}
           <div className="text-center mb-8">
             <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl">👤</span>
+              <span className="text-4xl">
+                {(userProfile?.displayName || "Usuário").slice(0, 1)}
+              </span>
             </div>
             {editingName ? (
               <form
@@ -114,10 +116,10 @@ function ProfilePage() {
                     setEditingName(true);
                     setDisplayName(userProfile?.displayName || "");
                   }}
-                  className="text-muted-foreground hover:text-primary transition-colors"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   title="Editar nome"
                 >
-                  ✏️
+                  Editar
                 </button>
               </div>
             )}

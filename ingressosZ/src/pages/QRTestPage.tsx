@@ -16,7 +16,6 @@ function QRTestPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🧪</div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
             Teste de QR Codes
           </h1>
@@ -50,7 +49,7 @@ function QRTestPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>📋 Como Testar</CardTitle>
+                <CardTitle>Como Testar</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -99,7 +98,7 @@ function QRTestPage() {
 
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-muted text-primary rounded-full flex items-center justify-center font-bold text-sm">
-                      ✓
+                      4
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">
@@ -117,7 +116,7 @@ function QRTestPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>💡 Dicas Importantes</CardTitle>
+                <CardTitle>Dicas Importantes</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm text-muted-foreground">
@@ -145,7 +144,7 @@ function QRTestPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>🔧 Alternativas de Teste</CardTitle>
+                <CardTitle>Alternativas de Teste</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm text-muted-foreground">
@@ -172,10 +171,7 @@ function QRTestPage() {
         {/* Link rápido para validador */}
         <div className="mt-12 text-center">
           <Button asChild>
-            <Link to="/validador">
-              <span className="mr-2">🔍</span>
-              Ir para o Validador
-            </Link>
+            <Link to="/validador">Ir para o Validador</Link>
           </Button>
         </div>
       </div>

@@ -1,13 +1,15 @@
 import { useAuth } from "@/hooks/useAuth";
 import { FirebaseError } from "firebase/app";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import React, { useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import React, { useEffect, useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardFooter } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { auth } from "../firebaseConfig";
+import { auth, functions } from "../firebaseConfig";
 
 function SignUp() {
   const [email, setEmail] = useState("");
@@ -18,12 +20,20 @@ function SignUp() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const recaptchaRef = useRef<ReCAPTCHA | null>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [recaptchaError, setRecaptchaError] = useState("");
+  const testSiteKey = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+  const siteKey =
+    import.meta.env.VITE_RECAPTCHA_V2_SITE_KEY ||
+    (import.meta.env.DEV ? testSiteKey : "");
   const from = (location.state as { from?: { pathname?: string } } | null)?.from
     ?.pathname;
 
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
+    setRecaptchaError("");
 
     // Validação de senha
     if (password !== confirmPassword) {
@@ -39,13 +49,27 @@ function SignUp() {
     setLoading(true);
 
     try {
+      if (!siteKey) {
+        setRecaptchaError("reCAPTCHA não configurado.");
+        return;
+      }
+      if (!recaptchaToken) {
+        setRecaptchaError("Confirme o reCAPTCHA para continuar.");
+        return;
+      }
+      const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
+      await verifyRecaptcha({ token: recaptchaToken });
       await createUserWithEmailAndPassword(auth, email, password);
 
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao criar usuário:", err);
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
+      const errorCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as FirebaseError).code
+          : null;
+      if (errorCode) {
+        switch (errorCode) {
           case "auth/email-already-in-use":
             setError("Este e-mail já está em uso.");
             break;
@@ -78,6 +102,8 @@ function SignUp() {
         setError("Ocorreu um erro ao criar a conta.");
         toast.error("Ocorreu um erro inesperado.");
       }
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -98,7 +124,6 @@ function SignUp() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="text-6xl mb-4">🎟️</div>
           <h2 className="text-3xl font-bold text-foreground">Crie sua conta</h2>
           <p className="mt-2 text-muted-foreground">
             Junte-se ao IngressosZ e descubra eventos incríveis
@@ -128,13 +153,10 @@ function SignUp() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="seu@email.com"
-                    className="pl-10"
+                    className="pl-4"
                     aria-invalid={!!error}
                     aria-describedby={error ? "signup-error" : undefined}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-muted-foreground">📧</span>
-                  </div>
                 </div>
               </div>
 
@@ -154,13 +176,10 @@ function SignUp() {
                     required
                     minLength={6}
                     placeholder="Mínimo 6 caracteres"
-                    className="pl-10"
+                    className="pl-4"
                     aria-invalid={!!error}
                     aria-describedby={error ? "signup-error" : undefined}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-muted-foreground">🔒</span>
-                  </div>
                 </div>
               </div>
 
@@ -179,13 +198,10 @@ function SignUp() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     placeholder="Confirme sua senha"
-                    className="pl-10"
+                    className="pl-4"
                     aria-invalid={!!error}
                     aria-describedby={error ? "signup-error" : undefined}
                   />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-muted-foreground">🔐</span>
-                  </div>
                 </div>
               </div>
 
@@ -197,15 +213,41 @@ function SignUp() {
                   className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
                 >
                   <div className="flex">
-                    <div className="flex-shrink-0">
-                      <span className="text-red-500 dark:text-red-400">⚠️</span>
-                    </div>
                     <div className="ml-3">
                       <p className="text-sm text-red-800 dark:text-red-300">
                         {error}
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {siteKey ? (
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={siteKey}
+                    onChange={(token: string | null) =>
+                      setRecaptchaToken(token)
+                    }
+                    onExpired={() => setRecaptchaToken(null)}
+                  />
+                </div>
+              ) : (
+                <div className="text-center text-sm text-muted-foreground">
+                  reCAPTCHA não configurado neste ambiente
+                </div>
+              )}
+
+              {recaptchaError && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
+                >
+                  <p className="text-sm text-red-800 dark:text-red-300">
+                    {recaptchaError}
+                  </p>
                 </div>
               )}
 
@@ -216,10 +258,7 @@ function SignUp() {
                     Criando conta...
                   </>
                 ) : (
-                  <>
-                    <span className="mr-2">🚀</span>
-                    Criar conta gratuita
-                  </>
+                  <>Criar conta gratuita</>
                 )}
               </Button>
             </form>
@@ -239,10 +278,7 @@ function SignUp() {
 
             <div className="mt-6 w-full">
               <Button variant="secondary" asChild className="w-full">
-                <Link to="/login">
-                  <span className="mr-2">👋</span>
-                  Fazer login
-                </Link>
+                <Link to="/login">Fazer login</Link>
               </Button>
             </div>
           </CardFooter>
@@ -255,25 +291,21 @@ function SignUp() {
           </h3>
           <div className="space-y-3">
             <div className="flex items-center">
-              <span className="text-green-500 mr-3">✅</span>
               <span className="text-muted-foreground">
                 Compre ingressos de forma segura
               </span>
             </div>
             <div className="flex items-center">
-              <span className="text-green-500 mr-3">✅</span>
               <span className="text-muted-foreground">
                 Acesse seus ingressos no celular
               </span>
             </div>
             <div className="flex items-center">
-              <span className="text-green-500 mr-3">✅</span>
               <span className="text-muted-foreground">
                 Receba notificações sobre eventos
               </span>
             </div>
             <div className="flex items-center">
-              <span className="text-green-500 mr-3">✅</span>
               <span className="text-muted-foreground">
                 Histórico de compras
               </span>

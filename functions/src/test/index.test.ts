@@ -1,6 +1,6 @@
-const { describe, it, before, after } = require("mocha");
-const { expect } = require("chai");
-const functionsTest = require("firebase-functions-test");
+import { expect } from "chai";
+import functionsTest from "firebase-functions-test";
+import { after, before, describe, it } from "mocha";
 
 const test = functionsTest();
 
@@ -8,9 +8,10 @@ describe("Cloud Functions", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let myFunctions: any;
 
-  before(() => {
+  before(async () => {
     try {
-      myFunctions = require("../../lib/index.js");
+      const mod = await import("../../lib/index.js");
+      myFunctions = mod;
     } catch (e) {
       console.warn(
         "Could not import index.ts probably due to side effects:",

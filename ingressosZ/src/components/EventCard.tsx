@@ -127,19 +127,16 @@ function EventCard({ event }: EventCardProps) {
         {/* Event Details */}
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center">
-            <span className="mr-2">📅</span>
             <span className="font-medium">Data:</span>
             <span className="ml-1">{formattedDate}</span>
           </div>
 
           <div className="flex items-center">
-            <span className="mr-2">🕐</span>
             <span className="font-medium">Horário:</span>
             <span className="ml-1">{formattedTime}</span>
           </div>
 
           <div className="flex items-center">
-            <span className="mr-2">📍</span>
             <span className="font-medium">Local:</span>
             <span className="ml-1 truncate">{event.location}</span>
           </div>
@@ -148,24 +145,18 @@ function EventCard({ event }: EventCardProps) {
         {/* Price */}
         <div className="flex items-center justify-between">
           <div className="flex items-center text-primary">
-            <span className="mr-2 text-lg">💰</span>
             <span className="text-xl font-bold">
-              R${" "}
-              {(
-                event.pricing?.standard ??
-                event.price ??
-                0
-              ).toFixed(2)}
+              R$ {(event.pricing?.standard ?? event.price ?? 0).toFixed(2)}
             </span>
           </div>
           <div
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium transition-all duration-500 ${
               event.availableTickets > 10
                 ? "text-gray-500 dark:text-gray-400"
-                : "text-red-600 dark:text-red-400"
+                : "text-red-600 dark:text-red-400 font-bold animate-pulse"
             }`}
           >
-            🎫 {event.availableTickets} disponíveis
+            {event.availableTickets} disponíveis
           </div>
         </div>
 
@@ -197,14 +188,10 @@ function EventCard({ event }: EventCardProps) {
           >
             {event.availableTickets > 0 ? (
               <span className="flex items-center justify-center">
-                <span className="mr-2">🛒</span>
                 Ver Detalhes & Comprar
               </span>
             ) : (
-              <span className="flex items-center justify-center">
-                <span className="mr-2">❌</span>
-                Esgotado
-              </span>
+              <span className="flex items-center justify-center">Esgotado</span>
             )}
           </Link>
         </Button>

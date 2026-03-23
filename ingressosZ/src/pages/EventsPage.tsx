@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { useInView } from 'react-intersection-observer';
 import EventCard from "@/components/EventCard";
 import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useEvents } from "@/hooks/useEvents";
 import type { Event } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import { useInView } from "react-intersection-observer";
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -34,6 +35,14 @@ function EventsPage() {
   const [locationFilter, setLocationFilter] = useState("Todos");
   const [maxPrice, setMaxPrice] = useState<number | "">("");
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 300);
+  const debouncedCategory = useDebouncedValue(selectedCategory, 200);
+  const debouncedLocation = useDebouncedValue(locationFilter, 200);
+  const debouncedMaxPrice = useDebouncedValue(maxPrice, 200);
+  const isFiltering =
+    searchTerm !== debouncedSearchTerm ||
+    selectedCategory !== debouncedCategory ||
+    locationFilter !== debouncedLocation ||
+    maxPrice !== debouncedMaxPrice;
 
   const { ref, inView } = useInView({ threshold: 0 });
 
@@ -55,26 +64,40 @@ function EventsPage() {
   const filteredEvents = useMemo(() => {
     const s = debouncedSearchTerm.trim().toLowerCase();
     return events.filter((event: Event) => {
-      const matchesSearch = s.length === 0 || event.title.toLowerCase().includes(s);
-      const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
-      const matchesLocation = locationFilter === "Todos" || event.location === locationFilter;
-      const matchesPrice = maxPrice === "" || event.price <= Number(maxPrice);
-      return matchesSearch && matchesCategory && matchesLocation && matchesPrice;
+      const matchesSearch =
+        s.length === 0 || event.title.toLowerCase().includes(s);
+      const matchesCategory =
+        debouncedCategory === "Todos" || event.category === debouncedCategory;
+      const matchesLocation =
+        debouncedLocation === "Todos" || event.location === debouncedLocation;
+      const matchesPrice =
+        debouncedMaxPrice === "" || event.price <= Number(debouncedMaxPrice);
+      return (
+        matchesSearch && matchesCategory && matchesLocation && matchesPrice
+      );
     });
-  }, [events, debouncedSearchTerm, selectedCategory, locationFilter, maxPrice]);
+  }, [
+    events,
+    debouncedSearchTerm,
+    debouncedCategory,
+    debouncedLocation,
+    debouncedMaxPrice,
+  ]);
 
-  if (status === 'pending' && events.length === 0) {
+  if (status === "pending" && events.length === 0) {
     return (
       <div className="min-h-screen gradient-bg">
         <header className="nav-bg py-6">
           <div className="page-container">
-            <div className="h-10 w-64 bg-muted animate-pulse rounded mb-4"></div>
-            <div className="h-4 w-48 bg-muted animate-pulse rounded mb-6"></div>
+            <Skeleton className="h-10 w-64 mb-4" />
+            <Skeleton className="h-4 w-48 mb-6" />
           </div>
         </header>
         <main className="page-container py-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[...Array(8)].map((_, i) => <EventCardSkeleton key={i} />)}
+            {[...Array(8)].map((_, i) => (
+              <EventCardSkeleton key={i} />
+            ))}
           </div>
         </main>
       </div>
@@ -87,7 +110,9 @@ function EventsPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold">Erro ao carregar eventos</h2>
           <p className="text-muted-foreground mb-4">{error.message}</p>
-          <Button onClick={() => window.location.reload()}>Tentar Novamente</Button>
+          <Button onClick={() => window.location.reload()}>
+            Tentar Novamente
+          </Button>
         </div>
       </div>
     );
@@ -97,8 +122,12 @@ function EventsPage() {
     <div className="min-h-screen gradient-bg">
       <header className="nav-bg py-6 border-b border-border">
         <div className="page-container">
-          <h1 className="text-3xl font-bold text-foreground mb-2">🎫 Eventos Disponíveis</h1>
-          <p className="text-muted-foreground">Bem-vindo, {userProfile?.displayName || userProfile?.email}!</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Eventos Disponíveis
+          </h1>
+          <p className="text-muted-foreground">
+            Bem-vindo, {userProfile?.displayName || userProfile?.email}!
+          </p>
         </div>
       </header>
 
@@ -116,20 +145,30 @@ function EventsPage() {
             onChange={(e) => setLocationFilter(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {locations.map((loc) => <option key={loc as string} value={loc as string}>{loc as string}</option>)}
+            {locations.map((loc) => (
+              <option key={loc as string} value={loc as string}>
+                {loc as string}
+              </option>
+            ))}
           </select>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full rounded-md border-input bg-background px-3 py-2"
           >
-            {categories.map((cat) => <option key={cat as string} value={cat as string}>{cat as string}</option>)}
+            {categories.map((cat) => (
+              <option key={cat as string} value={cat as string}>
+                {cat as string}
+              </option>
+            ))}
           </select>
           <Input
             type="number"
             placeholder="Preço máximo (R$)"
             value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={(e) =>
+              setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
+            }
             className="w-full"
             min="0"
           />
@@ -137,25 +176,42 @@ function EventsPage() {
       </div>
 
       <main className="page-container py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredEvents.map((event: Event) => <EventCard key={event.id} event={event} />)}
+        {isFiltering && (
+          <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span>Aplicando filtros...</span>
+          </div>
+        )}
+        <div
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 transition-opacity duration-300 ${
+            isFiltering ? "opacity-60" : "opacity-100"
+          }`}
+        >
+          {filteredEvents.map((event: Event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+          {isFiltering &&
+            [...Array(4)].map((_, i) => (
+              <EventCardSkeleton key={`filtering-skeleton-${i}`} />
+            ))}
+          {isFetchingNextPage &&
+            [...Array(4)].map((_, i) => (
+              <EventCardSkeleton key={`next-page-skeleton-${i}`} />
+            ))}
         </div>
 
         <div ref={ref} className="h-10 mt-8 flex justify-center items-center">
-          {isFetchingNextPage ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-              <span>Carregando mais...</span>
-            </div>
-          ) : !hasNextPage && events.length > 0 ? (
+          {!isFetchingNextPage && !hasNextPage && events.length > 0 ? (
             <p className="text-muted-foreground">Fim dos resultados.</p>
           ) : null}
         </div>
 
-        {filteredEvents.length === 0 && !isFetchingNextPage && (
+        {filteredEvents.length === 0 && !isFetchingNextPage && !isFiltering && (
           <div className="text-center py-16 col-span-full">
             <h3 className="text-xl font-semibold">Nenhum evento encontrado</h3>
-            <p className="text-muted-foreground">Tente ajustar seus filtros ou volte mais tarde.</p>
+            <p className="text-muted-foreground">
+              Tente ajustar seus filtros ou volte mais tarde.
+            </p>
           </div>
         )}
       </main>

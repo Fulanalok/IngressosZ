@@ -24,7 +24,6 @@ export function ValidationResult({
   if (status === null) {
     return (
       <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-        <div className="text-6xl mb-4">⏳</div>
         <p>Digite um código de ingresso para validar</p>
       </div>
     );
@@ -36,19 +35,16 @@ export function ValidationResult({
       <div className="text-center">
         {status === "success" && (
           <div className="inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-none">
-            <span className="mr-2">✅</span>
             <span className="font-semibold">VÁLIDO</span>
           </div>
         )}
         {status === "error" && (
           <div className="inline-flex items-center px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-none">
-            <span className="mr-2">❌</span>
             <span className="font-semibold">USADO</span>
           </div>
         )}
         {status === "invalid" && (
           <div className="inline-flex items-center px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-none">
-            <span className="mr-2">⚠️</span>
             <span className="font-semibold">INVÁLIDO</span>
           </div>
         )}
@@ -119,7 +115,7 @@ export function ValidationResult({
           </div>
 
           <Button className="w-full mt-4" onClick={onConfirm}>
-            ✅ Confirmar Entrada
+            Confirmar Entrada
           </Button>
         </div>
       )}

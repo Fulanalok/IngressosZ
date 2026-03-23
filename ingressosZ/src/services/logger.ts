@@ -1,22 +1,16 @@
-import { auth } from "../firebaseConfig";
+import { auth, functions } from "../firebaseConfig";
+import { httpsCallable } from "firebase/functions";
 
+/**
+ * Envia um log de erro do cliente para o backend de forma unificada.
+ * Utiliza Firebase Functions Callable para maior segurança e facilidade de integração.
+ */
 export async function postClientError(
   details: Record<string, unknown>
 ): Promise<{ ok: boolean; status: number }> {
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    const u = auth.currentUser;
-    if (u && typeof u.getIdToken === "function") {
-      const token = await u.getIdToken();
-      if (token) headers.Authorization = `Bearer ${token}`;
-    }
-    const idem =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    headers["X-Idempotency-Key"] = idem;
+    const logFunction = httpsCallable(functions, "logClientError");
+    
     const payload = {
       ...details,
       route:
@@ -25,68 +19,53 @@ export async function postClientError(
           : details.route,
       ua: typeof navigator !== "undefined" ? navigator.userAgent : details.ua,
       ts: typeof details.ts === "number" ? details.ts : Date.now(),
+      uid: auth.currentUser?.uid || "anonymous",
     };
-    const baseUrl = (() => {
-      const explicit = String(import.meta.env.VITE_FUNCTIONS_URL || "").trim();
-      if (explicit) return explicit.replace(/\/+$/, "");
-      const useEmulators =
-        import.meta.env.DEV &&
-        String(import.meta.env.VITE_USE_EMULATORS ?? "false").toLowerCase() ===
-          "true";
-      if (useEmulators) {
-        const projectId = String(
-          import.meta.env.VITE_FIREBASE_PROJECT_ID || ""
-        );
-        const region = String(
-          import.meta.env.VITE_FUNCTIONS_REGION || "us-central1"
-        );
-        const fnPort = String(
-          import.meta.env.VITE_FUNCTIONS_PORT ??
-            import.meta.env.VITE_FIREBASE_EMULATOR_FUNCTIONS_PORT ??
-            "5001"
-        );
-        if (projectId) {
-          return `http://127.0.0.1:${fnPort}/${projectId}/${region}`;
-        }
-      }
-      const apiUrl = String(import.meta.env.VITE_API_URL || "").trim();
-      if (apiUrl) return apiUrl.replace(/\/+$/, "");
-      return "/functions";
-    })();
 
-    let lastStatus = 0;
-    let lastOk = false;
-    const attempt = async () => {
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 2000);
-      try {
-        const resp = await fetch(`${baseUrl}/logClientError`, {
-          method: "POST",
-          headers,
-          referrerPolicy: "no-referrer",
-          credentials: "omit",
-          cache: "no-store",
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        clearTimeout(t);
-        lastStatus = resp.status;
-        lastOk = resp.ok;
-        if (resp.status >= 500 || resp.status === 429)
-          throw new Error(String(resp.status));
-      } catch {
-        clearTimeout(t);
-        throw new Error("log-failed");
-      }
-    };
-    try {
-      await attempt();
-    } catch {
-      await attempt();
-    }
-    return { ok: lastOk, status: lastStatus };
-  } catch {
-    // Falha silenciosa se não conseguir logar
+    // Chamada assíncrona sem bloquear o fluxo principal
+    logFunction(payload).catch(err => {
+      // Falha silenciosa no envio do log para não afetar a UX
+      console.warn("Falha ao enviar log para o backend:", err);
+    });
+
+    return { ok: true, status: 200 };
+  } catch (error) {
+    console.error("Erro ao processar postClientError:", error);
     return { ok: false, status: 0 };
   }
 }
+
+/**
+ * Atalhos para logs de diferentes níveis
+ */
+export const logger = {
+  error: (message: string, error?: unknown, extra?: Record<string, unknown>) => {
+    console.error(message, error);
+    postClientError({
+      level: "error",
+      message,
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      } : error,
+      ...extra
+    });
+  },
+  warn: (message: string, extra?: Record<string, unknown>) => {
+    console.warn(message);
+    postClientError({
+      level: "warn",
+      message,
+      ...extra
+    });
+  },
+  info: (message: string, extra?: Record<string, unknown>) => {
+    console.info(message);
+    postClientError({
+      level: "info",
+      message,
+      ...extra
+    });
+  }
+};

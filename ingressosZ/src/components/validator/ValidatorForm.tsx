@@ -55,9 +55,6 @@ export function ValidatorForm({
                   : "validation-help"
               }
             />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-muted-foreground">🎫</span>
-            </div>
           </div>
           <p
             id="validation-help"
@@ -83,10 +80,7 @@ export function ValidatorForm({
                 Validando...
               </>
             ) : (
-              <>
-                <span className="mr-2">🔍</span>
-                Validar Ingresso
-              </>
+              <>Validar Ingresso</>
             )}
           </Button>
 
@@ -96,7 +90,6 @@ export function ValidatorForm({
             onClick={onReset}
             className="px-4 py-3 font-medium"
           >
-            🗑️
             <span className="sr-only">Limpar código</span>
           </Button>
         </div>
@@ -112,7 +105,6 @@ export function ValidatorForm({
             variant="secondary"
             className="py-2 px-3 text-sm"
           >
-            <span className="mr-1">🎲</span>
             Código Teste
           </Button>
           {String(userProfile?.role || "user").toLowerCase() !== "user" && (
@@ -122,7 +114,6 @@ export function ValidatorForm({
               disabled={isCreatingTestData}
               className="py-2 px-3 text-sm"
             >
-              <span className="mr-1">🔧</span>
               {isCreatingTestData ? "Criando..." : "Criar Dados"}
             </Button>
           )}

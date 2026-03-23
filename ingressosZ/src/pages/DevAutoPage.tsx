@@ -1,6 +1,6 @@
+import { signInAnonymously } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInAnonymously } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 import { TestDataService } from "../services/testDataService";
 
@@ -40,7 +40,6 @@ function DevAutoPage() {
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center">
       <div className="card p-6 text-center">
-        <div className="text-5xl mb-3">🛠️</div>
         <h1 className="text-2xl font-bold text-foreground mb-2">
           Dev Auto Setup
         </h1>

@@ -71,7 +71,7 @@ export function useTicketValidator() {
         return result;
       }
     } catch (backendErr) {
-      console.warn("⚠️ Erro ao validar no backend:", backendErr);
+      console.warn("Erro ao validar no backend:", backendErr);
 
       // Fallback para modo offline/DEV
       if (import.meta.env.DEV) {

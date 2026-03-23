@@ -1,7 +1,8 @@
+import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { functions } from "../firebaseConfig";
 import { useAuth } from "../hooks/useAuth";
-import { userService } from "../services/firestore";
 import { seedSampleEvents } from "../utils/seedData";
 
 function DevPanel() {
@@ -9,20 +10,29 @@ function DevPanel() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const isEmulator =
+    import.meta.env.DEV &&
+    String(import.meta.env.VITE_USE_EMULATORS ?? "false").toLowerCase() ===
+      "true";
 
   const handleBecomeOrganizer = async () => {
+    if (!isEmulator) {
+      setMessage("Este recurso exige emuladores habilitados.");
+      return;
+    }
     if (!user) {
-      setMessage("❌ Você precisa estar logado para virar organizador");
+      setMessage("Erro: você precisa estar logado para virar organizador");
       return;
     }
     setLoading(true);
     setMessage("");
     try {
-      await userService.updateUserProfile(user.uid, { role: "organizer" });
-      setMessage("✅ Agora você é um organizador! Recarregue a página.");
+      const setUserRole = httpsCallable(functions, "setUserRole");
+      await setUserRole({ uid: user.uid, role: "organizer" });
+      setMessage("Sucesso: role atualizada para organizador.");
     } catch (error) {
       setMessage(
-        "❌ Erro ao atualizar perfil: " +
+        "Erro ao atualizar perfil: " +
           (error instanceof Error ? error.message : "Erro desconhecido")
       );
     } finally {
@@ -31,18 +41,23 @@ function DevPanel() {
   };
 
   const handleBecomeValidator = async () => {
+    if (!isEmulator) {
+      setMessage("Este recurso exige emuladores habilitados.");
+      return;
+    }
     if (!user) {
-      setMessage("❌ Você precisa estar logado para virar validador");
+      setMessage("Erro: você precisa estar logado para virar validador");
       return;
     }
     setLoading(true);
     setMessage("");
     try {
-      await userService.updateUserProfile(user.uid, { role: "validator" });
-      setMessage("✅ Agora você é um validador! Recarregue a página.");
+      const setUserRole = httpsCallable(functions, "setUserRole");
+      await setUserRole({ uid: user.uid, role: "validator" });
+      setMessage("Sucesso: role atualizada para validador.");
     } catch (error) {
       setMessage(
-        "❌ Erro ao atualizar perfil: " +
+        "Erro ao atualizar perfil: " +
           (error instanceof Error ? error.message : "Erro desconhecido")
       );
     } finally {
@@ -56,10 +71,10 @@ function DevPanel() {
 
     try {
       await seedSampleEvents();
-      setMessage("✅ Eventos de exemplo adicionados com sucesso!");
+      setMessage("Sucesso: eventos de exemplo adicionados.");
     } catch (error) {
       setMessage(
-        "❌ Erro ao adicionar eventos: " +
+        "Erro ao adicionar eventos: " +
           (error instanceof Error ? error.message : "Erro desconhecido")
       );
     } finally {
@@ -92,12 +107,21 @@ function DevPanel() {
         minWidth: "250px",
       }}
     >
-      <h4 style={{ margin: "0 0 10px 0", color: "#007bff" }}>🛠️ Dev Panel</h4>
+      <h4 style={{ margin: "0 0 6px 0", color: "#007bff" }}>Dev Panel</h4>
+      <p
+        style={{
+          margin: "0 0 10px 0",
+          fontSize: "11px",
+          color: isEmulator ? "#28a745" : "#dc3545",
+        }}
+      >
+        {isEmulator ? "Emuladores ativos" : "Emuladores desativados"}
+      </p>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <button
           onClick={handleBecomeOrganizer}
-          disabled={loading}
+          disabled={loading || !isEmulator}
           style={{
             width: "100%",
             backgroundColor: loading ? "#6c757d" : "#17a2b8",
@@ -108,12 +132,12 @@ function DevPanel() {
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          👑 Virar Organizador
+          Virar Organizador
         </button>
 
         <button
           onClick={handleBecomeValidator}
-          disabled={loading}
+          disabled={loading || !isEmulator}
           style={{
             width: "100%",
             backgroundColor: loading ? "#6c757d" : "#e83e8c",
@@ -124,7 +148,7 @@ function DevPanel() {
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          🔍 Virar Validador
+          Virar Validador
         </button>
 
         <button
@@ -141,7 +165,7 @@ function DevPanel() {
             fontSize: "12px",
           }}
         >
-          {loading ? "⏳ Adicionando..." : "📊 Adicionar Eventos"}
+          {loading ? "Adicionando..." : "Adicionar Eventos"}
         </button>
 
         <button
@@ -158,9 +182,8 @@ function DevPanel() {
             fontSize: "12px",
           }}
         >
-          {loading ? "⏳ Executando..." : "⚙️ Dev Auto"}
+          {loading ? "Executando..." : "Dev Auto"}
         </button>
-
       </div>
 
       {message && (
@@ -168,7 +191,7 @@ function DevPanel() {
           style={{
             margin: "10px 0 0 0",
             fontSize: "12px",
-            color: message.includes("✅") ? "#28a745" : "#dc3545",
+            color: message.startsWith("Sucesso") ? "#28a745" : "#dc3545",
             wordWrap: "break-word",
           }}
         >

@@ -26,7 +26,6 @@ function Navbar() {
             to="/"
             className="flex items-center text-foreground hover:text-primary transition-colors"
           >
-            <span className="text-2xl mr-2">🎫</span>
             <span className="text-xl font-bold">IngressosZ</span>
           </Link>
 

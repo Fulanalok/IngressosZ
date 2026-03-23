@@ -7,6 +7,7 @@ import { StatusScreen, Wallet } from "@mercadopago/sdk-react";
 import type { User } from "firebase/auth";
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 interface TicketPurchaseProps {
   event: Event;
@@ -50,11 +51,19 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   const totalPrice = useMemo(() => unitPrice * quantity, [unitPrice, quantity]);
 
   const handlePurchase = async () => {
+    if (maxQuantity < quantity) {
+      toast.error("Quantidade solicitada superior ao estoque disponível.");
+      return;
+    }
     setPaymentStatus("processing");
     await createPreference();
   };
 
   const handlePixPurchase = async () => {
+    if (maxQuantity < quantity) {
+      toast.error("Quantidade solicitada superior ao estoque disponível.");
+      return;
+    }
     setPaymentStatus("processing");
     await createPixPayment();
   };

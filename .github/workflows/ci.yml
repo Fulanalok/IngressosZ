@@ -28,6 +28,10 @@ jobs:
         working-directory: ./ingressosZ
         run: npm run lint
 
+      - name: 🔎 Typecheck (Frontend)
+        working-directory: ./ingressosZ
+        run: npm run typecheck
+
       - name: 🔍 Linting (Backend)
         working-directory: ./functions
         run: npm run lint

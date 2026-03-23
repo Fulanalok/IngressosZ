@@ -12,7 +12,6 @@ export function GlobalErrorFallback({
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="max-w-md w-full bg-card border border-border rounded-lg shadow-lg p-6 text-center">
-        <div className="text-6xl mb-4">💥</div>
         <h2 className="text-2xl font-bold text-foreground mb-2">
           Ops! Algo deu errado.
         </h2>
