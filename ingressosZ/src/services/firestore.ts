@@ -195,6 +195,16 @@ export const ticketService = {
     const snapshot = await getDocs(ticketsQuery);
     return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Ticket));
   },
+
+  async getTicketsByEvent(eventId: string): Promise<Ticket[]> {
+    const q = query(
+      collection(db, "tickets"),
+      where("eventId", "==", eventId),
+      orderBy("purchaseDate", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Ticket));
+  },
 };
 
 // =============================================================================
@@ -257,6 +267,19 @@ export const paymentService = {
     const paymentsCollection = collection(db, "paymentSessions");
     const q = query(
       paymentsCollection,
+      where("status", "==", "approved"),
+      orderBy("createdAt", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(
+      (d) => ({ id: d.id, ...d.data() } as PaymentSession)
+    );
+  },
+
+  async getPaymentsByEvent(eventId: string): Promise<PaymentSession[]> {
+    const q = query(
+      collection(db, "paymentSessions"),
+      where("eventId", "==", eventId),
       where("status", "==", "approved"),
       orderBy("createdAt", "desc")
     );

@@ -73,6 +73,7 @@ export function useMercadoPagoCheckout(
           unitPrice,
           totalAmount,
           status: "pending",
+          paymentMethod: "checkout",
           provider: "mercadopago",
           createdAt: serverTimestamp(),
         }
@@ -172,6 +173,7 @@ export function useMercadoPagoCheckout(
           unitPrice,
           totalAmount,
           status: "pending",
+          paymentMethod: "pix",
           provider: "mercadopago",
           createdAt: serverTimestamp(),
         }

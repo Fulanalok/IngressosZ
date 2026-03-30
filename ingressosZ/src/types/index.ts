@@ -1,6 +1,6 @@
-// Tipos para Eventos
 import { QueryDocumentSnapshot, Timestamp } from "firebase/firestore";
 
+// Tipos para Eventos
 export interface Event {
   id: string;
   title: string;
@@ -27,6 +27,7 @@ export interface Ticket {
   id: string;
   eventId: string;
   userId: string;
+  purchaseId?: string;
   userEmail: string;
   purchaseDate: Timestamp;
   qrCode: string;
@@ -62,11 +63,13 @@ export interface PaymentSession {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  status: "pending" | "approved" | "failed" | "cancelled";
+  status: "pending" | "approved" | "failed" | "cancelled" | "expired";
   paymentId?: string;
   provider?: "mercadopago";
+  paymentMethod?: "pix" | "checkout";
   createdAt: Timestamp;
   completedAt?: Timestamp;
+  expiredAt?: Timestamp;
 }
 
 export interface PaginatedEvents {
