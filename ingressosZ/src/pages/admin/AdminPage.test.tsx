@@ -1,10 +1,9 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import AdminPage from "./AdminPage";
-import { eventService } from "../../services/firestore";
+import { eventService, adminRealtimeService, paymentService } from "../../services/firestore";
 import { useAuth } from "../../hooks/useAuth";
 
-// Mock dependencies
 vi.mock("../../services/firestore", () => ({
   eventService: {
     getAdminEvents: vi.fn(),
@@ -12,13 +11,41 @@ vi.mock("../../services/firestore", () => ({
     createEvent: vi.fn(),
     updateEvent: vi.fn(),
   },
+  ticketService: {
+    getUserTickets: vi.fn(),
+    subscribeToUserTickets: vi.fn(() => vi.fn()),
+    getTicketById: vi.fn(),
+  },
+  userService: {
+    getUserProfile: vi.fn(),
+  },
+  paymentService: {
+    subscribeToAllPayments: vi.fn().mockImplementation((onUpdate) => {
+      onUpdate([]);
+      return vi.fn();
+    }),
+  },
+  adminRealtimeService: {
+    subscribeToAdminEvents: vi.fn().mockImplementation(() => vi.fn()),
+    subscribeToAllTickets: vi.fn().mockImplementation((onUpdate) => {
+      onUpdate([]);
+      return vi.fn();
+    }),
+  },
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
-  useAuth: vi.fn(),
+  useAuth: vi.fn().mockReturnValue({
+    userProfile: { uid: "admin-uid", role: "admin" },
+  }),
 }));
 
-// Mock EventForm to simplify AdminPage tests (we already tested EventForm separately)
+// Mocked to avoid rendering event titles in the dashboard (which would cause duplicate text matches)
+vi.mock("../../components/admin/AdminDashboard", () => ({
+  default: () => <div data-testid="admin-dashboard" />,
+}));
+
+// Mocked to isolate AdminPage tests from EventForm behavior (tested separately)
 vi.mock("./EventForm", () => ({
   EventForm: ({ onCancel, onSave, initialData }: any) => (
     <div data-testid="event-form">
@@ -29,28 +56,36 @@ vi.mock("./EventForm", () => ({
   ),
 }));
 
-describe("AdminPage Component", () => {
-  const mockEvents = [
-    {
-      id: "1",
-      title: "Event 1",
-      date: "2023-12-31",
-      location: "Loc 1",
-      price: 100,
-      availableTickets: 50,
-      maxTickets: 100,
-    },
-    {
-      id: "2",
-      title: "Event 2 (Sold Out)",
-      date: "2024-01-01",
-      location: "Loc 2",
-      price: 200,
-      availableTickets: 0,
-      maxTickets: 100,
-    },
-  ];
+const mockEvents = [
+  {
+    id: "1",
+    title: "Event 1",
+    date: "2023-12-31",
+    location: "Loc 1",
+    price: 100,
+    availableTickets: 50,
+    maxTickets: 100,
+  },
+  {
+    id: "2",
+    title: "Event 2 (Sold Out)",
+    date: "2024-01-01",
+    location: "Loc 2",
+    price: 200,
+    availableTickets: 0,
+    maxTickets: 100,
+  },
+];
 
+function renderWithEvents(events = mockEvents) {
+  (adminRealtimeService.subscribeToAdminEvents as any).mockImplementation((onUpdate: any) => {
+    onUpdate(events);
+    return vi.fn();
+  });
+  return render(<AdminPage />);
+}
+
+describe("AdminPage Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useAuth as any).mockReturnValue({
@@ -58,87 +93,72 @@ describe("AdminPage Component", () => {
     });
   });
 
-  it("renders loading state initially", async () => {
-    (eventService.getAdminEvents as any).mockImplementation(() => new Promise(() => {})); // Never resolves
+  it("renders loading state initially", () => {
+    // subscribeToAdminEvents never calls onUpdate, so loading persists
     render(<AdminPage />);
     expect(screen.getByText("Carregando painel...")).toBeInTheDocument();
   });
 
   it("renders list of events after loading", async () => {
-    (eventService.getAdminEvents as any).mockResolvedValue(mockEvents);
-    render(<AdminPage />);
+    renderWithEvents();
 
     await waitFor(() => {
-      expect(screen.getByText("Painel Administrativo")).toBeInTheDocument();
+      expect(screen.getByText("Painel do Organizador")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Event 1")).toBeInTheDocument();
     expect(screen.getByText("Event 2 (Sold Out)")).toBeInTheDocument();
-    
-    // Check inventory display
+
+    // Sales display: sold / total (maxTickets - availableTickets / maxTickets)
     expect(screen.getByText("50 / 100")).toBeInTheDocument();
-    expect(screen.getByText("0 / 100")).toBeInTheDocument();
+    expect(screen.getByText("100 / 100")).toBeInTheDocument();
   });
 
   it("renders empty state when no events found", async () => {
-    (eventService.getAdminEvents as any).mockResolvedValue([]);
-    render(<AdminPage />);
+    renderWithEvents([]);
 
     await waitFor(() => {
-      expect(screen.getByText("Nenhum evento encontrado. Crie o primeiro!")).toBeInTheDocument();
+      expect(screen.getByText("Nenhum evento encontrado.")).toBeInTheDocument();
     });
   });
 
   it("opens create form when clicking 'Novo Evento'", async () => {
-    (eventService.getAdminEvents as any).mockResolvedValue(mockEvents);
-    render(<AdminPage />);
+    renderWithEvents();
 
     await waitFor(() => {
-      expect(screen.getByText("Painel Administrativo")).toBeInTheDocument();
+      expect(screen.getByText("Painel do Organizador")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText("+ Novo Evento"));
+    fireEvent.click(screen.getByText("Novo Evento"));
 
     expect(screen.getByTestId("event-form")).toBeInTheDocument();
     expect(screen.getByText("Create Mode")).toBeInTheDocument();
   });
 
   it("opens edit form when clicking 'Editar'", async () => {
-    (eventService.getAdminEvents as any).mockResolvedValue(mockEvents);
-    render(<AdminPage />);
+    renderWithEvents();
 
     await waitFor(() => {
       expect(screen.getByText("Event 1")).toBeInTheDocument();
     });
 
-    // Click edit on the first event
-    const editButtons = screen.getAllByText("Editar");
-    fireEvent.click(editButtons[0]);
+    fireEvent.click(screen.getAllByText("Editar")[0]);
 
     expect(screen.getByTestId("event-form")).toBeInTheDocument();
     expect(screen.getByText("Edit Mode")).toBeInTheDocument();
   });
 
   it("handles event deletion", async () => {
-    (eventService.getAdminEvents as any).mockResolvedValue(mockEvents);
-    // Mock window.confirm
+    renderWithEvents();
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    
-    render(<AdminPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Event 1")).toBeInTheDocument();
     });
 
-    const deleteButtons = screen.getAllByText("Excluir");
-    fireEvent.click(deleteButtons[0]);
+    fireEvent.click(screen.getAllByText("Excluir")[0]);
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(eventService.deleteEvent).toHaveBeenCalledWith("1");
-    
-    // Should reload events
-    await waitFor(() => {
-      expect(eventService.getAdminEvents).toHaveBeenCalledTimes(2); // Initial + after delete
-    });
   });
 });
