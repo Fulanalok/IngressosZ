@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(find /c/Users/lucasvilhena/projetos/IngressosZ/IngressosZ-main/ingressosZ/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(node -e \"require\\(''./node_modules/recharts/package.json''\\) && console.log\\(''recharts ok''\\)\")"
+    ]
+  }
+}

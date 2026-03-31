@@ -288,4 +288,61 @@ export const paymentService = {
       (d) => ({ id: d.id, ...d.data() } as PaymentSession)
     );
   },
+
+  subscribeToAllPayments(
+    onUpdate: (payments: PaymentSession[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(
+      collection(db, "paymentSessions"),
+      where("status", "==", "approved"),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        onUpdate(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentSession)));
+      },
+      (error) => {
+        console.error("Error listening to payments:", error);
+        onError(error);
+      }
+    );
+  },
+};
+
+export const adminRealtimeService = {
+  subscribeToAdminEvents(
+    onUpdate: (events: Event[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(collection(db, "events"), orderBy("date", "desc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        onUpdate(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Event)));
+      },
+      (error) => {
+        console.error("Error listening to events:", error);
+        onError(error);
+      }
+    );
+  },
+
+  subscribeToAllTickets(
+    onUpdate: (tickets: Ticket[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(collection(db, "tickets"), orderBy("purchaseDate", "desc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        onUpdate(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Ticket)));
+      },
+      (error) => {
+        console.error("Error listening to tickets:", error);
+        onError(error);
+      }
+    );
+  },
 };

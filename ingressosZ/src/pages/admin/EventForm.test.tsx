@@ -52,7 +52,7 @@ describe("EventForm Component", () => {
     render(<EventForm {...defaultProps} />);
     
     expect(screen.getByLabelText(/Título/i)).toHaveValue("");
-    expect(screen.getByText("Salvar Evento")).toBeInTheDocument();
+    expect(screen.getByText("Criar Evento")).toBeInTheDocument();
   });
 
   it("renders correctly with initial data for editing", () => {
@@ -129,7 +129,7 @@ describe("EventForm Component", () => {
     fireEvent.change(screen.getByLabelText(/Descrição/i), { target: { value: "Desc" } });
     fireEvent.change(screen.getByLabelText(/Data/i), { target: { value: "2024-01-01" } });
     fireEvent.change(screen.getByLabelText(/Hora/i), { target: { value: "20:00" } });
-    fireEvent.change(screen.getByLabelText(/Local \(Nome\)/i), { target: { value: "Venue" } });
+    fireEvent.change(screen.getByLabelText(/Nome do Local/i), { target: { value: "Venue" } });
     fireEvent.change(screen.getByLabelText(/Endereço Completo/i), { target: { value: "Addr" } });
     fireEvent.change(screen.getByLabelText(/Preço Base/i), { target: { value: "50" } });
     
@@ -145,7 +145,7 @@ describe("EventForm Component", () => {
     // Max Tickets (index 7) -> auto update logic might change this, but let's set it manually just in case
     // The component updates max/available tickets if total nested inventory > 0 on submit
     
-    const submitBtn = screen.getByText("Salvar Evento");
+    const submitBtn = screen.getByText("Criar Evento");
     fireEvent.click(submitBtn);
     
     await waitFor(() => {

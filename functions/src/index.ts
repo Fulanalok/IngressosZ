@@ -1113,20 +1113,25 @@ export const receiveWebhook = onRequest(
 
             const data = eventDoc.data() as {
               availableTickets?: number;
+              inventory?: Record<string, number>;
               date?: string;
               time?: string;
               price?: number;
               pricing?: Record<string, number>;
             };
             const currentStock = data.availableTickets || 0;
+            const currentTypeStock =
+              data.inventory?.[resolvedTicketType] ?? currentStock;
             const unitPrice = Number(
               data.pricing?.[resolvedTicketType] ?? data.price ?? 0
             );
 
-            if (currentStock < ticketsCount) {
+            if (currentStock < ticketsCount || currentTypeStock < ticketsCount) {
               logger.error("Overselling detected", {
                 eventId,
                 currentStock,
+                currentTypeStock,
+                resolvedTicketType,
                 ticketsCount,
               });
 
@@ -1148,9 +1153,16 @@ export const receiveWebhook = onRequest(
               return;
             }
 
-            transaction.update(eventRef, {
+            const updates: Record<string, any> = {
               availableTickets: FieldValue.increment(-ticketsCount),
-            });
+              updatedAt: FieldValue.serverTimestamp(),
+            };
+
+            if (data.inventory && data.inventory[resolvedTicketType] !== undefined) {
+              updates[`inventory.${resolvedTicketType}`] = FieldValue.increment(-ticketsCount);
+            }
+
+            transaction.update(eventRef, updates);
 
             transaction.set(newPurchaseRef, {
               userId: resolvedUserId,
@@ -1655,13 +1667,66 @@ const sendTicketEmail = async (
       }
     }
 
-    const subject = `Ingressos confirmados - ${eventTitle}`;
-    const html =
-      `<p>Olá! Seus ${ticketsCount} ingressos foram confirmados.</p>` +
-      `<p>Evento: ${eventTitle}</p>` +
-      (infoLines.length ? `<p>${infoLines.join("<br/>")}</p>` : "") +
-      accountLine +
-      `<p>Acesse ${webBaseUrl.value()}/meus-ingressos para visualizar.</p>`;
+    const subject = `Ingressos confirmados – ${eventTitle}`;
+    const ticketWord = ticketsCount === 1 ? "ingresso" : "ingressos";
+    const bannerImg = (event as { image?: string })?.image;
+    const bannerHtml = bannerImg
+      ? `<img src="${bannerImg}" alt="${eventTitle}" style="width:100%;max-height:240px;object-fit:cover;display:block;" />`
+      : "";
+    const infoRows = infoLines
+      .map(
+        (line) =>
+          `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">${line}</td></tr>`
+      )
+      .join("");
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:28px 32px 24px;">
+            <p style="margin:0 0 6px;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">IngressosZ</p>
+            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;line-height:1.3;">${eventTitle}</h1>
+          </td>
+        </tr>
+        <!-- Banner -->
+        ${bannerImg ? `<tr><td style="padding:0;">${bannerHtml}</td></tr>` : ""}
+        <!-- Body -->
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 20px;font-size:16px;color:#111827;">
+              Olá! Seus <strong>${ticketsCount} ${ticketWord}</strong> foram confirmados. 🎉
+            </p>
+            ${
+              infoRows
+                ? `<table cellpadding="0" cellspacing="0" style="margin-bottom:20px;border-left:3px solid #6366f1;padding-left:14px;">${infoRows}</table>`
+                : ""
+            }
+            ${accountLine ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">${accountLine}</div>` : ""}
+            <a href="${webBaseUrl.value()}/meus-ingressos"
+               style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-weight:700;font-size:14px;padding:14px 28px;border-radius:8px;text-decoration:none;letter-spacing:0.02em;">
+              Ver Meus Ingressos
+            </a>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
+              Dúvidas? Acesse <a href="${webBaseUrl.value()}" style="color:#6366f1;text-decoration:none;">ingressosz.web.app</a>
+              · Este é um e-mail automático, não responda.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
     await sendEmail(userRecord.email, subject, html);
   } catch (error) {
