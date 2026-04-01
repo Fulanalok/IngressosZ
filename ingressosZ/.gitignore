@@ -19,3 +19,6 @@ yarn-error.log*
 # Test coverage
 coverage/
 .nyc_output/
+
+# Compiled JS duplicates (source is TypeScript — .js files in src are artifacts)
+src/**/*.js

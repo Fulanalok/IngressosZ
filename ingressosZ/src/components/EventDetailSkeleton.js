@@ -1,5 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Skeleton } from "./ui/skeleton";
-export function EventDetailSkeleton() {
-    return (_jsxs("div", { className: "min-h-screen gradient-bg", children: [_jsx("div", { className: "h-[400px] w-full bg-muted animate-pulse" }), _jsx("div", { className: "max-w-4xl mx-auto -mt-32 relative z-10 p-4", children: _jsxs("div", { className: "bg-card rounded-xl shadow-xl overflow-hidden p-8 space-y-6", children: [_jsx(Skeleton, { className: "h-10 w-3/4" }), _jsxs("div", { className: "flex gap-4", children: [_jsx(Skeleton, { className: "h-6 w-32" }), _jsx(Skeleton, { className: "h-6 w-32" })] }), _jsxs("div", { className: "grid md:grid-cols-3 gap-8 mt-8", children: [_jsxs("div", { className: "md:col-span-2 space-y-4", children: [_jsx(Skeleton, { className: "h-4 w-full" }), _jsx(Skeleton, { className: "h-4 w-full" }), _jsx(Skeleton, { className: "h-4 w-2/3" })] }), _jsxs("div", { className: "space-y-4", children: [_jsx(Skeleton, { className: "h-10 w-full" }), _jsx(Skeleton, { className: "h-10 w-full" }), _jsx(Skeleton, { className: "h-10 w-full" })] })] })] }) })] }));
-}
