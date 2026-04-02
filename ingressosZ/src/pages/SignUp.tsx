@@ -35,7 +35,6 @@ function SignUp() {
     setError("");
     setRecaptchaError("");
 
-    // Validação de senha
     if (password !== confirmPassword) {
       setError("As senhas não coincidem.");
       return;
@@ -60,7 +59,6 @@ function SignUp() {
       const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
       await verifyRecaptcha({ token: recaptchaToken });
       await createUserWithEmailAndPassword(auth, email, password);
-
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao criar usuário:", err);
@@ -124,14 +122,16 @@ function SignUp() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-foreground">Crie sua conta</h2>
-          <p className="mt-2 text-muted-foreground">
-            Junte-se ao IngressosZ e descubra eventos incríveis
+          <h2 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
+            Crie sua conta
+          </h2>
+          <p className="text-muted-foreground">
+            Junte-se ao <span className="blue-gradient-text font-bold">IngressosZ</span> e descubra eventos incríveis
           </p>
         </div>
 
         {/* Form */}
-        <Card className="mt-8">
+        <Card className="mt-8 shadow-xl border-border/50">
           <CardContent>
             <form
               onSubmit={handleSignUp}
@@ -141,68 +141,62 @@ function SignUp() {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-sm font-bold text-foreground mb-2 uppercase tracking-wider"
                 >
                   Email
                 </label>
-                <div className="relative">
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="seu@email.com"
-                    className="pl-4"
-                    aria-invalid={!!error}
-                    aria-describedby={error ? "signup-error" : undefined}
-                  />
-                </div>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="seu@email.com"
+                  className="h-12 rounded-xl border-border/50 bg-card/50"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "signup-error" : undefined}
+                />
               </div>
 
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-sm font-bold text-foreground mb-2 uppercase tracking-wider"
                 >
                   Senha
                 </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    placeholder="Mínimo 6 caracteres"
-                    className="pl-4"
-                    aria-invalid={!!error}
-                    aria-describedby={error ? "signup-error" : undefined}
-                  />
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  placeholder="Mínimo 6 caracteres"
+                  className="h-12 rounded-xl border-border/50 bg-card/50"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "signup-error" : undefined}
+                />
               </div>
 
               <div>
                 <label
                   htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-sm font-bold text-foreground mb-2 uppercase tracking-wider"
                 >
                   Confirmar Senha
                 </label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    placeholder="Confirme sua senha"
-                    className="pl-4"
-                    aria-invalid={!!error}
-                    aria-describedby={error ? "signup-error" : undefined}
-                  />
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirme sua senha"
+                  className="h-12 rounded-xl border-border/50 bg-card/50"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "signup-error" : undefined}
+                />
               </div>
 
               {error && (
@@ -210,15 +204,11 @@ function SignUp() {
                   id="signup-error"
                   role="alert"
                   aria-live="assertive"
-                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
+                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-xl p-4"
                 >
-                  <div className="flex">
-                    <div className="ml-3">
-                      <p className="text-sm text-red-800 dark:text-red-300">
-                        {error}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-sm text-red-800 dark:text-red-300 font-medium">
+                    {error}
+                  </p>
                 </div>
               )}
 
@@ -243,18 +233,18 @@ function SignUp() {
                 <div
                   role="alert"
                   aria-live="assertive"
-                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-lg p-4"
+                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-xl p-4"
                 >
-                  <p className="text-sm text-red-800 dark:text-red-300">
+                  <p className="text-sm text-red-800 dark:text-red-300 font-medium">
                     {recaptchaError}
                   </p>
                 </div>
               )}
 
-              <Button type="submit" disabled={loading} className="w-full">
+              <Button type="submit" disabled={loading} className="w-full btn-primary py-6 text-base">
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                     Criando conta...
                   </>
                 ) : (
@@ -277,7 +267,7 @@ function SignUp() {
             </div>
 
             <div className="mt-6 w-full">
-              <Button variant="secondary" asChild className="w-full">
+              <Button variant="secondary" asChild className="w-full rounded-xl border-border/50">
                 <Link to="/login">Fazer login</Link>
               </Button>
             </div>
@@ -285,31 +275,22 @@ function SignUp() {
         </Card>
 
         {/* Benefits */}
-        <div className="bg-background rounded-none p-6 shadow-sm border border-border">
-          <h3 className="text-lg font-medium text-foreground mb-4">
-            Por que se cadastrar?
+        <div className="glass-card p-8 border border-border/50">
+          <h3 className="text-xl font-extrabold text-foreground mb-6">
+            Por que escolher o <span className="blue-gradient-text">IngressosZ</span>?
           </h3>
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <span className="text-muted-foreground">
-                Compre ingressos de forma segura
-              </span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-muted-foreground">
-                Acesse seus ingressos no celular
-              </span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-muted-foreground">
-                Receba notificações sobre eventos
-              </span>
-            </div>
-            <div className="flex items-center">
-              <span className="text-muted-foreground">
-                Histórico de compras
-              </span>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
+            {[
+              "Compre de forma segura e rápida",
+              "Acesse seus ingressos no celular",
+              "Receba alertas de novos eventos",
+              "Histórico completo de compras"
+            ].map((benefit, i) => (
+              <div key={i} className="flex items-center text-muted-foreground font-medium">
+                <div className="w-2 h-2 bg-primary rounded-full mr-3 shadow-sm shadow-primary/20 flex-shrink-0"></div>
+                {benefit}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -317,13 +298,13 @@ function SignUp() {
         <div className="text-center text-sm text-muted-foreground">
           <p>
             Ao criar uma conta, você concorda com nossos{" "}
-            <a href="#" className="text-primary hover:opacity-90">
+            <Link to="/termos" className="text-primary hover:underline">
               Termos de Uso
-            </a>{" "}
+            </Link>{" "}
             e{" "}
-            <a href="#" className="text-primary hover:opacity-90">
+            <Link to="/privacidade" className="text-primary hover:underline">
               Política de Privacidade
-            </a>
+            </Link>
           </p>
         </div>
       </div>

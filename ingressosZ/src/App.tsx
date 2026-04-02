@@ -35,6 +35,8 @@ const ValidatorPage = lazy(() => import("@/pages/ValidatorPage"));
 const DocViewPage = lazy(() => import("@/pages/DocView"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/admin/AdminPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 
 function App() {
   function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -222,6 +224,9 @@ function App() {
                     {/* Rota de Debug para verificar configuração Firebase (sem exigir login) */}
                     <Route path="/debug/firebase" element={<FirebaseDebug />} />
                     <Route path="/doc" element={<DocViewPage />} />
+
+                    <Route path="/termos" element={<TermsPage />} />
+                    <Route path="/privacidade" element={<PrivacyPage />} />
 
                     <Route path="/" element={<HomePage />} />
                     <Route path="/eventos" element={<EventsPage />} />

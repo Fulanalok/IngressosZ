@@ -268,7 +268,7 @@ function Login() {
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-none h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
                     Entrando...
                   </>
                 ) : (
@@ -349,13 +349,13 @@ function Login() {
         <div className="text-center text-sm text-muted-foreground">
           <p>
             Ao entrar, você concorda com nossos{" "}
-            <a href="#" className="text-primary hover:opacity-90">
+            <Link to="/termos" className="text-primary hover:underline">
               Termos de Uso
-            </a>{" "}
+            </Link>{" "}
             e{" "}
-            <a href="#" className="text-primary hover:opacity-90">
+            <Link to="/privacidade" className="text-primary hover:underline">
               Política de Privacidade
-            </a>
+            </Link>
           </p>
         </div>
       </div>

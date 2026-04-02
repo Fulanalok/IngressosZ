@@ -88,21 +88,21 @@ describe("EventDetailPage", () => {
     render(<EventDetailPage />);
     expect(screen.getByText("Test Event")).toBeInTheDocument();
     expect(screen.getByText("20:00")).toBeInTheDocument();
-    expect(screen.getByText("Loc - Rua A, 123")).toBeInTheDocument();
+    expect(screen.getByText("Loc")).toBeInTheDocument();
   });
 
   it("shows purchase button when user is not authenticated", () => {
     eventState.data = mockEvent;
     authState.user = null;
     render(<EventDetailPage />);
-    expect(screen.getByText("Comprar Ingressos")).toBeInTheDocument();
+    expect(screen.getByText(/Comprar Agora/)).toBeInTheDocument();
   });
 
   it("shows purchase modal when user clicks buy", () => {
     eventState.data = mockEvent;
     authState.user = null;
     render(<EventDetailPage />);
-    fireEvent.click(screen.getByText("Comprar Ingressos"));
+    fireEvent.click(screen.getByText(/Comprar Agora/));
     expect(screen.getByTestId("ticket-purchase")).toBeInTheDocument();
   });
 });

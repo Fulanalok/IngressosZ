@@ -51,6 +51,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   const totalPrice = useMemo(() => unitPrice * quantity, [unitPrice, quantity]);
 
   const handlePurchase = async () => {
+    if (paymentStatus === "processing" || checkoutLoading) return;
     if (maxQuantity < quantity) {
       toast.error("Quantidade solicitada superior ao estoque disponível.");
       return;
@@ -60,6 +61,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   };
 
   const handlePixPurchase = async () => {
+    if (paymentStatus === "processing" || checkoutLoading) return;
     if (maxQuantity < quantity) {
       toast.error("Quantidade solicitada superior ao estoque disponível.");
       return;
@@ -299,13 +301,14 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                 }
                 disabled={
                   checkoutLoading ||
+                  paymentStatus === "processing" ||
                   maxQuantity < quantity ||
                   (paymentMethod === "checkout" && !hasPublicKey) ||
                   !user
                 }
                 className="w-full h-12 text-lg"
               >
-                {checkoutLoading
+                {checkoutLoading || paymentStatus === "processing"
                   ? "Processando..."
                   : paymentMethod === "pix"
                   ? "Gerar Pix"

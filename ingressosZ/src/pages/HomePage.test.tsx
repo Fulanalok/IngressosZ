@@ -75,7 +75,7 @@ describe("HomePage", () => {
 
   it("renderiza seção 'Por que usar o IngressosZ'", () => {
     renderWithAuth(mockUser);
-    expect(screen.getByText("Por que usar o IngressosZ?")).toBeInTheDocument();
+    expect(screen.getByText(/Por que IngressosZ/)).toBeInTheDocument();
     expect(screen.getByText("Segurança Total")).toBeInTheDocument();
   });
 });

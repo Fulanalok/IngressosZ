@@ -19,14 +19,22 @@ interface EventFormModalProps {
 }
 
 function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) {
+  const [isFormDirty, setIsFormDirty] = useState(false);
+
+  const handleClose = () => {
+    if (isFormDirty && !window.confirm("Há alterações não salvas. Deseja descartá-las?")) return;
+    onClose();
+  };
+
   // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFormDirty]);
 
   // Prevent body scroll while open
   useEffect(() => {
@@ -43,15 +51,15 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Drawer panel */}
       <div className="relative z-10 h-full w-full max-w-xl bg-background border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b shrink-0">
+        <div className="flex items-center justify-between px-6 py-5 border-b shrink-0 bg-primary/5">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="text-xl font-bold blue-gradient-text">
               {currentEvent ? "Editar Evento" : "Novo Evento"}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -61,8 +69,8 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
             </p>
           </div>
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            onClick={handleClose}
+            className="p-1.5 rounded-md hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -74,7 +82,8 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
           <EventForm
             initialData={currentEvent}
             onSave={onSave}
-            onCancel={onClose}
+            onCancel={handleClose}
+            onDirtyChange={setIsFormDirty}
           />
         </div>
       </div>
@@ -223,15 +232,17 @@ export default function AdminPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight">Painel do Organizador</h1>
+              <h1 className="text-4xl font-extrabold tracking-tight blue-gradient-text">
+                Painel do Organizador
+              </h1>
               <div className="flex items-center gap-3 mt-1">
                 <p className="text-muted-foreground">
                   Gerencie seus eventos, acompanhe vendas e analise métricas.
                 </p>
-                <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-primary font-medium shrink-0">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                   </span>
                   Ao vivo
                   {lastUpdated && (
@@ -249,7 +260,7 @@ export default function AdminPage() {
             </div>
             <Button
               onClick={handleCreate}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 px-6"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 px-6 shadow-md shadow-primary/20"
             >
               <Plus className="h-5 w-5" />
               Novo Evento
@@ -292,10 +303,10 @@ export default function AdminPage() {
 
           {/* Tab content */}
           {activeTab === "events" ? (
-            <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-card border border-border/50 rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground font-semibold border-b">
+                  <thead className="bg-primary/5 text-muted-foreground font-semibold border-b border-primary/10">
                     <tr>
                       <th className="p-5">Evento</th>
                       <th className="p-5">Data</th>

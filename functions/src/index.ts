@@ -47,7 +47,8 @@ const webBaseUrl = defineString("WEB_BASE_URL", {
 
 const webBase = String(webBaseUrl.value() || "").trim();
 const allowedOrigins = new Set(
-  [webBase, "http://localhost:5173", "http://127.0.0.1:5173"]
+  [webBase, "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:5174", "http://127.0.0.1:5174"]
     .filter(Boolean)
     .map((origin) => origin.replace(/\/+$/, ""))
 );
@@ -58,7 +59,14 @@ const corsHandler = cors({
       return;
     }
     const normalized = origin.replace(/\/+$/, "");
-    callback(null, allowedOrigins.has(normalized));
+    // Robust localhost check for any port
+    const isLocalhost =
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized);
+    if (isLocalhost || allowedOrigins.has(normalized)) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
   },
 });
 
@@ -245,10 +253,23 @@ export const optimizeImage = onObjectFinalized(
 export const createPaymentPreference = onCall(
   { secrets: [mercadopagoAccessToken] },
   async (request) => {
-    const accessToken = mercadopagoAccessToken.value();
     const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    let accessToken: string;
+    try {
+      accessToken = mercadopagoAccessToken.value();
+    } catch {
+      if (isEmulator) {
+        logger.info("MP_ACCESS_TOKEN not found, using dev mock id.");
+        return { id: `pref_mock_${Date.now()}` };
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "MP_ACCESS_TOKEN não configurado."
+      );
+    }
+
     if (!accessToken && isEmulator) {
-      return { id: `pref_${Date.now()}` };
+      return { id: `pref_mock_${Date.now()}` };
     }
 
     const client = new MercadoPagoConfig({
@@ -392,10 +413,21 @@ export const createPaymentPreferencePublic = onRequest(
         return;
       }
 
-      const accessToken = mercadopagoAccessToken.value();
       const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+      let accessToken: string;
+      try {
+        accessToken = mercadopagoAccessToken.value();
+      } catch {
+        if (isEmulator) {
+          res.status(200).json({ id: `pref_mock_${Date.now()}` });
+          return;
+        }
+        res.status(500).json({ message: "MP_ACCESS_TOKEN não configurado." });
+        return;
+      }
+
       if (!accessToken && isEmulator) {
-        res.status(200).json({ id: `pref_${Date.now()}` });
+        res.status(200).json({ id: `pref_mock_${Date.now()}` });
         return;
       }
 
@@ -548,13 +580,31 @@ export const createPaymentPreferencePublic = onRequest(
 export const createPixPayment = onCall(
   { secrets: [mercadopagoAccessToken] },
   async (request) => {
-    const accessToken = mercadopagoAccessToken.value();
     const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    let accessToken: string;
+    try {
+      accessToken = mercadopagoAccessToken.value();
+    } catch {
+      if (isEmulator) {
+        return {
+          id: `pix_mock_${Date.now()}`,
+          status: "pending",
+          qrCode: "MOCK_QR_CODE",
+          qrCodeBase64: "",
+          ticketUrl: "",
+        };
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "MP_ACCESS_TOKEN não configurado."
+      );
+    }
+
     if (!accessToken && isEmulator) {
       return {
-        id: `pix_${Date.now()}`,
+        id: `pix_mock_${Date.now()}`,
         status: "pending",
-        qrCode: `pix_${Date.now()}`,
+        qrCode: "MOCK_QR_CODE",
         qrCodeBase64: "",
         ticketUrl: "",
       };
@@ -737,13 +787,30 @@ export const createPixPaymentPublic = onRequest(
         return;
       }
 
-      const accessToken = mercadopagoAccessToken.value();
       const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+      let accessToken: string;
+      try {
+        accessToken = mercadopagoAccessToken.value();
+      } catch {
+        if (isEmulator) {
+          res.status(200).json({
+            id: `pix_mock_${Date.now()}`,
+            status: "pending",
+            qrCode: "MOCK_QR_CODE",
+            qrCodeBase64: "",
+            ticketUrl: "",
+          });
+          return;
+        }
+        res.status(500).json({ message: "MP_ACCESS_TOKEN não configurado." });
+        return;
+      }
+
       if (!accessToken && isEmulator) {
         res.status(200).json({
-          id: `pix_${Date.now()}`,
+          id: `pix_mock_${Date.now()}`,
           status: "pending",
-          qrCode: `pix_${Date.now()}`,
+          qrCode: "MOCK_QR_CODE",
           qrCodeBase64: "",
           ticketUrl: "",
         });
@@ -1126,7 +1193,10 @@ export const receiveWebhook = onRequest(
               data.pricing?.[resolvedTicketType] ?? data.price ?? 0
             );
 
-            if (currentStock < ticketsCount || currentTypeStock < ticketsCount) {
+            if (
+              currentStock < ticketsCount ||
+              currentTypeStock < ticketsCount
+            ) {
               logger.error("Overselling detected", {
                 eventId,
                 currentStock,
@@ -1153,13 +1223,17 @@ export const receiveWebhook = onRequest(
               return;
             }
 
-            const updates: Record<string, any> = {
+            const updates: Record<string, string | number | FieldValue> = {
               availableTickets: FieldValue.increment(-ticketsCount),
               updatedAt: FieldValue.serverTimestamp(),
             };
 
-            if (data.inventory && data.inventory[resolvedTicketType] !== undefined) {
-              updates[`inventory.${resolvedTicketType}`] = FieldValue.increment(-ticketsCount);
+            if (
+              data.inventory &&
+              data.inventory[resolvedTicketType] !== undefined
+            ) {
+              updates[`inventory.${resolvedTicketType}`] =
+                FieldValue.increment(-ticketsCount);
             }
 
             transaction.update(eventRef, updates);
@@ -1654,10 +1728,11 @@ const sendTicketEmail = async (
     let accountLine = "";
     if (options?.accountCreated && userRecord.email) {
       try {
+        const baseURL = webBaseUrl.value();
         const link = await admin
           .auth()
           .generatePasswordResetLink(userRecord.email, {
-            url: `${webBaseUrl.value()}/login`,
+            url: `${baseURL}/login`,
           });
         accountLine =
           "<p>Sua conta foi criada automaticamente.</p>" +
@@ -1671,62 +1746,111 @@ const sendTicketEmail = async (
     const ticketWord = ticketsCount === 1 ? "ingresso" : "ingressos";
     const bannerImg = (event as { image?: string })?.image;
     const bannerHtml = bannerImg
-      ? `<img src="${bannerImg}" alt="${eventTitle}" style="width:100%;max-height:240px;object-fit:cover;display:block;" />`
+      ? `<img src="${bannerImg}" alt="${eventTitle}" ` +
+        'style="width:100%;max-height:220px;object-fit:cover;display:block;" />'
       : "";
     const infoRows = infoLines
       .map(
         (line) =>
-          `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;">${line}</td></tr>`
+          "<tr><td " +
+          'style="padding:7px 0;color:#475569;font-size:13px;border-bottom:1px solid #e2e8f0;">' +
+          `${line}</td></tr>`
       )
       .join("");
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
-    <tr><td align="center">
-      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
-        <!-- Header -->
-        <tr>
-          <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:28px 32px 24px;">
-            <p style="margin:0 0 6px;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">IngressosZ</p>
-            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;line-height:1.3;">${eventTitle}</h1>
-          </td>
-        </tr>
-        <!-- Banner -->
-        ${bannerImg ? `<tr><td style="padding:0;">${bannerHtml}</td></tr>` : ""}
-        <!-- Body -->
-        <tr>
-          <td style="padding:28px 32px;">
-            <p style="margin:0 0 20px;font-size:16px;color:#111827;">
-              Olá! Seus <strong>${ticketsCount} ${ticketWord}</strong> foram confirmados. 🎉
-            </p>
-            ${
-              infoRows
-                ? `<table cellpadding="0" cellspacing="0" style="margin-bottom:20px;border-left:3px solid #6366f1;padding-left:14px;">${infoRows}</table>`
-                : ""
-            }
-            ${accountLine ? `<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">${accountLine}</div>` : ""}
-            <a href="${webBaseUrl.value()}/meus-ingressos"
-               style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-weight:700;font-size:14px;padding:14px 28px;border-radius:8px;text-decoration:none;letter-spacing:0.02em;">
-              Ver Meus Ingressos
-            </a>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;font-size:11px;color:#9ca3af;text-align:center;">
-              Dúvidas? Acesse <a href="${webBaseUrl.value()}" style="color:#6366f1;text-decoration:none;">ingressosz.web.app</a>
-              · Este é um e-mail automático, não responda.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+    const baseURL = webBaseUrl.value();
+    const html = [
+      "<!DOCTYPE html>",
+      '<html lang="pt-BR">',
+      "<head>",
+      '<meta charset="UTF-8">',
+      '<meta name="viewport" content="width=device-width,initial-scale=1">',
+      "<title>Ingressos Confirmados</title>",
+      "</head>",
+      '<body style="margin:0;padding:0;background:#EFF6FF;',
+      "font-family:'Helvetica Neue',Arial,sans-serif;\">",
+
+      // Outer wrapper
+      '<table width="100%" cellpadding="0" cellspacing="0" ',
+      'style="background:#EFF6FF;padding:40px 16px;">',
+      '<tr><td align="center">',
+
+      // Card
+      '<table width="560" cellpadding="0" cellspacing="0" ',
+      'style="background:#ffffff;border-radius:20px;overflow:hidden;',
+      "box-shadow:0 8px 32px rgba(37,99,235,0.10);max-width:560px;width:100%;\">",
+
+      // Header gradient — Premium Blue
+      "<tr>",
+      '<td style="background:linear-gradient(135deg,#1d4ed8 0%,#3b82f6 100%);',
+      'padding:32px 36px 28px;">',
+      '<p style="margin:0 0 8px;color:rgba(255,255,255,0.70);font-size:10px;',
+      'font-weight:800;letter-spacing:0.18em;text-transform:uppercase;">',
+      "INGRESSOSZ · CONFIRMAÇÃO DE COMPRA</p>",
+      '<h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;',
+      `line-height:1.25;letter-spacing:-0.01em;">${eventTitle}</h1>`,
+      "</td>",
+      "</tr>",
+
+      // Banner (optional)
+      bannerImg ? `<tr><td style="padding:0;">${bannerHtml}</td></tr>` : "",
+
+      // Body
+      "<tr>",
+      '<td style="padding:32px 36px;">',
+
+      // Greeting
+      '<p style="margin:0 0 24px;font-size:16px;color:#0f172a;line-height:1.6;">',
+      `Olá! ${ticketsCount === 1 ? "Seu" : "Seus"} <strong style="color:#1d4ed8;">${ticketsCount} ${ticketWord}</strong> `,
+      "para o evento foram confirmados com sucesso.</p>",
+
+      // Event info table
+      infoRows
+        ? '<table cellpadding="0" cellspacing="0" ' +
+          'style="width:100%;margin-bottom:28px;background:#F8FAFF;' +
+          'border-radius:12px;border:1px solid #DBEAFE;padding:4px 16px;">' +
+          infoRows +
+          "</table>"
+        : "",
+
+      // Account created notice
+      accountLine
+        ? '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;' +
+          'padding:16px 18px;margin-bottom:24px;font-size:13px;color:#1e40af;">' +
+          accountLine +
+          "</div>"
+        : "",
+
+      // CTA Button
+      '<table cellpadding="0" cellspacing="0" style="margin-bottom:8px;">',
+      '<tr><td style="border-radius:10px;',
+      'background:linear-gradient(135deg,#1d4ed8,#3b82f6);',
+      'box-shadow:0 4px 14px rgba(37,99,235,0.35);">',
+      `<a href="${baseURL}/meus-ingressos" `,
+      'style="display:inline-block;color:#ffffff;font-weight:700;font-size:14px;',
+      'padding:14px 32px;border-radius:10px;text-decoration:none;',
+      'letter-spacing:0.03em;">Ver Meus Ingressos</a>',
+      "</td></tr></table>",
+
+      "</td>",
+      "</tr>",
+
+      // Footer
+      "<tr>",
+      '<td style="background:#F1F5F9;padding:18px 36px;border-top:1px solid #E2E8F0;">',
+      '<p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7;">',
+      `Dúvidas? Acesse <a href="${baseURL}" `,
+      'style="color:#2563eb;text-decoration:none;font-weight:600;">ingressosz.web.app</a>',
+      "<br>Este é um e-mail automático, não responda.",
+      "</p>",
+      "</td>",
+      "</tr>",
+
+      "</table>",
+      "</td></tr>",
+      "</table>",
+      "</body>",
+      "</html>",
+    ].join("");
 
     await sendEmail(userRecord.email, subject, html);
   } catch (error) {

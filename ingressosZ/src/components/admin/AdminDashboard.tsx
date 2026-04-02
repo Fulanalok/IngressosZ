@@ -112,7 +112,7 @@ function RevenueTooltip({
   return (
     <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg text-sm">
       <p className="font-semibold mb-0.5">{label}</p>
-      <p className="text-green-500 font-bold">{formatBRL(payload[0].value)}</p>
+      <p className="text-primary font-bold">{formatBRL(payload[0].value)}</p>
     </div>
   );
 }
@@ -245,8 +245,8 @@ export default function AdminDashboard({
       title: "Receita Total",
       value: formatBRL(totalRevenue),
       icon: DollarSign,
-      color: "text-green-500",
-      bg: "bg-green-500/10",
+      color: "text-primary",
+      bg: "bg-primary/10",
     },
     {
       title: "Ingressos Vendidos",
@@ -259,15 +259,15 @@ export default function AdminDashboard({
       title: "Eventos Ativos",
       value: totalEvents.toString(),
       icon: Calendar,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10",
+      color: "text-blue-400",
+      bg: "bg-blue-400/10",
     },
     {
       title: "Check-ins Realizados",
       value: totalCheckins.toString(),
       icon: CheckCircle,
-      color: "text-orange-500",
-      bg: "bg-orange-500/10",
+      color: "text-sky-500",
+      bg: "bg-sky-500/10",
     },
   ];
 
@@ -302,15 +302,15 @@ export default function AdminDashboard({
             {/* Area: Revenue over time */}
             <div className="lg:col-span-2 bg-card border rounded-xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-semibold">Faturamento — últimos 30 dias</h3>
               </div>
               <ResponsiveContainer width="100%" height={180}>
                 <AreaChart data={revenueByDay} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -332,11 +332,11 @@ export default function AdminDashboard({
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#22c55e"
+                    stroke="#2563eb"
                     strokeWidth={2}
                     fill="url(#colorRevenue)"
                     dot={false}
-                    activeDot={{ r: 4, fill: "#22c55e" }}
+                    activeDot={{ r: 4, fill: "#2563eb" }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -456,7 +456,7 @@ export default function AdminDashboard({
                       width={90}
                     />
                     <Tooltip content={<RevenueTooltip />} />
-                    <Bar dataKey="revenue" fill="#a855f7" radius={[0, 4, 4, 0]} maxBarSize={16} />
+                    <Bar dataKey="revenue" fill="#2563eb" radius={[0, 4, 4, 0]} maxBarSize={16} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -492,7 +492,7 @@ export default function AdminDashboard({
                     <div className="flex items-center gap-6 shrink-0 text-right">
                       <div>
                         <div className="text-xs text-muted-foreground">Receita</div>
-                        <div className="font-bold text-sm text-green-600 dark:text-green-400">
+                        <div className="font-bold text-sm text-primary">
                           {formatBRL(revenue)}
                         </div>
                       </div>

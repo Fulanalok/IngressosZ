@@ -75,8 +75,9 @@ describe("MyTicketsPage", () => {
     });
 
     renderWithAuth(mockUser);
-    expect(screen.getByText("Você ainda não possui ingressos")).toBeInTheDocument();
-    expect(screen.getByText("Descobrir Eventos")).toBeInTheDocument();
+    expect(screen.getByText("Sua carteira está vazia")).toBeInTheDocument();
+    expect(screen.getByText(/Você ainda não possui ingressos garantidos/)).toBeInTheDocument();
+    expect(screen.getByText("Explorar Eventos")).toBeInTheDocument();
   });
 
   it("renderiza lista de ingressos", () => {
@@ -92,7 +93,9 @@ describe("MyTicketsPage", () => {
     });
 
     renderWithAuth(mockUser);
-    expect(screen.getByText("Seus Ingressos (2)")).toBeInTheDocument();
+    // Título e contagem ficam em elementos separados
+    expect(screen.getByText("Seus Ingressos")).toBeInTheDocument();
+    expect(screen.getByText("(2)")).toBeInTheDocument();
     expect(screen.getAllByTestId("ticket-card")).toHaveLength(2);
     expect(screen.getByText("Show de Rock")).toBeInTheDocument();
     expect(screen.getByText("Teatro")).toBeInTheDocument();
@@ -106,7 +109,7 @@ describe("MyTicketsPage", () => {
     });
 
     renderWithAuth(mockUser);
-    expect(screen.getByText("Erro ao carregar ingressos")).toBeInTheDocument();
+    expect(screen.getByText("Erro ao sincronizar")).toBeInTheDocument();
     expect(screen.getByText("Erro de conexão")).toBeInTheDocument();
   });
 });

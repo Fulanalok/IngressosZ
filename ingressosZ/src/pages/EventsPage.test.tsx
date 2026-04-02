@@ -49,7 +49,7 @@ vi.mock("@/components/EventCard", () => ({
 describe("EventsPage", () => {
   it("ativa virtualização com muitos eventos e filtra por busca", async () => {
     render(<EventsPage />);
-    expect(await screen.findByText(/Eventos Disponíveis/)).toBeInTheDocument();
+    expect((await screen.findAllByTestId("event-card")).length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("event-card").length > 0).toBe(true);
     const input = screen.getByPlaceholderText(/Buscar por nome/);
     fireEvent.change(input as HTMLInputElement, {

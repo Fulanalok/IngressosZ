@@ -19,23 +19,23 @@ function Navbar() {
 
   return (
     <nav className="nav-bg">
-      <div className="page-container">
-        <div className="flex justify-between items-center h-16">
+      <div className="page-container h-20">
+        <div className="flex justify-between items-center h-full">
           {/* Brand */}
           <Link
             to="/"
-            className="flex items-center text-foreground hover:text-primary transition-colors"
+            className="flex items-center text-foreground hover:opacity-80 transition-all font-black text-2xl tracking-tighter"
           >
-            <span className="text-xl font-bold">IngressosZ</span>
+            <span className="blue-gradient-text">IngressosZ</span>
           </Link>
 
           {/* Links */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
               className={`nav-link ${
                 isActive("/") && location.pathname === "/"
-                  ? "text-foreground"
+                  ? "text-primary font-bold"
                   : ""
               }`}
             >
@@ -44,7 +44,7 @@ function Navbar() {
             <Link
               to="/eventos"
               className={`nav-link ${
-                isActive("/eventos") ? "text-foreground" : ""
+                isActive("/eventos") ? "text-primary font-bold" : ""
               }`}
             >
               Eventos
@@ -52,71 +52,50 @@ function Navbar() {
             <Link
               to="/meus-ingressos"
               className={`nav-link ${
-                isActive("/meus-ingressos") ? "text-foreground" : ""
+                isActive("/meus-ingressos") ? "text-primary font-bold" : ""
               }`}
             >
               Meus ingressos
-            </Link>
-            <Link
-              to="/perfil"
-              className={`nav-link ${
-                isActive("/perfil") ? "text-foreground" : ""
-              }`}
-            >
-              Perfil
             </Link>
             {userProfile?.role === "organizer" && (
               <Link
                 to="/admin"
                 className={`nav-link ${
-                  isActive("/admin") ? "text-foreground" : ""
+                  isActive("/admin") ? "text-primary font-bold" : ""
                 }`}
               >
                 Painel Admin
               </Link>
             )}
-            {userProfile?.role === "validator" && (
-              <>
-                <Link
-                  to="/validador"
-                  className={`nav-link ${
-                    isActive("/validador") ? "text-foreground" : ""
-                  }`}
-                >
-                  Validador
-                </Link>
-                <Link
-                  to="/teste-qr"
-                  className={`nav-link ${
-                    isActive("/teste-qr") ? "text-foreground" : ""
-                  }`}
-                >
-                  Teste QR
-                </Link>
-              </>
+            {(userProfile?.role === "validator" || userProfile?.role === "organizer") && (
+              <Link
+                to="/validador"
+                className={`nav-link ${
+                  isActive("/validador") ? "text-primary font-bold" : ""
+                }`}
+              >
+                Validador
+              </Link>
             )}
-            <Link
-              to="/doc"
-              className={`nav-link ${
-                isActive("/doc") ? "text-foreground" : ""
-              }`}
-            >
-              Docs
-            </Link>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <ThemeToggle />
-            {userProfile && (
-              <>
-                <span className="hidden sm:block text-sm text-muted-foreground">
-                  Olá, {userProfile.displayName || userProfile.email}
+            {userProfile ? (
+              <div className="flex items-center space-x-3">
+                <span className="hidden lg:block text-sm font-medium border-l border-border pl-4 ml-2">
+                  <span className="text-muted-foreground mr-1">Olá,</span>
+                  <span className="text-foreground">{userProfile.displayName || userProfile.email?.split('@')[0]}</span>
                 </span>
-                <Button variant="destructive" size="sm" onClick={handleLogout}>
+                <Button variant="secondary" size="sm" onClick={handleLogout} className="border-border/60 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all">
                   Sair
                 </Button>
-              </>
+              </div>
+            ) : (
+              <Button asChild size="sm" className="btn-primary rounded-xl px-6">
+                <Link to="/login">Entrar</Link>
+              </Button>
             )}
           </div>
         </div>

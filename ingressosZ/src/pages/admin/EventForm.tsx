@@ -10,6 +10,7 @@ interface EventFormProps {
   initialData?: Event | null;
   onSave: (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const TICKET_TYPE_LABELS: Record<string, string> = {
@@ -39,7 +40,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
+export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: EventFormProps) {
   const [formData, setFormData] = useState<Omit<Event, "id" | "createdAt" | "updatedAt">>({
     title: "",
     description: "",
@@ -58,11 +59,19 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
   });
 
   const [loading, setLoading] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<"idle" | "uploading" | "done">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const markDirty = () => {
+    if (!isDirty) {
+      setIsDirty(true);
+      onDirtyChange?.(true);
+    }
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -89,7 +98,9 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     setUploadProgress("idle");
-  }, []);
+    markDirty();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirty]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) validateAndSetFile(e.target.files[0]);
@@ -123,6 +134,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
+    markDirty();
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -138,6 +150,7 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
     type: "standard" | "vip" | "premium",
     value: string
   ) => {
+    markDirty();
     setFormData((prev) => ({
       ...prev,
       [category]: {
@@ -191,6 +204,8 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
       }
 
       await onSave(dataToSave);
+      setIsDirty(false);
+      onDirtyChange?.(false);
       toast.success("Evento salvo com sucesso!");
     } catch (err) {
       console.error(err);
@@ -514,7 +529,15 @@ export function EventForm({ initialData, onSave, onCancel }: EventFormProps) {
 
       {/* Ações */}
       <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            if (isDirty && !window.confirm("Há alterações não salvas. Deseja descartá-las?")) return;
+            onCancel();
+          }}
+          disabled={loading}
+        >
           Cancelar
         </Button>
         <Button type="submit" disabled={loading} className="min-w-28">
