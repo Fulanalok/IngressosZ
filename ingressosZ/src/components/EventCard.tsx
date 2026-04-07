@@ -64,21 +64,16 @@ function EventCard({ event }: EventCardProps) {
 
   const getCategoryColor = (category: string) => {
     const colors: { [key: string]: string } = {
-      Música:
-        "bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200",
-      Gastronomia:
-        "bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200",
-      Tecnologia:
-        "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200",
-      Entretenimento:
-        "bg-pink-100 dark:bg-pink-900/50 text-pink-800 dark:text-pink-200",
-      Educação:
-        "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200",
-      Esporte: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200",
+      Música: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300",
+      Gastronomia: "bg-blue-200 dark:bg-blue-800/40 text-blue-900 dark:text-blue-200",
+      Tecnologia: "bg-primary/20 text-primary dark:text-blue-300",
+      Entretenimento: "bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300",
+      Educação: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400",
+      Esporte: "bg-ocean/20 text-ocean dark:text-blue-300",
     };
     return (
       colors[category] ||
-      "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+      "bg-secondary text-secondary-foreground"
     );
   };
 
@@ -91,17 +86,17 @@ function EventCard({ event }: EventCardProps) {
     >
       {/* Image */}
       {event.image && (
-        <div className="relative mb-4 overflow-hidden rounded-t-xl">
+        <div className="relative mb-4 overflow-hidden rounded-2xl">
           <img
             src={event.image}
             alt={event.title}
             loading="lazy"
             decoding="async"
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+            className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-110"
           />
           <div className="absolute top-3 left-3">
             <span
-              className={`px-2 py-1 text-xs font-medium rounded-none ${getCategoryColor(
+              className={`px-3 py-1 text-xs font-bold rounded-lg backdrop-blur-md shadow-sm ${getCategoryColor(
                 event.category
               )}`}
             >
@@ -110,7 +105,7 @@ function EventCard({ event }: EventCardProps) {
           </div>
           {event.availableTickets <= 10 && event.availableTickets > 0 && (
             <div className="absolute top-3 right-3">
-              <span className="bg-red-500 text-white px-2 py-1 text-xs font-medium rounded-none">
+              <span className="bg-red-500 text-white px-3 py-1 text-xs font-bold rounded-lg shadow-lg">
                 Últimos ingressos!
               </span>
             </div>
@@ -144,8 +139,8 @@ function EventCard({ event }: EventCardProps) {
 
         {/* Price */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center text-primary">
-            <span className="text-xl font-bold">
+          <div className="flex items-center">
+            <span className="text-2xl font-extrabold blue-gradient-text">
               R$ {(event.pricing?.standard ?? event.price ?? 0).toFixed(2)}
             </span>
           </div>
@@ -161,9 +156,9 @@ function EventCard({ event }: EventCardProps) {
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-muted rounded-none h-1.5">
+        <div className="group/progress w-full bg-secondary rounded-full h-2 overflow-hidden shadow-inner">
           <div
-            className="bg-gradient-to-r from-primary to-accent h-1.5 rounded-none transition-all duration-300"
+            className="bg-gradient-to-r from-primary to-accent h-full rounded-full transition-all duration-700 ease-out relative"
             style={{
               width: `${
                 ((event.maxTickets - event.availableTickets) /
@@ -171,7 +166,9 @@ function EventCard({ event }: EventCardProps) {
                 100
               }%`,
             }}
-          ></div>
+          >
+            <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+          </div>
         </div>
 
         {/* Action Button */}

@@ -1,6 +1,14 @@
-# IngressosZ — Plataforma completa de eventos e ingressos
+# IngressosZ — Plataforma dedicada de eventos e ingressos
 
-**IngressosZ** é uma plataforma ponta a ponta para criação de eventos, venda de ingressos digitais e validação presencial com QR Code. O objetivo é resolver todo o ciclo do organizador: publicar eventos, vender com pagamento online, emitir tickets com segurança e oferecer um validador simples e confiável para controle de acesso.
+**IngressosZ** é uma plataforma ponta a ponta para criação de eventos, venda de ingressos digitais e validação presencial com QR Code. Diferente de outros marketplaces, o IngressosZ é **dedicado a uma única empresa**, garantindo uma experiência personalizada, segura e de baixo custo operacional.
+
+## 🎨 Filosofia e Identidade Visual
+
+- **Single-Company**: Foco em atender as necessidades de uma única organização, simplificando a gestão e o checkout.
+- **Premium Blue Identity**: O projeto utiliza uma paleta monocromática de azuis sofisticados (Deep Navy ao Sky Accent) para criar uma interface moderna, profissional e de alta profundidade visual.
+- **Tipografia & Estética**: Uso da fonte **Outfit** para um visual de SaaS moderno, com elementos de **Glassmorphism**, bordas arredondadas (**1rem/1.5rem**) e sombras suaves.
+- **Eficiência de Custos**: Arquitetura otimizada para o plano gratuito do Firebase (Spark), priorizando requisições sob demanda onde o tempo real não é crítico.
+- **Mobile-First**: Experiência de uso fluida em celulares, garantindo que o cliente compre seu ingresso com poucos toques.
 
 ## 🔗 Links rápidos
 
@@ -9,6 +17,7 @@
 
 ## ✅ O que já funciona
 
+- UI Premium Blue completa (Home, Eventos, Ingressos, Fluxo de Compra).
 - Checkout Mercado Pago (preferência gerada no backend).
 - Webhook com verificação de assinatura (HMAC quando configurado).
 - Emissão de tickets com QR Code assinado no Firestore.

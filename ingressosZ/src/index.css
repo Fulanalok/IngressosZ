@@ -1,33 +1,32 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 /*
   Base de estilização compatível com shadcn/ui em Tailwind v4.
-  - Define tokens HSL via CSS variables para light/dark.
-  - Mapeia tokens Tailwind (@theme) esperados pelos componentes shadcn.
+  - Estética Monocromática Azul Premium.
 */
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 84% 5%;
+  --background: 220 33% 98%;
+  --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222 84% 5%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 84% 5%;
+  --popover-foreground: 222 47% 11%;
 
-  /* Paleta azul */
-  --primary: 221 83% 53%; /* azul principal */
+  /* Paleta Azul Monocromática */
+  --primary: 221 83% 53%; /* Blue 600 */
   --primary-foreground: 210 40% 98%;
 
-  --secondary: 216 100% 97%; /* azul muito claro */
-  --secondary-foreground: 223 47% 11%;
+  --secondary: 214 32% 91%; /* Blue-Gray 100 */
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 217 92% 95%; /* azul pálido para backgrounds */
-  --muted-foreground: 215 20% 45%;
+  --muted: 214 32% 91%;
+  --muted-foreground: 215 25% 40%;
 
-  --accent: 221 90% 60%; /* azul de destaque */
+  --accent: 217 91% 60%; /* Blue 500 */
   --accent-foreground: 210 40% 98%;
 
   --destructive: 0 84% 60%;
@@ -37,44 +36,43 @@
   --input: 214 32% 91%;
   --ring: 221 83% 53%;
 
-  --radius: 0.5rem;
+  --radius: 1rem;
 
-  --font-family-sans: "Inter", system-ui, sans-serif;
+  --font-family-sans: "Outfit", system-ui, sans-serif;
 }
 
 .dark {
-  --background: 222 84% 5%;
+  --background: 222 47% 6%;
   --foreground: 210 40% 98%;
 
-  --card: 222 84% 5%;
+  --card: 222 47% 8%;
   --card-foreground: 210 40% 98%;
 
-  --popover: 222 84% 5%;
+  --popover: 222 47% 8%;
   --popover-foreground: 210 40% 98%;
 
-  /* Paleta azul (modo escuro) */
-  --primary: 217 92% 60%;
+  /* Paleta Azul (Modo Escuro) */
+  --primary: 217 91% 60%;
   --primary-foreground: 222 47% 11%;
 
-  --secondary: 219 23% 18%; /* azul escuro discreto */
+  --secondary: 217 33% 17%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 219 23% 18%;
+  --muted: 217 33% 17%;
   --muted-foreground: 215 20% 65%;
 
-  --accent: 223 75% 48%;
+  --accent: 221 83% 53%;
   --accent-foreground: 210 40% 98%;
 
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 86% 97%;
 
-  --border: 219 23% 18%;
-  --input: 219 23% 18%;
-  --ring: 223 75% 48%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 217 91% 60%;
 }
 
 @theme {
-  /* Tokens shadcn -> Tailwind v4 */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
 
@@ -104,66 +102,67 @@
   --color-ring: hsl(var(--ring));
 
   --radius: var(--radius);
+
+  /* New Blue Custom Colors */
+  --color-navy: #0F172A;
+  --color-sky: #0EA5E9;
+  --color-ocean: #0369A1;
 }
 
 @layer base {
   html { font-family: var(--font-family-sans); }
-
-  /* Base shadcn: aplica tokens e borda padrão */
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground min-h-screen; }
+  * { @apply border-border selection:bg-primary/20 selection:text-primary; }
+  body { @apply bg-background text-foreground min-h-screen antialiased; }
 }
 
 @layer components {
-  /* Classes utilitárias herdando tokens shadcn */
   .btn-primary {
-    @apply bg-primary text-primary-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:shadow-lg hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-secondary text-secondary-foreground font-semibold px-6 py-2.5 rounded-xl shadow-sm hover:bg-secondary/80 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-success {
-    @apply bg-accent text-accent-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-accent text-accent-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-danger {
-    @apply bg-destructive text-destructive-foreground font-medium px-4 py-2 rounded-none shadow-sm hover:opacity-90 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-destructive text-destructive-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .card {
-    @apply bg-card text-card-foreground rounded-none shadow-lg border p-6 transition-colors transition-transform hover:shadow-xl hover:-translate-y-1;
+    @apply bg-card text-card-foreground rounded-2xl shadow-xl border-border/50 border p-6 transition-all hover:shadow-2xl hover:border-primary/20 hover:-translate-y-1;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-background text-foreground border rounded-none ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors;
+    @apply w-full px-4 py-3 bg-background text-foreground border border-border rounded-xl ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all;
   }
 
   .nav-link {
-    @apply text-muted-foreground hover:text-foreground font-medium transition-colors;
+    @apply text-muted-foreground hover:text-primary font-semibold transition-colors;
   }
 
-  .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8; }
+  .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
 
   .dark-toggle {
-    @apply fixed top-4 right-4 z-50 bg-secondary text-secondary-foreground hover:opacity-90 p-2 rounded-full shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply fixed top-6 right-6 z-50 bg-card text-foreground hover:bg-muted p-2.5 rounded-full shadow-xl border border-border/50 backdrop-blur-md transition-all active:scale-90;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-      scroll-behavior: auto !important;
-    }
+  .glass-card {
+    @apply bg-white/70 dark:bg-navy/50 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl;
   }
 
   .gradient-bg {
-    @apply bg-gradient-to-br from-background to-muted;
+    @apply bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-50 via-background to-background dark:from-navy dark:via-background dark:to-background;
   }
 
   .nav-bg {
-    @apply bg-background shadow-sm border-b;
+    @apply bg-background/80 backdrop-blur-md sticky top-0 z-40 border-b border-border/50;
+  }
+
+  .blue-gradient-text {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
 }

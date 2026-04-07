@@ -3,11 +3,11 @@ import { EventCardSkeleton } from "@/components/EventCardSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/hooks/useAuth";
 import { useEvents } from "@/hooks/useEvents";
 import type { Event } from "@/types";
 import { useEffect, useMemo, useState } from "react";
 import { useInView } from "react-intersection-observer";
+import { Search, MapPin, Tag, ChevronDown, RefreshCcw } from "lucide-react";
 
 function useDebouncedValue<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -19,7 +19,6 @@ function useDebouncedValue<T>(value: T, delay: number) {
 }
 
 function EventsPage() {
-  const { userProfile } = useAuth();
   const {
     data: events = [],
     status,
@@ -106,11 +105,14 @@ function EventsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold">Erro ao carregar eventos</h2>
-          <p className="text-muted-foreground mb-4">{error.message}</p>
-          <Button onClick={() => window.location.reload()}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center p-12 glass-card max-w-md mx-auto">
+          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <RefreshCcw className="h-8 w-8" />
+          </div>
+          <h2 className="text-2xl font-extrabold text-foreground mb-4">Erro ao carregar eventos</h2>
+          <p className="text-muted-foreground mb-8 leading-relaxed">{error.message}</p>
+          <Button onClick={() => window.location.reload()} className="btn-primary w-full">
             Tentar Novamente
           </Button>
         </div>
@@ -120,58 +122,75 @@ function EventsPage() {
 
   return (
     <div className="min-h-screen gradient-bg">
-      <header className="nav-bg py-6 border-b border-border">
+      <header className="py-12 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-navy/30">
         <div className="page-container">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Eventos Disponíveis
+          <h1 className="text-5xl font-black tracking-tighter text-foreground mb-3 leading-tight">
+            Descubra <span className="blue-gradient-text">Experiências</span>
           </h1>
-          <p className="text-muted-foreground">
-            Bem-vindo, {userProfile?.displayName || userProfile?.email}!
+          <p className="text-lg text-muted-foreground max-w-2xl font-medium">
+            Explore os melhores eventos curados para você.
           </p>
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border py-4">
-        <div className="page-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input
-            type="text"
-            placeholder="Buscar por nome..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="lg:col-span-1"
-          />
-          <select
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-            className="w-full rounded-md border-input bg-background px-3 py-2"
-          >
-            {locations.map((loc) => (
-              <option key={loc as string} value={loc as string}>
-                {loc as string}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full rounded-md border-input bg-background px-3 py-2"
-          >
-            {categories.map((cat) => (
-              <option key={cat as string} value={cat as string}>
-                {cat as string}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="number"
-            placeholder="Preço máximo (R$)"
-            value={maxPrice}
-            onChange={(e) =>
-              setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
-            }
-            className="w-full"
-            min="0"
-          />
+      <div className="sticky top-20 z-30 bg-background/80 backdrop-blur-xl border-y border-border/50 py-6 transition-all shadow-sm">
+        <div className="page-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="relative group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-12 bg-card/50 border-border/50 rounded-xl focus:ring-primary/20 transition-all font-medium"
+            />
+          </div>
+
+          <div className="relative group">
+            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="w-full h-12 rounded-xl border border-border/50 bg-card/50 pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-foreground cursor-pointer"
+            >
+              {locations.map((loc) => (
+                <option key={loc as string} value={loc as string}>
+                  {loc as string === "Todos" ? "Todos os locais" : loc as string}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          </div>
+
+          <div className="relative group">
+            <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full h-12 rounded-xl border border-border/50 bg-card/50 pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-foreground cursor-pointer"
+            >
+              {categories.map((cat) => (
+                <option key={cat as string} value={cat as string}>
+                  {cat as string === "Todos" ? "Todas as categorias" : cat as string}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          </div>
+
+          <div className="relative group">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-muted-foreground group-focus-within:text-primary transition-colors">R$</span>
+            <Input
+              type="number"
+              placeholder="Preço máximo"
+              value={maxPrice}
+              onChange={(e) =>
+                setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="pl-10 h-12 bg-card/50 border-border/50 rounded-xl focus:ring-primary/20 transition-all font-medium"
+              min="0"
+            />
+          </div>
         </div>
       </div>
 

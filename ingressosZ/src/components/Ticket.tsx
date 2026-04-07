@@ -15,9 +15,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  standard: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-  vip: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  premium: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  standard: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800",
+  vip: "bg-primary/10 text-primary dark:text-blue-200 border border-primary/20",
+  premium: "bg-primary text-white dark:bg-primary dark:text-navy border border-primary shadow-sm shadow-primary/20",
 };
 
 function Ticket({ ticket }: TicketProps) {
@@ -43,8 +43,8 @@ function Ticket({ ticket }: TicketProps) {
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden ${
-        !isValid ? "opacity-75" : ""
+      className={`bg-card text-card-foreground rounded-2xl border border-border/50 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden group ${
+        !isValid ? "opacity-60 grayscale-[0.5]" : ""
       }`}
     >
       {/* Colored top strip */}
@@ -56,32 +56,32 @@ function Ticket({ ticket }: TicketProps) {
 
       <div className="p-5">
         {/* Header row */}
-        <div className="flex items-start justify-between gap-2 mb-4">
-          <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-snug line-clamp-2 flex-1">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <h2 className="text-lg font-extrabold blue-gradient-text leading-tight line-clamp-2 flex-1 group-hover:tracking-tight transition-all">
             {ticket.eventTitle || "Evento"}
           </h2>
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 text-white ${statusClass}`}
+            className={`text-[10px] font-black px-3 py-1 rounded-full shrink-0 text-white shadow-sm ${statusClass}`}
           >
             {statusLabel}
           </span>
         </div>
 
         {/* Event info */}
-        <div className="space-y-2 mb-4 text-sm">
-          <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-10 shrink-0 pt-0.5">
+        <div className="space-y-3 mb-6 text-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary/60 w-12 shrink-0">
               Data
             </span>
-            <span className="font-medium text-gray-800 dark:text-gray-200">
+            <span className="font-bold text-foreground">
               {ticket.eventDate || "—"}{ticket.eventTime ? ` · ${ticket.eventTime}` : ""}
             </span>
           </div>
-          <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-10 shrink-0 pt-0.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary/60 w-12 shrink-0">
               Local
             </span>
-            <span className="font-medium text-gray-800 dark:text-gray-200 line-clamp-1">
+            <span className="font-bold text-foreground line-clamp-1">
               {ticket.eventLocation || "—"}
             </span>
           </div>
@@ -111,7 +111,7 @@ function Ticket({ ticket }: TicketProps) {
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 py-2.5 rounded-lg font-semibold text-sm transition-all active:scale-95"
+              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60 py-3 text-sm shadow-blue-500/20"
             >
               <Download className="h-4 w-4" />
               {downloading ? "Gerando PDF..." : "Baixar Ingresso (PDF)"}
@@ -139,13 +139,15 @@ function Ticket({ ticket }: TicketProps) {
 
             {/* QR Code panel */}
             {showQR && ticket.qrCode && (
-              <div className="animate-in fade-in zoom-in duration-200 text-center pt-2">
-                <div className="inline-block bg-white p-3 rounded-xl shadow-inner border border-gray-100">
-                  <QRCodeDisplay qrCode={ticket.qrCode} size={150} />
+              <div className="animate-in slide-in-from-top-4 fade-in duration-300 text-center pt-4">
+                <div className="inline-block bg-white p-4 rounded-2xl shadow-2xl border border-primary/10 group-hover:scale-[1.02] transition-transform">
+                  <QRCodeDisplay qrCode={ticket.qrCode} size={160} />
+                  <div className="mt-3 pt-3 border-t border-dashed border-gray-100">
+                    <p className="text-[9px] text-muted-foreground font-mono break-all opacity-50 uppercase tracking-tighter">
+                      ID: {ticket.id.slice(0, 8)}...{ticket.id.slice(-8)}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground font-mono mt-2 break-all px-2">
-                  {ticket.qrCode}
-                </p>
               </div>
             )}
           </div>

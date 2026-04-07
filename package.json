@@ -16,6 +16,7 @@
     "test:emulator": "node -e \"const fs=require('fs');const net=require('net');const {exec}=require('child_process');const p='firebase.json';const orig=fs.readFileSync(p,'utf8');const cfg=JSON.parse(orig);const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const port=s.address().port;s.close(()=>{cfg.emulators=cfg.emulators||{};cfg.emulators.firestore=cfg.emulators.firestore||{};cfg.emulators.firestore.port=port;fs.writeFileSync(p,JSON.stringify(cfg,null,2));const cmd='npx firebase-tools emulators:exec --only firestore -- \\\"npm --prefix ingressosZ run test\\\"';const child=exec(cmd);if(child.stdout){child.stdout.pipe(process.stdout);}if(child.stderr){child.stderr.pipe(process.stderr);}child.on('exit',(code)=>{fs.writeFileSync(p,orig);process.exit(code??1);});});});\""
   },
   "devDependencies": {
+    "@cspell/dict-pt-br": "^2.4.2",
     "concurrently": "^9.1.2"
   },
   "dependencies": {
