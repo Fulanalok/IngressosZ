@@ -1745,6 +1745,7 @@ const sendTicketEmail = async (
     const subject = `Ingressos confirmados – ${eventTitle}`;
     const ticketWord = ticketsCount === 1 ? "ingresso" : "ingressos";
     const bannerImg = (event as { image?: string })?.image;
+    /* eslint-disable max-len, quotes, operator-linebreak */
     const bannerHtml = bannerImg
       ? `<img src="${bannerImg}" alt="${eventTitle}" ` +
         'style="width:100%;max-height:220px;object-fit:cover;display:block;" />'
@@ -1851,6 +1852,7 @@ const sendTicketEmail = async (
       "</body>",
       "</html>",
     ].join("");
+    /* eslint-enable max-len, quotes, operator-linebreak */
 
     await sendEmail(userRecord.email, subject, html);
   } catch (error) {
