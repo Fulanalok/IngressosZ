@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/node";
 import cors from "cors";
 import { createHmac } from "crypto";
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
@@ -147,7 +147,7 @@ export const verifyRecaptchaV2 = onCall(
 export const seedDatabase = onCall(
   { secrets: [jwtSecret] },
   async (request) => {
-    const db = admin.firestore();
+    const db = getFirestore();
     const batch = db.batch();
 
     const eventRef1 = db.collection("events").doc();
@@ -1009,7 +1009,7 @@ const ensureUserFromEmail = async (email: string) => {
     }
   }
 
-  const userRef = admin.firestore().collection("users").doc(userRecord.uid);
+  const userRef = getFirestore().collection("users").doc(userRecord.uid);
   const userSnap = await userRef.get();
   if (!userSnap.exists) {
     await userRef.set({
@@ -1144,7 +1144,7 @@ export const receiveWebhook = onRequest(
             quantity: number;
           }>;
 
-          const purchasesRef = admin.firestore().collection("purchases");
+          const purchasesRef = getFirestore().collection("purchases");
           const snapshot = await purchasesRef
             .where("paymentId", "==", paymentId)
             .get();
@@ -1165,7 +1165,7 @@ export const receiveWebhook = onRequest(
           const newPurchaseRef = purchasesRef.doc();
           let oversold = false;
           let failedPurchaseId = "";
-          await admin.firestore().runTransaction(async (transaction) => {
+          await getFirestore().runTransaction(async (transaction) => {
             const eventRef = admin
               .firestore()
               .collection("events")
@@ -1216,7 +1216,7 @@ export const receiveWebhook = onRequest(
                 items,
                 userEmail: resolvedEmail,
                 accountCreated,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: FieldValue.serverTimestamp(),
                 error: "Overselling detected",
               });
 
@@ -1249,7 +1249,7 @@ export const receiveWebhook = onRequest(
               createdAt: FieldValue.serverTimestamp(),
             });
 
-            const ticketsCollection = admin.firestore().collection("tickets");
+            const ticketsCollection = getFirestore().collection("tickets");
             const jwtRawSecret = jwtSecret.value();
             if (!jwtRawSecret) {
               logger.error(
@@ -1295,7 +1295,7 @@ export const receiveWebhook = onRequest(
                 validated: false,
                 status: "valid",
                 purchaseDate: FieldValue.serverTimestamp(),
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: FieldValue.serverTimestamp(),
               });
             }
           });
@@ -1457,7 +1457,7 @@ export const validateTicket = onRequest(
           return;
         }
 
-        const ticketRef = admin.firestore().collection("tickets").doc(ticketId);
+        const ticketRef = getFirestore().collection("tickets").doc(ticketId);
         const ticketSnap = await ticketRef.get();
 
         if (!ticketSnap.exists) {
@@ -1471,7 +1471,7 @@ export const validateTicket = onRequest(
         const ticket = ticketSnap.data() as {
           qrCode: string;
           validated?: boolean;
-          validatedAt?: admin.firestore.Timestamp;
+          validatedAt?: Timestamp;
           ticketType?: string;
         } | null;
 
@@ -1644,7 +1644,7 @@ export const onTicketCreated = onDocumentCreated(
       userId?: string;
       eventId?: string;
       purchaseId?: string;
-      purchaseDate?: admin.firestore.Timestamp;
+      purchaseDate?: Timestamp;
       userEmail?: string;
     };
 
@@ -1703,7 +1703,7 @@ const sendTicketEmail = async (
   try {
     const [userRecord, eventSnap] = await Promise.all([
       admin.auth().getUser(userId),
-      admin.firestore().collection("events").doc(eventId).get(),
+      getFirestore().collection("events").doc(eventId).get(),
     ]);
 
     if (!userRecord.email) {
@@ -1869,7 +1869,7 @@ const sendPurchaseEmail = async (
     accountCreated?: boolean;
   }
 ) => {
-  const purchaseRef = admin.firestore().collection("purchases").doc(purchaseId);
+  const purchaseRef = getFirestore().collection("purchases").doc(purchaseId);
   let shouldSend = false;
   let userId = fallback?.userId;
   let eventId = fallback?.eventId;
@@ -1877,7 +1877,7 @@ const sendPurchaseEmail = async (
   let accountCreated = fallback?.accountCreated;
 
   try {
-    await admin.firestore().runTransaction(async (transaction) => {
+    await getFirestore().runTransaction(async (transaction) => {
       const purchaseSnap = await transaction.get(purchaseRef);
       if (!purchaseSnap.exists) {
         return;
@@ -2005,7 +2005,7 @@ export const refundPayment = onCall(
     try {
       await refund.create({ payment_id: paymentId });
 
-      const purchasesRef = admin.firestore().collection("purchases");
+      const purchasesRef = getFirestore().collection("purchases");
       const snapshot = await purchasesRef
         .where("paymentId", "==", paymentId)
         .get();
@@ -2014,12 +2014,12 @@ export const refundPayment = onCall(
         const purchaseDoc = snapshot.docs[0];
         await purchaseDoc.ref.update({ status: "refunded" });
 
-        const ticketsRef = admin.firestore().collection("tickets");
+        const ticketsRef = getFirestore().collection("tickets");
         const ticketsSnapshot = await ticketsRef
           .where("purchaseId", "==", purchaseDoc.id)
           .get();
 
-        const batch = admin.firestore().batch();
+        const batch = getFirestore().batch();
         ticketsSnapshot.docs.forEach((doc) => {
           batch.update(doc.ref, { status: "cancelled" });
         });
@@ -2049,7 +2049,7 @@ const PIX_EXPIRATION_MINUTES = 30;
 export const expireStalePixSessions = onSchedule(
   { schedule: "every 15 minutes", region: "southamerica-east1" },
   async () => {
-    const db = admin.firestore();
+    const db = getFirestore();
     const cutoff = new Date(Date.now() - PIX_EXPIRATION_MINUTES * 60 * 1000);
 
     const snapshot = await db
