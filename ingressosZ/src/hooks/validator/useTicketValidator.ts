@@ -30,6 +30,9 @@ export function useTicketValidator() {
     setIsValidating(true);
     setValidationResult({ status: null, message: "" });
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
     try {
       const functionsUrl = `/functions`;
       const token =
@@ -43,6 +46,7 @@ export function useTicketValidator() {
         method: "POST",
         headers,
         body: JSON.stringify({ qrCode: codeToValidate }),
+        signal: controller.signal,
       });
       const data = await resp.json();
 
@@ -71,6 +75,18 @@ export function useTicketValidator() {
         return result;
       }
     } catch (backendErr) {
+      clearTimeout(timeoutId);
+      const timedOut =
+        backendErr instanceof DOMException && backendErr.name === "AbortError";
+      if (timedOut) {
+        const result: ValidationResultState = {
+          status: "error",
+          message: "Tempo limite excedido. Verifique a conexão e tente novamente.",
+        };
+        setValidationResult(result);
+        setIsValidating(false);
+        return result;
+      }
       console.warn("Erro ao validar no backend:", backendErr);
 
       // Fallback para modo offline/DEV
@@ -104,6 +120,7 @@ export function useTicketValidator() {
       setValidationResult(result);
       return result;
     } finally {
+      clearTimeout(timeoutId);
       setIsValidating(false);
     }
   };
