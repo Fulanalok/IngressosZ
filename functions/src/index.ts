@@ -74,6 +74,43 @@ if (typeof admin.initializeApp === "function") {
   admin.initializeApp();
 }
 
+/**
+ * Sliding-window rate limiter backed by Firestore.
+ * Returns true if the request is allowed, false if rate-limited.
+ * Skipped entirely when running in the local emulator.
+ */
+async function checkRateLimit(
+  key: string,
+  limitPerMinute: number
+): Promise<boolean> {
+  if (process.env.FUNCTIONS_EMULATOR === "true") return true;
+  const now = Date.now();
+  const windowMs = 60_000;
+  const ref = getFirestore()
+    .collection("rateLimits")
+    .doc(key.replace(/[/\\]/g, "_"));
+  try {
+    return await getFirestore().runTransaction(async (txn) => {
+      const snap = await txn.get(ref);
+      const data = snap.data() as
+        | { count?: number; windowStart?: number }
+        | undefined;
+      if (!data || now - (data.windowStart ?? 0) > windowMs) {
+        txn.set(ref, { count: 1, windowStart: now });
+        return true;
+      }
+      if ((data.count ?? 0) >= limitPerMinute) {
+        return false;
+      }
+      txn.update(ref, { count: FieldValue.increment(1) });
+      return true;
+    });
+  } catch {
+    // On error allow the request through — rate limiting is best-effort
+    return true;
+  }
+}
+
 export const health = onRequest((req, res) => {
   corsHandler(req, res, () => {
     const firestoreEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
@@ -299,13 +336,19 @@ export const createPaymentPreference = onCall(
     if (userId && userId !== authUid) {
       throw new HttpsError("permission-denied", "Usuário inválido.");
     }
+    const allowedPref = await checkRateLimit(`pref:${authUid}`, 10);
+    if (!allowedPref) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Muitas tentativas. Aguarde um momento e tente novamente."
+      );
+    }
     if (!eventId || quantity < 1) {
       throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
     }
     const resolvedUserId = authUid;
 
-    const eventDoc = await admin
-      .firestore()
+    const eventDoc = await getFirestore()
       .collection("events")
       .doc(eventId)
       .get();
@@ -431,6 +474,15 @@ export const createPaymentPreferencePublic = onRequest(
         return;
       }
 
+      const clientIp = String(
+        req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown"
+      ).split(",")[0].trim();
+      const allowedPublicPref = await checkRateLimit(`pubpref:${clientIp}`, 10);
+      if (!allowedPublicPref) {
+        res.status(429).json({ message: "Muitas tentativas. Tente novamente em instantes." });
+        return;
+      }
+
       const {
         eventId,
         quantity = 1,
@@ -458,8 +510,7 @@ export const createPaymentPreferencePublic = onRequest(
         return;
       }
 
-      const paymentSessionRef = admin
-        .firestore()
+      const paymentSessionRef = getFirestore()
         .collection("paymentSessions")
         .doc(paymentSessionId);
       const paymentSessionSnap = await paymentSessionRef.get();
@@ -486,8 +537,7 @@ export const createPaymentPreferencePublic = onRequest(
         return;
       }
 
-      const eventDoc = await admin
-        .firestore()
+      const eventDoc = await getFirestore()
         .collection("events")
         .doc(eventId)
         .get();
@@ -637,13 +687,19 @@ export const createPixPayment = onCall(
     if (userId && userId !== authUid) {
       throw new HttpsError("permission-denied", "Usuário inválido.");
     }
+    const allowedPix = await checkRateLimit(`pix:${authUid}`, 10);
+    if (!allowedPix) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Muitas tentativas. Aguarde um momento e tente novamente."
+      );
+    }
     if (!eventId || quantity < 1) {
       throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
     }
     const resolvedUserId = authUid;
 
-    const eventDoc = await admin
-      .firestore()
+    const eventDoc = await getFirestore()
       .collection("events")
       .doc(eventId)
       .get();
@@ -817,6 +873,15 @@ export const createPixPaymentPublic = onRequest(
         return;
       }
 
+      const clientIpPix = String(
+        req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown"
+      ).split(",")[0].trim();
+      const allowedPublicPix = await checkRateLimit(`pubpix:${clientIpPix}`, 10);
+      if (!allowedPublicPix) {
+        res.status(429).json({ message: "Muitas tentativas. Tente novamente em instantes." });
+        return;
+      }
+
       const {
         eventId,
         quantity = 1,
@@ -844,8 +909,7 @@ export const createPixPaymentPublic = onRequest(
         return;
       }
 
-      const paymentSessionRef = admin
-        .firestore()
+      const paymentSessionRef = getFirestore()
         .collection("paymentSessions")
         .doc(paymentSessionId);
       const paymentSessionSnap = await paymentSessionRef.get();
@@ -872,8 +936,7 @@ export const createPixPaymentPublic = onRequest(
         return;
       }
 
-      const eventDoc = await admin
-        .firestore()
+      const eventDoc = await getFirestore()
         .collection("events")
         .doc(eventId)
         .get();
@@ -1145,16 +1208,48 @@ export const receiveWebhook = onRequest(
           }>;
 
           const purchasesRef = getFirestore().collection("purchases");
-          const snapshot = await purchasesRef
-            .where("paymentId", "==", paymentId)
-            .get();
 
-          if (!snapshot.empty) {
-            logger.info(
-              `Pagamento ${paymentId} já processado anteriormente. Ignorando.`
-            );
-            response.status(200).send("OK");
-            return;
+          // Idempotency guard: atomically claim the paymentSession so concurrent
+          // webhooks for the same paymentId cannot both proceed past this point.
+          if (paymentSessionId) {
+            const sessionRef = getFirestore()
+              .collection("paymentSessions")
+              .doc(paymentSessionId);
+            let alreadyProcessed = false;
+            await getFirestore().runTransaction(async (txn) => {
+              const sessionSnap = await txn.get(sessionRef);
+              if (!sessionSnap.exists) return;
+              const sessionStatus = (
+                sessionSnap.data() as { status?: string }
+              )?.status;
+              if (sessionStatus && sessionStatus !== "pending") {
+                alreadyProcessed = true;
+                return;
+              }
+              txn.update(sessionRef, {
+                status: "processing",
+                updatedAt: FieldValue.serverTimestamp(),
+              });
+            });
+            if (alreadyProcessed) {
+              logger.info(
+                `Pagamento ${paymentId} já processado (paymentSession). Ignorando.`
+              );
+              response.status(200).send("OK");
+              return;
+            }
+          } else {
+            // Fallback for webhooks without paymentSessionId: query by paymentId
+            const snapshot = await purchasesRef
+              .where("paymentId", "==", paymentId)
+              .get();
+            if (!snapshot.empty) {
+              logger.info(
+                `Pagamento ${paymentId} já processado anteriormente. Ignorando.`
+              );
+              response.status(200).send("OK");
+              return;
+            }
           }
 
           const ticketsCount = items.reduce(
@@ -1166,8 +1261,7 @@ export const receiveWebhook = onRequest(
           let oversold = false;
           let failedPurchaseId = "";
           await getFirestore().runTransaction(async (transaction) => {
-            const eventRef = admin
-              .firestore()
+            const eventRef = getFirestore()
               .collection("events")
               .doc(eventId);
             const eventDoc = await transaction.get(eventRef);
@@ -1301,8 +1395,7 @@ export const receiveWebhook = onRequest(
           });
 
           if (paymentSessionId) {
-            await admin
-              .firestore()
+            await getFirestore()
               .collection("paymentSessions")
               .doc(paymentSessionId)
               .set(
@@ -1376,8 +1469,7 @@ export const validateTicket = onRequest(
         const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
         if (!hasPermission && isEmulator) {
           try {
-            const userDoc = await admin
-              .firestore()
+            const userDoc = await getFirestore()
               .collection("users")
               .doc(decodedToken.uid)
               .get();
@@ -1396,6 +1488,18 @@ export const validateTicket = onRequest(
         }
         if (!hasPermission) {
           res.status(403).json({ success: false, message: "Não autorizado" });
+          return;
+        }
+
+        const allowedValidator = await checkRateLimit(
+          `validate:${decodedToken.uid}`,
+          30
+        );
+        if (!allowedValidator) {
+          res.status(429).json({
+            success: false,
+            message: "Muitas validações em sequência. Aguarde um momento.",
+          });
           return;
         }
 
@@ -1508,8 +1612,7 @@ export const validateTicket = onRequest(
           status: "used",
         });
 
-        const eventSnap = await admin
-          .firestore()
+        const eventSnap = await getFirestore()
           .collection("events")
           .doc(eventId)
           .get();
@@ -1572,8 +1675,7 @@ export const setAdminRole = onCall(async (request) => {
   try {
     await admin.auth().setCustomUserClaims(uid, { admin: true, role: "admin" });
     await admin.auth().revokeRefreshTokens(uid);
-    await admin
-      .firestore()
+    await getFirestore()
       .collection("users")
       .doc(uid)
       .set({ role: "admin" }, { merge: true });
@@ -1620,8 +1722,7 @@ export const setUserRole = onCall(async (request) => {
       admin: role === "admin",
     });
     await admin.auth().revokeRefreshTokens(uid);
-    await admin
-      .firestore()
+    await getFirestore()
       .collection("users")
       .doc(uid)
       .set({ role }, { merge: true });
@@ -1671,8 +1772,7 @@ export const onTicketCreated = onDocumentCreated(
 
     if (data.eventId) {
       try {
-        await admin
-          .firestore()
+        await getFirestore()
           .collection("events")
           .doc(data.eventId)
           .update({
