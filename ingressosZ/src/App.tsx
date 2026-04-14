@@ -221,9 +221,13 @@ function App() {
                     {/* Rota dev para auto-setup (sem exigir login) */}
                     <Route path="/dev-auto" element={<DevAutoPage />} />
 
-                    {/* Rota de Debug para verificar configuração Firebase (sem exigir login) */}
-                    <Route path="/debug/firebase" element={<FirebaseDebug />} />
-                    <Route path="/doc" element={<DocViewPage />} />
+                    {/* Rotas de debug — apenas em desenvolvimento */}
+                    {import.meta.env.DEV && (
+                      <>
+                        <Route path="/debug/firebase" element={<FirebaseDebug />} />
+                        <Route path="/doc" element={<DocViewPage />} />
+                      </>
+                    )}
 
                     <Route path="/termos" element={<TermsPage />} />
                     <Route path="/privacidade" element={<PrivacyPage />} />
@@ -304,7 +308,7 @@ function App() {
           </Suspense>
         </main>
         {/* DevPanel precisa estar dentro do Router para useNavigate */}
-        <DevPanel />
+        {import.meta.env.DEV && <DevPanel />}
 
         {/* Região de anúncio para mensagens não críticas */}
         <div
