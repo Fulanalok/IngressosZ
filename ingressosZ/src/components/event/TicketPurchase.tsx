@@ -79,7 +79,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
         <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
           <StatusScreen
             initialization={{ paymentId: "" }}
-            onReady={() => console.log("Status screen ready")}
+            onReady={() => {}}
             onError={(err) => console.error("Status screen error", err)}
           />
           <Button onClick={onClose} className="mt-4">

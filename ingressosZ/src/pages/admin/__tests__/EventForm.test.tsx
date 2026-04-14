@@ -54,7 +54,7 @@ describe("Componente EventForm", () => {
     fireEvent.change(screen.getByLabelText(/Título do Evento/i), { target: { value: "Festa de Gala" } });
     fireEvent.change(screen.getByLabelText(/Descrição/i), { target: { value: "Um evento exclusivo" } });
     fireEvent.change(screen.getByLabelText(/Preço Base/i), { target: { value: "100" } });
-    fireEvent.change(screen.getByLabelText("Data"), { target: { value: "2025-12-25" } });
+    fireEvent.change(screen.getByLabelText("Data"), { target: { value: "2027-12-25" } });
     fireEvent.change(screen.getByLabelText("Hora"), { target: { value: "21:00" } });
     fireEvent.change(screen.getByLabelText(/Nome do Local/i), { target: { value: "Teatro Municipal" } });
     fireEvent.change(screen.getByLabelText(/Endereço Completo/i), { target: { value: "Praça Ramos" } });

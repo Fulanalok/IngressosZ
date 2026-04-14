@@ -162,6 +162,17 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.date) {
+      const eventDate = new Date(formData.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (eventDate < today) {
+        toast.error("A data do evento não pode ser no passado.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let imageUrl = formData.image;

@@ -56,7 +56,7 @@ function Login() {
       }
       const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
       await verifyRecaptcha({ token: recaptchaToken });
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao fazer login:", err);

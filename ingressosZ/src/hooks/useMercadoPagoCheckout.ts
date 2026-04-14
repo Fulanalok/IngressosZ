@@ -9,6 +9,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+interface PreferenceCallableResult { id: string }
+interface PixCallableResult {
+  qrCode?: string;
+  qr_code?: string;
+  qrCodeBase64?: string;
+  qr_code_base64?: string;
+  paymentId?: string;
+  id?: string;
+  ticketUrl?: string;
+  ticket_url?: string;
+  status?: string;
+}
+
 const MP_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -50,7 +63,7 @@ export function useMercadoPagoCheckout(
   const totalAmount = unitPrice * quantity;
 
   const createPreference = async () => {
-    const normalizedEmail = userEmail?.trim();
+    const normalizedEmail = userEmail?.trim().toLowerCase();
     if (!event || !userId || !normalizedEmail) {
       setError("Faça login para continuar.");
       return;
@@ -94,7 +107,7 @@ export function useMercadoPagoCheckout(
           userEmail: normalizedEmail || "",
           paymentSessionId,
         });
-        const prefId = (result?.data as any)?.id;
+        const prefId = (result?.data as PreferenceCallableResult)?.id;
         if (prefId) {
           setPreferenceId(prefId);
           toast.success("Checkout iniciado!", { id: "checkout" });
@@ -150,7 +163,7 @@ export function useMercadoPagoCheckout(
   };
 
   const createPixPayment = async () => {
-    const normalizedEmail = userEmail?.trim();
+    const normalizedEmail = userEmail?.trim().toLowerCase();
     if (!event || !userId || !normalizedEmail) {
       setError("Faça login para continuar.");
       return;
@@ -194,7 +207,7 @@ export function useMercadoPagoCheckout(
           userEmail: normalizedEmail || "",
           paymentSessionId,
         });
-        const data = (result?.data as any) || {};
+        const data = (result?.data as PixCallableResult) || {};
         const qrCode = data?.qrCode || data?.qr_code;
         const paymentId = data?.paymentId || data?.id;
         if (qrCode && paymentId) {

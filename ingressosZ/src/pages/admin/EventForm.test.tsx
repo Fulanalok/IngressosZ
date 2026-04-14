@@ -24,7 +24,7 @@ describe("EventForm Component", () => {
     id: "1",
     title: "Existing Event",
     description: "Description",
-    date: "2023-12-31",
+    date: "2027-12-31",
     time: "20:00",
     location: "Venue",
     address: "Address",
@@ -127,7 +127,7 @@ describe("EventForm Component", () => {
     // Fill basic fields
     fireEvent.change(screen.getByLabelText(/Título/i), { target: { value: "New Event" } });
     fireEvent.change(screen.getByLabelText(/Descrição/i), { target: { value: "Desc" } });
-    fireEvent.change(screen.getByLabelText(/Data/i), { target: { value: "2024-01-01" } });
+    fireEvent.change(screen.getByLabelText(/Data/i), { target: { value: "2027-01-01" } });
     fireEvent.change(screen.getByLabelText(/Hora/i), { target: { value: "20:00" } });
     fireEvent.change(screen.getByLabelText(/Nome do Local/i), { target: { value: "Venue" } });
     fireEvent.change(screen.getByLabelText(/Endereço Completo/i), { target: { value: "Addr" } });

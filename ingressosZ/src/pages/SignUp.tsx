@@ -58,7 +58,7 @@ function SignUp() {
       }
       const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
       await verifyRecaptcha({ token: recaptchaToken });
-      await createUserWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao criar usuário:", err);
