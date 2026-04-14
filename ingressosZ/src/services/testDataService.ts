@@ -149,7 +149,7 @@ export class TestDataService {
       {
         id: "offline-1",
         qrCode: "TICKET-1756219017406-fh2k739l1",
-        status: "active",
+        status: "valid",
         eventTitle: "Festival de Música 2024",
         ticketType: "VIP",
         userEmail: "usuario1@teste.com",
@@ -160,7 +160,7 @@ export class TestDataService {
       {
         id: "offline-2",
         qrCode: "TICKET-JT1ZHCGOVQYIECOUAZCF",
-        status: "active",
+        status: "valid",
         eventTitle: "Festival de Música 2024",
         ticketType: "Geral",
         userEmail: "usuario2@teste.com",
@@ -182,7 +182,7 @@ export class TestDataService {
       {
         id: "offline-4",
         qrCode: "TICKET-1756295230187-lxfcondum",
-        status: "active",
+        status: "valid",
         eventTitle: "Festival de Música 2024",
         ticketType: "Geral",
         userEmail: "usuario4@teste.com",

@@ -21,7 +21,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function Ticket({ ticket }: TicketProps) {
-  const isValid = ticket.status === "active" || ticket.status === "valid";
+  const isValid = ticket.status === "valid";
   const [showQR, setShowQR] = useState(false);
   const [downloading, setDownloading] = useState(false);
 

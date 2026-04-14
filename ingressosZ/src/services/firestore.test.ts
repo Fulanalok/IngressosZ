@@ -121,7 +121,7 @@ describe("Firestore Services", () => {
 
   describe("ticketService", () => {
     it("getUserTickets returns tickets", async () => {
-      const mockTickets = [{ id: "t1", data: () => ({ status: "active" }) }];
+      const mockTickets = [{ id: "t1", data: () => ({ status: "valid" }) }];
       (getDocs as any).mockResolvedValue({ docs: mockTickets });
       const tickets = await ticketService.getUserTickets("u1");
       expect(tickets).toHaveLength(1);
@@ -131,7 +131,7 @@ describe("Firestore Services", () => {
       (getDoc as any).mockResolvedValue({
         exists: () => true,
         id: "t1",
-        data: () => ({ status: "active" }),
+        data: () => ({ status: "valid" }),
       });
       const ticket = await ticketService.getTicketById("t1");
       expect(ticket).toBeDefined();
@@ -150,7 +150,7 @@ describe("Firestore Services", () => {
       (onSnapshot as any).mockImplementation(
         (_q: any, successCb: any, _errorCb: any) => {
           successCb({
-            docs: [{ id: "t1", data: () => ({ status: "active" }) }],
+            docs: [{ id: "t1", data: () => ({ status: "valid" }) }],
           });
           return vi.fn();
         }
@@ -233,7 +233,7 @@ describe("Firestore Services", () => {
     });
 
     it("getAllTickets returns all tickets", async () => {
-      const mockTickets = [{ id: "t1", data: () => ({ status: "active" }) }];
+      const mockTickets = [{ id: "t1", data: () => ({ status: "valid" }) }];
       (getDocs as any).mockResolvedValue({ docs: mockTickets });
       const tickets = await ticketService.getAllTickets();
       expect(tickets).toHaveLength(1);

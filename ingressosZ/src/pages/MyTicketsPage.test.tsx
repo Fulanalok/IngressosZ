@@ -82,7 +82,7 @@ describe("MyTicketsPage", () => {
 
   it("renderiza lista de ingressos", () => {
     const mockTickets = [
-      { id: "1", eventTitle: "Show de Rock", status: "active" },
+      { id: "1", eventTitle: "Show de Rock", status: "valid" },
       { id: "2", eventTitle: "Teatro", status: "used" },
     ];
 
