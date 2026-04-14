@@ -23,39 +23,53 @@ O **IngressosZ** é uma plataforma dedicada de venda e validação de ingressos,
 
 O que queremos que o IngressosZ se torne:
 
-- **Profissionalismo na Entrega**: Geração de ingressos em PDF e e-mails transacionais em HTML premium.
-- **Dashboard de Gestão**: Painel do organizador com métricas de vendas e checkout simplificado.
+- **Profissionalismo na Entrega**: Geração de ingressos em PDF e e-mails transacionais em HTML premium. ✅ Concluído.
+- **Dashboard de Gestão**: Painel do organizador com métricas de vendas em tempo real. ✅ Concluído.
 - **Validação Offline/Segura**: Aperfeiçoamento da validação de QR Code assinado.
 
 ## 🚩 Pendências e Próximos Passos (Abril 2026)
 
-### Alta Prioridade (Bugs de Produção)
-- [ ] **Configurar MP_ACCESS_TOKEN**: As funções de pagamento estão retornando Erro 500 em produção por falta de Secret.
-  - Comando: `firebase functions:secrets:set MP_ACCESS_TOKEN`
-  - Após configurar, redeploy: `firebase deploy --only functions`
-- [ ] **Login (auth/invalid-credential)**: Validar credenciais no Firebase Console.
-- [ ] **Redirecionamento de Sucesso**: Configurar `WEB_BASE_URL` nas Functions para que o Mercado Pago retorne para o domínio correto.
-  - Comando: `firebase functions:config:set app.web_base_url="https://ingressosz.web.app"`
+### Alta Prioridade — Validação em Produção
+- [ ] **Testar fluxo de pagamento end-to-end**: MP_ACCESS_TOKEN configurado, Functions deployadas com `getFirestore()`. Precisa validar compra com cartão e PIX em produção.
+- [ ] **Configurar Webhook no Mercado Pago**: A URL `receiveWebhook` precisa ser registrada no painel do MP para que pagamentos aprovados gerem ingressos automaticamente.
+  - URL: `https://<region>-<your-project>.cloudfunctions.net/receiveWebhook`
+- [ ] **Login (auth/invalid-credential)**: Validar credenciais de usuário admin no Firebase Console.
 
 ### Infraestrutura / Dev
-- [x] **CORS para desenvolvimento local**: `functions/src/index.ts` atualizado para aceitar qualquer origem `localhost:*` (fix: Vite pode iniciar em portas diferentes de 5173).
+- [x] **CORS para desenvolvimento local**: Regex aceita qualquer `localhost:*`.
+- [x] **WEB_BASE_URL**: Configurado em `functions/.env.<your-firebase-project-id>`.
+- [x] **Firebase Admin SDK v13**: Migrado de `admin.firestore()` para `getFirestore()`.
 
 ### UI/UX & Funcionalidades
-- [ ] **Dashboard do Organizador**: Aplicar o novo tema Premium Blue nas páginas administrativas.
-- [ ] **Checkout PIX**: Validar a exibição do QR Code Base64 no modal após a correção da Function.
-- [ ] **Emails Transacionais**: Implementar templates HTML azulados para confirmação de compra.
+- [ ] **Checkout PIX**: Validar QR Code Base64 no modal após pagamento aprovado via webhook.
+- [ ] **PWA icon**: `pwa-192.png` ausente no build — erro no console (não crítico).
+- [ ] **App Check**: Habilitar em produção (Auth, Firestore, Functions, Storage) para segurança adicional.
 
 ## ✅ Concluído
 
+### Funcionalidades Principais
+- [x] **UI Premium Blue completa**: Home, Eventos, Compra, Meus Ingressos, Validador, Admin.
+- [x] **Checkout Mercado Pago**: Preferência gerada no backend (callable + endpoint público).
+- [x] **Webhook com verificação HMAC**: `receiveWebhook` valida assinatura do MP.
+- [x] **Emissão de tickets com QR Code assinado**: JWT + Firestore.
+- [x] **Validador presencial**: Endpoint HTTP autenticado + UI com scanner.
+- [x] **Painel Admin**: CRUD de eventos, inventário por tipo, modal com aviso de formulário não salvo.
+- [x] **Dashboard do Organizador**: Métricas em tempo real (receita, ingressos, check-ins, gráficos).
+- [x] **E-mails transacionais Premium Blue**: Template HTML azulado via SMTP.
+- [x] **PDF de ingresso redesenhado**: QR Code azul, estética de ticket, Blob URL (sem popup blocker).
+- [x] **Proteção duplo clique no checkout**: Gate por `paymentStatus === "processing"`.
+- [x] **Aviso de formulário não salvo**: `isDirty` state no EventForm + confirmação ao fechar.
+- [x] **Páginas legais**: Termos de Uso (`/termos`) e Política de Privacidade (`/privacidade`) com LGPD.
+- [x] **Upload e otimização de imagens**: Storage + Cloud Function `optimizeImage`.
+- [x] **Observabilidade**: Sentry (frontend e backend).
+
 ### Qualidade de Código
-- [x] **Limpeza de arquivos `.js` duplicados**: Removidos 72 artefatos de compilação TS de `src/`. Protegido com `src/**/*.js` no `.gitignore`.
-- [x] **Testes de componentes críticos**: 53+ testes implementados com Vitest + Testing Library cobrindo:
-  - `EventCard` — renderização, datas, navegação, estados de loading/erro
-  - `Navbar` — visibilidade de links por role (user/organizer/validator), logout
-  - `AttendeeList` — listagem, validação de ingresso, reembolso com confirmação
-  - `TicketPurchase` — seleção de tipo, PIX, cartão, exibição de QR Code
-  - `ValidatorPage` — scanner, histórico, badges de status, controle de acesso
-  - `AdminPage` — CRUD de eventos, inventário, modal de criação
+- [x] **Limpeza de arquivos `.js` duplicados**: Removidos 72 artefatos de compilação TS de `src/`.
+- [x] **286 testes passando**: Vitest + Testing Library cobrindo todos os componentes críticos.
+  - `EventCard`, `Navbar`, `AttendeeList`, `TicketPurchase`, `ValidatorPage`, `AdminPage`
+  - `AdminDashboard`, `SetAdminRole`, `ScannerSection`, `ValidationResult`, `ValidatorForm`
+- [x] **Firebase Admin SDK v13**: `admin.firestore()` → `getFirestore()` em todas as Functions.
+- [x] **Dependências atualizadas**: Minor/patch de todos os pacotes (tailwindcss 4.2, firebase 12.11, vite 7.3, etc.).
 
 ## 🛠️ Diretrizes de Desenvolvimento
 
@@ -72,13 +86,15 @@ O que queremos que o IngressosZ se torne:
 - **Estilização**: Use apenas Tailwind CSS v4. Evite CSS inline ou bibliotecas de componentes pesadas.
 - **Tipagem**: TypeScript rigoroso. Evite `any`.
 - **Segurança**: Regras do Firestore e Storage devem ser restritivas. Validação de tickets deve ser feita via HTTPS autenticado nas Functions.
+- **Admin SDK**: Sempre usar `getFirestore()` de `firebase-admin/firestore`, não `admin.firestore()`.
 
 ### Comandos Úteis
 
 - `npm run dev`: Iniciar o frontend localmente.
-- `npm test`: Executar suite de testes.
+- `npm test`: Executar suite de testes (286 passing).
 - `firebase deploy --only hosting`: Deploy do frontend.
 - `firebase deploy --only functions`: Deploy do backend.
+- `firebase functions:log`: Ver logs de runtime em produção.
 
 ---
 
