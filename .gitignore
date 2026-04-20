@@ -37,3 +37,6 @@ ui-debug.log*
 *.sw?
 # Added by code-review-graph
 .code-review-graph/
+
+# Test artifacts
+ingressosZ/test_output.txt

@@ -28,7 +28,9 @@
       "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(p.devDependencies[''babel-plugin-react-compiler'']\\)\")",
       "Bash(grep -v \"^$\")",
       "mcp__code-review-graph__semantic_search_nodes_tool",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\lucasvilhena"
