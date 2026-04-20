@@ -154,7 +154,7 @@ describe("TicketPurchase Component", () => {
     fireEvent.click(screen.getByText("Pix"));
     const img = screen.getByAltText("QR Code Pix");
     expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute("src", "data:image/jpeg;base64,base64data");
+    expect(img).toHaveAttribute("src", "data:image/png;base64,base64data");
   });
 
   it("botão Copiar Pix copia o código para a área de transferência", () => {

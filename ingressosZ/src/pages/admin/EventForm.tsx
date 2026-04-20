@@ -66,6 +66,15 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
   const [uploadProgress, setUploadProgress] = useState<"idle" | "uploading" | "done">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Revoke blob URL to prevent memory leaks when preview changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const markDirty = () => {
     if (!isDirty) {
       setIsDirty(true);
@@ -139,9 +148,15 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
     setFormData((prev) => ({
       ...prev,
       [name]:
-        name === "price" || name === "maxTickets" || name === "availableTickets"
+        name === "price" ||
+        name === "maxTickets" ||
+        name === "availableTickets"
           ? Number(value)
-          : value,
+          : name === "maxPerPurchase"
+            ? value === ""
+              ? undefined
+              : Number(value)
+            : value,
     }));
   };
 
@@ -163,14 +178,21 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.date) {
-      const eventDate = new Date(formData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (eventDate < today) {
-        toast.error("A data do evento não pode ser no passado.");
-        return;
-      }
+    if (!formData.date) {
+      toast.error("A data do evento é obrigatória.");
+      return;
+    }
+
+    const eventDate = new Date(formData.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(eventDate.getTime())) {
+      toast.error("Data do evento inválida.");
+      return;
+    }
+    if (eventDate < today) {
+      toast.error("A data do evento não pode ser no passado.");
+      return;
     }
 
     setLoading(true);
@@ -443,6 +465,28 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
       <p className="text-xs text-muted-foreground -mt-2">
         Se o estoque por tipo for maior que 0, ele sobrescreverá a capacidade total.
       </p>
+
+      <div>
+        <label
+          htmlFor="maxPerPurchase"
+          className="block text-sm font-medium mb-1"
+        >
+          Máximo por compra (opcional)
+        </label>
+        <Input
+          id="maxPerPurchase"
+          type="number"
+          name="maxPerPurchase"
+          value={formData.maxPerPurchase ?? ""}
+          onChange={handleChange}
+          min="1"
+          max="50"
+          placeholder="Padrão: 5"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Limite de ingressos por transação. Deixe vazio para usar o padrão (5).
+        </p>
+      </div>
 
       {/* Banner */}
       <SectionTitle>Banner do Evento</SectionTitle>

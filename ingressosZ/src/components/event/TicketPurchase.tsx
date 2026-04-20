@@ -50,22 +50,41 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
 
   const totalPrice = useMemo(() => unitPrice * quantity, [unitPrice, quantity]);
 
+  const DEFAULT_MAX_PURCHASE_QUANTITY = 5;
+  const maxPerPurchase =
+    typeof event.maxPerPurchase === "number" &&
+    Number.isInteger(event.maxPerPurchase) &&
+    event.maxPerPurchase >= 1 &&
+    event.maxPerPurchase <= 50
+      ? event.maxPerPurchase
+      : DEFAULT_MAX_PURCHASE_QUANTITY;
+
+  const validateQuantity = () => {
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      toast.error("Quantidade inválida.");
+      return false;
+    }
+    if (quantity > maxPerPurchase) {
+      toast.error(`Máximo de ${maxPerPurchase} ingressos por compra.`);
+      return false;
+    }
+    if (quantity > maxQuantity) {
+      toast.error("Quantidade solicitada superior ao estoque disponível.");
+      return false;
+    }
+    return true;
+  };
+
   const handlePurchase = async () => {
     if (paymentStatus === "processing" || checkoutLoading) return;
-    if (maxQuantity < quantity) {
-      toast.error("Quantidade solicitada superior ao estoque disponível.");
-      return;
-    }
+    if (!validateQuantity()) return;
     setPaymentStatus("processing");
     await createPreference();
   };
 
   const handlePixPurchase = async () => {
     if (paymentStatus === "processing" || checkoutLoading) return;
-    if (maxQuantity < quantity) {
-      toast.error("Quantidade solicitada superior ao estoque disponível.");
-      return;
-    }
+    if (!validateQuantity()) return;
     setPaymentStatus("processing");
     await createPixPayment();
   };
@@ -195,7 +214,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
             >
               {maxQuantity > 0 ? (
                 Array.from(
-                  { length: Math.min(maxQuantity, 5) },
+                  { length: Math.min(maxQuantity, maxPerPurchase) },
                   (_, i) => i + 1
                 ).map((num) => (
                   <option key={num} value={num}>
@@ -236,16 +255,14 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
             </Button>
           </div>
           {paymentMethod === "checkout" && preferenceId && hasPublicKey ? (
-            <Wallet
-              initialization={{ preferenceId: preferenceId } as any}
-              onSubmit={async () => {}}
-            />
+            <Wallet initialization={{ preferenceId }} />
           ) : paymentMethod === "pix" && pixData?.qrCode ? (
             <div className="space-y-4">
               <div className="flex justify-center">
-                {pixData.qrCodeBase64 ? (
+                {pixData.qrCodeBase64 &&
+                /^[A-Za-z0-9+/]+=*$/.test(pixData.qrCodeBase64) ? (
                   <img
-                    src={`data:image/jpeg;base64,${pixData.qrCodeBase64}`}
+                    src={`data:image/png;base64,${pixData.qrCodeBase64}`}
                     alt="QR Code Pix"
                     className="w-44 h-44"
                   />

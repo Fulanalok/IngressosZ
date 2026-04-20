@@ -16,7 +16,11 @@ export default defineConfig(({ mode }) => {
   const functionsRegion = env.VITE_FUNCTIONS_REGION || "southamerica-east1";
   return {
     plugins: [
-      react(),
+      react({
+        babel: {
+          plugins: [["babel-plugin-react-compiler", { compilationMode: "infer" }]],
+        },
+      }),
       tailwindcss(),
       VitePWA({
         registerType: "autoUpdate",

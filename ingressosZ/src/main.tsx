@@ -23,6 +23,16 @@ Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: 1.0,
+  beforeSend(event) {
+    // Strip potentially sensitive fields before sending to Sentry
+    if (event.request?.cookies) delete event.request.cookies;
+    if (event.request?.headers) {
+      const h = event.request.headers as Record<string, string>;
+      delete h["authorization"];
+      delete h["cookie"];
+    }
+    return event;
+  },
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

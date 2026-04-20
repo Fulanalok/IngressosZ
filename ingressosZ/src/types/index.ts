@@ -12,6 +12,7 @@ export interface Event {
   price: number;
   maxTickets: number;
   availableTickets: number;
+  maxPerPurchase?: number;
   inventory?: Record<string, number>;
   pricing?: Record<string, number>;
   image?: string;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { logger } from "../../services/logger";
 import { TestDataService } from "../../services/testDataService";
 import { useAuth } from "../useAuth";
 
@@ -36,18 +37,31 @@ export function useTicketValidator() {
     try {
       const functionsUrl = `/functions`;
       const token =
-        user && user.getIdToken ? await user.getIdToken() : undefined;
+        user && user.getIdToken ? await user.getIdToken(false) : undefined;
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const resp = await fetch(`${functionsUrl}/validateTicket`, {
+      let resp = await fetch(`${functionsUrl}/validateTicket`, {
         method: "POST",
         headers,
         body: JSON.stringify({ qrCode: codeToValidate }),
         signal: controller.signal,
       });
+
+      // On 401 retry once with a fresh token (handles token expiry)
+      if (resp.status === 401 && user) {
+        const freshToken = await user.getIdToken(true);
+        headers["Authorization"] = `Bearer ${freshToken}`;
+        resp = await fetch(`${functionsUrl}/validateTicket`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ qrCode: codeToValidate }),
+          signal: controller.signal,
+        });
+      }
+
       const data = await resp.json();
 
       if (resp.ok && data?.success) {
@@ -87,7 +101,7 @@ export function useTicketValidator() {
         setIsValidating(false);
         return result;
       }
-      console.warn("Erro ao validar no backend:", backendErr);
+      logger.error("Erro ao validar no backend", backendErr as Error);
 
       // Fallback para modo offline/DEV
       if (import.meta.env.DEV) {

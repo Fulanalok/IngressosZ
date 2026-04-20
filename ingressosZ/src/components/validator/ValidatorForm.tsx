@@ -10,9 +10,9 @@ interface ValidatorFormProps {
   onReset: () => void;
   userProfile: UserProfile | null;
   validationStatus: "success" | "error" | "invalid" | null;
-  generateTestCode: () => void;
-  createTestData: () => void;
-  isCreatingTestData: boolean;
+  generateTestCode?: () => void;
+  createTestData?: () => void;
+  isCreatingTestData?: boolean;
 }
 
 export function ValidatorForm({
@@ -95,30 +95,33 @@ export function ValidatorForm({
         </div>
       </form>
 
-      {/* Quick Actions */}
-      <div className="mt-6 p-4 rounded-lg bg-muted">
-        <h3 className="font-semibold text-foreground mb-3">Ações Rápidas</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="button"
-            onClick={generateTestCode}
-            variant="secondary"
-            className="py-2 px-3 text-sm"
-          >
-            Código Teste
-          </Button>
-          {String(userProfile?.role || "user").toLowerCase() !== "user" && (
+      {/* Quick Actions — only in development */}
+      {import.meta.env.DEV && generateTestCode && (
+        <div className="mt-6 p-4 rounded-lg bg-muted">
+          <h3 className="font-semibold text-foreground mb-3">Ações Rápidas</h3>
+          <div className="grid grid-cols-2 gap-3">
             <Button
               type="button"
-              onClick={createTestData}
-              disabled={isCreatingTestData}
+              onClick={generateTestCode}
+              variant="secondary"
               className="py-2 px-3 text-sm"
             >
-              {isCreatingTestData ? "Criando..." : "Criar Dados"}
+              Código Teste
             </Button>
-          )}
+            {createTestData &&
+              String(userProfile?.role || "user").toLowerCase() !== "user" && (
+                <Button
+                  type="button"
+                  onClick={createTestData}
+                  disabled={isCreatingTestData}
+                  className="py-2 px-3 text-sm"
+                >
+                  {isCreatingTestData ? "Criando..." : "Criar Dados"}
+                </Button>
+              )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Download, Search, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
@@ -24,7 +24,7 @@ export default function AttendeeList({
   const [searchTerm, setSearchTerm] = useState("");
   const [refundingId, setRefundingId] = useState<string | null>(null);
 
-  const fetchAttendees = async () => {
+  const fetchAttendees = useCallback(async () => {
     try {
       const data = await ticketService.getTicketsByEvent(eventId);
       setAttendees(data);
@@ -33,11 +33,11 @@ export default function AttendeeList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
   useEffect(() => {
     fetchAttendees();
-  }, [eventId]);
+  }, [fetchAttendees]);
 
   const filteredAttendees = attendees.filter((a) =>
     a.userEmail.toLowerCase().includes(searchTerm.toLowerCase())

@@ -283,7 +283,7 @@ export function useMercadoPagoCheckout(
     try {
       navigate(`/pagamento/sucesso?payment_id=${paymentId}`);
     } catch (err) {
-      console.error("Erro no pós-pagamento (cliente):", err);
+      logger.error("Erro no pós-pagamento (cliente)", err as Error);
       navigate(`/meus-ingressos`);
     } finally {
       setIsLoading(false);

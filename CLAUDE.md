@@ -30,17 +30,20 @@ O que queremos que o IngressosZ se torne:
 ## 🚩 Pendências e Próximos Passos (Abril 2026)
 
 ### Alta Prioridade — Validação em Produção
+
 - [ ] **Testar fluxo de pagamento end-to-end**: MP_ACCESS_TOKEN configurado, Functions deployadas com `getFirestore()`. Precisa validar compra com cartão e PIX em produção.
 - [ ] **Configurar Webhook no Mercado Pago**: A URL `receiveWebhook` precisa ser registrada no painel do MP para que pagamentos aprovados gerem ingressos automaticamente.
   - URL: `https://<region>-<your-project>.cloudfunctions.net/receiveWebhook`
 - [ ] **Login (auth/invalid-credential)**: Validar credenciais de usuário admin no Firebase Console.
 
 ### Infraestrutura / Dev
+
 - [x] **CORS para desenvolvimento local**: Regex aceita qualquer `localhost:*`.
 - [x] **WEB_BASE_URL**: Configurado em `functions/.env.<your-firebase-project-id>`.
 - [x] **Firebase Admin SDK v13**: Migrado de `admin.firestore()` para `getFirestore()`.
 
 ### UI/UX & Funcionalidades
+
 - [ ] **Checkout PIX**: Validar QR Code Base64 no modal após pagamento aprovado via webhook.
 - [ ] **PWA icon**: `pwa-192.png` ausente no build — erro no console (não crítico).
 - [ ] **App Check**: Habilitar em produção (Auth, Firestore, Functions, Storage) para segurança adicional.
@@ -48,6 +51,7 @@ O que queremos que o IngressosZ se torne:
 ## ✅ Concluído
 
 ### Funcionalidades Principais
+
 - [x] **UI Premium Blue completa**: Home, Eventos, Compra, Meus Ingressos, Validador, Admin.
 - [x] **Checkout Mercado Pago**: Preferência gerada no backend (callable + endpoint público).
 - [x] **Webhook com verificação HMAC**: `receiveWebhook` valida assinatura do MP.
@@ -64,6 +68,7 @@ O que queremos que o IngressosZ se torne:
 - [x] **Observabilidade**: Sentry (frontend e backend).
 
 ### Qualidade de Código
+
 - [x] **Limpeza de arquivos `.js` duplicados**: Removidos 72 artefatos de compilação TS de `src/`.
 - [x] **286 testes passando**: Vitest + Testing Library cobrindo todos os componentes críticos.
   - `EventCard`, `Navbar`, `AttendeeList`, `TicketPurchase`, `ValidatorPage`, `AdminPage`
@@ -72,6 +77,10 @@ O que queremos que o IngressosZ se torne:
 - [x] **Dependências atualizadas**: Minor/patch de todos os pacotes (tailwindcss 4.2, firebase 12.11, vite 7.3, etc.).
 
 ## 🛠️ Diretrizes de Desenvolvimento
+
+Use o Claude Sonet para: implementação de código, perguntas gerai, análise de dado e resumo de documentos.
+Use o Claude Opus para: decisões complexas de arquitetura, escrita mais refinada e diagnóstico critico de bugs.
+Use o Claude Haiku para: respostas rápidas, demandas do dia a dia e tarefas simples.
 
 ### Stack Técnica
 
@@ -99,3 +108,43 @@ O que queremos que o IngressosZ se torne:
 ---
 
 _Este documento é vivo e deve ser atualizado conforme o projeto evolui._
+
+<!-- code-review-graph MCP tools -->
+
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool                        | Use when                                               |
+| --------------------------- | ------------------------------------------------------ |
+| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
+| `get_review_context`        | Need source snippets for review — token-efficient      |
+| `get_impact_radius`         | Understanding blast radius of a change                 |
+| `get_affected_flows`        | Finding which execution paths are impacted             |
+| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
+| `get_architecture_overview` | Understanding high-level codebase structure            |
+| `refactor_tool`             | Planning renames, finding dead code                    |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.

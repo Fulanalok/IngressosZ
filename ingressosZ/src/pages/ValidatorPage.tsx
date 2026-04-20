@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -47,33 +48,34 @@ function ValidatorPage() {
     checkHealth();
   }, []);
 
-  // Códigos de teste válidos
-  const testCodes = [
-    "TICKET-1756219017406-fh2k739l1",
-    "TICKET-JT1ZHCGOVQYIECOUAZCF",
-    "TICKET-1756219017407-usado123",
-    "TICKET-1735210800000-ABC123",
-    "TICKET-1756295230187-lxfcondum",
-  ];
+  // Dev-only test utilities
+  const DEV_TEST_CODES = import.meta.env.DEV
+    ? [
+        "TICKET-1756219017406-fh2k739l1",
+        "TICKET-JT1ZHCGOVQYIECOUAZCF",
+        "TICKET-1756219017407-usado123",
+        "TICKET-1735210800000-ABC123",
+        "TICKET-1756295230187-lxfcondum",
+      ]
+    : [];
 
-  const generateTestCode = () => {
-    const randomCode = testCodes[Math.floor(Math.random() * testCodes.length)];
-    setTicketCode(randomCode);
-  };
+  const generateTestCode = import.meta.env.DEV
+    ? () => {
+        const randomCode =
+          DEV_TEST_CODES[Math.floor(Math.random() * DEV_TEST_CODES.length)];
+        setTicketCode(randomCode);
+      }
+    : undefined;
 
   const createTestData = async () => {
     setIsCreatingTestData(true);
     try {
       // Forçar recriação dos dados
       await TestDataService.initializeTestData(true);
-      alert(
-        "Dados de teste criados com sucesso!\n\nCódigos disponíveis:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n\nCódigo usado (para teste):\n- TICKET-1756219017407-usado123"
-      );
+      toast.success("Dados de teste criados! Códigos: TICKET-1756219017406-fh2k739l1, TICKET-JT1ZHCGOVQYIECOUAZCF, TICKET-1756295230187-lxfcondum", { duration: 8000 });
     } catch (error) {
       logger.error("Erro ao criar dados de teste no Validator", error);
-      alert(
-        "Firebase indisponível - Usando modo offline!\n\nCódigos de teste funcionais:\n- TICKET-1756219017406-fh2k739l1\n- TICKET-JT1ZHCGOVQYIECOUAZCF\n- TICKET-1756295230187-lxfcondum\n- TICKET-1756219017407-usado123 (usado)\n\nO validador funcionará normalmente!"
-      );
+      toast.info("Firebase indisponível — modo offline ativo. Códigos: TICKET-1756219017406-fh2k739l1, TICKET-JT1ZHCGOVQYIECOUAZCF, TICKET-1756219017407-usado123 (usado)", { duration: 8000 });
     } finally {
       setIsCreatingTestData(false);
     }
@@ -158,7 +160,7 @@ function ValidatorPage() {
                 userProfile={userProfile}
                 validationStatus={validationResult.status}
                 generateTestCode={generateTestCode}
-                createTestData={createTestData}
+                createTestData={import.meta.env.DEV ? createTestData : undefined}
                 isCreatingTestData={isCreatingTestData}
               />
             </CardContent>

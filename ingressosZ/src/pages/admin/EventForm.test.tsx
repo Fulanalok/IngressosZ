@@ -106,10 +106,10 @@ describe("EventForm Component", () => {
     // Max Tickets input
     // Available Tickets input
     
-    // Total number inputs: 1 (base) + 3*2 (nested) + 2 (total stock) = 9 inputs.
-    
+    // Total number inputs: 1 (base) + 3*2 (nested) + 2 (total stock) + 1 (maxPerPurchase) = 10 inputs.
+
     // Let's verify this count
-    expect(numberInputs).toHaveLength(9);
+    expect(numberInputs).toHaveLength(10);
     
     const standardPricingInput = numberInputs[1];
     const standardInventoryInput = numberInputs[2];

@@ -30,9 +30,47 @@ Sentry.init({
   integrations: [],
   tracesSampleRate: 1.0,
   profilesSampleRate: 1.0,
+  beforeSend(event) {
+    // Strip sensitive data before sending to Sentry
+    if (event.request?.cookies) delete event.request.cookies;
+    if (event.request?.headers) {
+      const h = event.request.headers as Record<string, string>;
+      delete h["authorization"];
+      delete h["x-signature"];
+      delete h["cookie"];
+    }
+    // Scrub email and payment IDs from extra context
+    if (event.extra) {
+      const extra = event.extra as Record<string, unknown>;
+      if (typeof extra.userEmail === "string")
+        extra.userEmail = "[redacted]";
+      if (typeof extra.paymentId === "string")
+        extra.paymentId = "[redacted]";
+    }
+    return event;
+  },
 });
 
 setGlobalOptions({ region: "southamerica-east1" });
+
+const MAX_PURCHASE_QUANTITY = 5;
+const MAX_PURCHASE_QUANTITY_HARD_CAP = 50;
+
+const resolveMaxPerPurchase = (eventData: {
+  maxPerPurchase?: number;
+}): number => {
+  const cfg = eventData.maxPerPurchase;
+  if (
+    typeof cfg === "number" &&
+    Number.isInteger(cfg) &&
+    cfg >= 1 &&
+    cfg <= MAX_PURCHASE_QUANTITY_HARD_CAP
+  ) {
+    return cfg;
+  }
+  return MAX_PURCHASE_QUANTITY;
+};
+
 const mercadopagoAccessToken = defineSecret("MP_ACCESS_TOKEN");
 const mpWebhookSecret = defineSecret("MP_WEBHOOK_SECRET");
 const jwtSecret = defineSecret("JWT_SECRET");
@@ -343,10 +381,25 @@ export const createPaymentPreference = onCall(
         "Muitas tentativas. Aguarde um momento e tente novamente."
       );
     }
-    if (!eventId || quantity < 1) {
+    if (!eventId || !Number.isInteger(quantity) || quantity < 1) {
       throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
     }
     const resolvedUserId = authUid;
+
+    if (paymentSessionId) {
+      const sessionRef = getFirestore()
+        .collection("paymentSessions")
+        .doc(paymentSessionId);
+      await getFirestore().runTransaction(async (tx) => {
+        const snap = await tx.get(sessionRef);
+        if (snap.exists) {
+          const status = (snap.data() as { status?: string })?.status;
+          if (status && status !== "pending") {
+            throw new HttpsError("already-exists", "Sessão já processada.");
+          }
+        }
+      });
+    }
 
     const eventDoc = await getFirestore()
       .collection("events")
@@ -362,7 +415,16 @@ export const createPaymentPreference = onCall(
       price?: number;
       title?: string;
       pricing?: Record<string, number>;
+      maxPerPurchase?: number;
     };
+
+    const maxAllowed = resolveMaxPerPurchase(eventData);
+    if (quantity > maxAllowed) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Máximo de ${maxAllowed} ingressos por compra.`
+      );
+    }
 
     if ((eventData.availableTickets || 0) < quantity) {
       throw new HttpsError(
@@ -504,7 +566,9 @@ export const createPaymentPreferencePublic = onRequest(
         !userId ||
         !userEmail ||
         !paymentSessionId ||
-        quantity < 1
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > MAX_PURCHASE_QUANTITY
       ) {
         res.status(400).json({ message: "Dados inválidos para compra." });
         return;
@@ -513,27 +577,45 @@ export const createPaymentPreferencePublic = onRequest(
       const paymentSessionRef = getFirestore()
         .collection("paymentSessions")
         .doc(paymentSessionId);
-      const paymentSessionSnap = await paymentSessionRef.get();
-      if (!paymentSessionSnap.exists) {
+      type SessionGuardResult =
+        | { ok: true }
+        | { ok: false; status: number; message: string };
+      const sessionResult = await getFirestore().runTransaction<SessionGuardResult>(
+        async (tx) => {
+          const snap = await tx.get(paymentSessionRef);
+          if (!snap.exists) {
+            return {
+              ok: false,
+              status: 404,
+              message: "Sessão de pagamento não encontrada.",
+            };
+          }
+          const data = snap.data() as {
+            userId?: string;
+            eventId?: string;
+            status?: string;
+          };
+          if (data.userId !== userId || data.eventId !== eventId) {
+            return {
+              ok: false,
+              status: 403,
+              message: "Sessão inválida para este usuário.",
+            };
+          }
+          if (data.status && data.status !== "pending") {
+            return {
+              ok: false,
+              status: 409,
+              message: "Sessão já processada.",
+            };
+          }
+          return { ok: true };
+        }
+      );
+      if (!sessionResult.ok) {
         res
-          .status(404)
-          .json({ message: "Sessão de pagamento não encontrada." });
-        return;
-      }
-      const paymentSession = paymentSessionSnap.data() as {
-        userId?: string;
-        eventId?: string;
-        status?: string;
-      };
-      if (
-        paymentSession.userId !== userId ||
-        paymentSession.eventId !== eventId
-      ) {
-        res.status(403).json({ message: "Sessão inválida para este usuário." });
-        return;
-      }
-      if (paymentSession.status && paymentSession.status !== "pending") {
-        res.status(409).json({ message: "Sessão já processada." });
+          .status(sessionResult.status)
+          .json({ message: sessionResult.message });
         return;
       }
 
@@ -553,7 +635,17 @@ export const createPaymentPreferencePublic = onRequest(
         title?: string;
         pricing?: Record<string, number>;
         inventory?: Record<string, number>;
+        maxPerPurchase?: number;
       };
+
+      const maxAllowed = resolveMaxPerPurchase(eventData);
+      if (quantity > maxAllowed) {
+        res.status(400).json({
+          message: `Máximo de ${maxAllowed} ingressos por compra.`,
+        });
+        return;
+      }
+
       let validType = "standard";
       if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
         validType = ticketType;
@@ -694,10 +786,25 @@ export const createPixPayment = onCall(
         "Muitas tentativas. Aguarde um momento e tente novamente."
       );
     }
-    if (!eventId || quantity < 1) {
+    if (!eventId || !Number.isInteger(quantity) || quantity < 1) {
       throw new HttpsError("invalid-argument", "Dados inválidos para compra.");
     }
     const resolvedUserId = authUid;
+
+    if (paymentSessionId) {
+      const sessionRef = getFirestore()
+        .collection("paymentSessions")
+        .doc(paymentSessionId);
+      await getFirestore().runTransaction(async (tx) => {
+        const snap = await tx.get(sessionRef);
+        if (snap.exists) {
+          const status = (snap.data() as { status?: string })?.status;
+          if (status && status !== "pending") {
+            throw new HttpsError("already-exists", "Sessão já processada.");
+          }
+        }
+      });
+    }
 
     const eventDoc = await getFirestore()
       .collection("events")
@@ -713,7 +820,16 @@ export const createPixPayment = onCall(
       price?: number;
       title?: string;
       pricing?: Record<string, number>;
+      maxPerPurchase?: number;
     };
+
+    const maxAllowed = resolveMaxPerPurchase(eventData);
+    if (quantity > maxAllowed) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Máximo de ${maxAllowed} ingressos por compra.`
+      );
+    }
 
     if ((eventData.availableTickets || 0) < quantity) {
       throw new HttpsError(
@@ -903,7 +1019,9 @@ export const createPixPaymentPublic = onRequest(
         !userId ||
         !userEmail ||
         !paymentSessionId ||
-        quantity < 1
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > MAX_PURCHASE_QUANTITY
       ) {
         res.status(400).json({ message: "Dados inválidos para compra." });
         return;
@@ -912,27 +1030,45 @@ export const createPixPaymentPublic = onRequest(
       const paymentSessionRef = getFirestore()
         .collection("paymentSessions")
         .doc(paymentSessionId);
-      const paymentSessionSnap = await paymentSessionRef.get();
-      if (!paymentSessionSnap.exists) {
+      type SessionGuardResult =
+        | { ok: true }
+        | { ok: false; status: number; message: string };
+      const sessionResult = await getFirestore().runTransaction<SessionGuardResult>(
+        async (tx) => {
+          const snap = await tx.get(paymentSessionRef);
+          if (!snap.exists) {
+            return {
+              ok: false,
+              status: 404,
+              message: "Sessão de pagamento não encontrada.",
+            };
+          }
+          const data = snap.data() as {
+            userId?: string;
+            eventId?: string;
+            status?: string;
+          };
+          if (data.userId !== userId || data.eventId !== eventId) {
+            return {
+              ok: false,
+              status: 403,
+              message: "Sessão inválida para este usuário.",
+            };
+          }
+          if (data.status && data.status !== "pending") {
+            return {
+              ok: false,
+              status: 409,
+              message: "Sessão já processada.",
+            };
+          }
+          return { ok: true };
+        }
+      );
+      if (!sessionResult.ok) {
         res
-          .status(404)
-          .json({ message: "Sessão de pagamento não encontrada." });
-        return;
-      }
-      const paymentSession = paymentSessionSnap.data() as {
-        userId?: string;
-        eventId?: string;
-        status?: string;
-      };
-      if (
-        paymentSession.userId !== userId ||
-        paymentSession.eventId !== eventId
-      ) {
-        res.status(403).json({ message: "Sessão inválida para este usuário." });
-        return;
-      }
-      if (paymentSession.status && paymentSession.status !== "pending") {
-        res.status(409).json({ message: "Sessão já processada." });
+          .status(sessionResult.status)
+          .json({ message: sessionResult.message });
         return;
       }
 
@@ -952,7 +1088,17 @@ export const createPixPaymentPublic = onRequest(
         title?: string;
         pricing?: Record<string, number>;
         inventory?: Record<string, number>;
+        maxPerPurchase?: number;
       };
+
+      const maxAllowed = resolveMaxPerPurchase(eventData);
+      if (quantity > maxAllowed) {
+        res.status(400).json({
+          message: `Máximo de ${maxAllowed} ingressos por compra.`,
+        });
+        return;
+      }
+
       let validType = "standard";
       if (ticketType && ["standard", "vip", "premium"].includes(ticketType)) {
         validType = ticketType;
@@ -1110,37 +1256,45 @@ export const receiveWebhook = onRequest(
     const xRequestId = request.headers["x-request-id"];
     const dataId = (request.body?.data as { id?: string } | undefined)?.id;
 
-    if (mpWebhookSecret.value()) {
-      if (!xSignature || !xRequestId || !dataId) {
-        logger.warn("Webhook sem assinatura ou ID.");
-        response.status(403).send("Forbidden");
-        return;
-      }
+    const webhookSecret = mpWebhookSecret.value();
+    if (!webhookSecret) {
+      // Secret obrigatório em produção — rejeitar para não aceitar webhooks forjados
+      logger.error(
+        "MP_WEBHOOK_SECRET não configurado. Rejeitando webhook por segurança."
+      );
+      response.status(403).send("Forbidden");
+      return;
+    }
 
-      const parts = String(xSignature).split(",");
-      let ts: string | undefined;
-      let hash: string | undefined;
+    if (!xSignature || !xRequestId || !dataId) {
+      logger.warn("Webhook sem assinatura ou ID.");
+      response.status(403).send("Forbidden");
+      return;
+    }
 
-      for (const part of parts) {
-        const [key, value] = part.split("=");
-        if (!key || !value) continue;
-        const trimmedKey = key.trim();
-        const trimmedValue = value.trim();
-        if (trimmedKey === "ts") ts = trimmedValue;
-        if (trimmedKey === "v1") hash = trimmedValue;
-      }
+    const parts = String(xSignature).split(",");
+    let ts: string | undefined;
+    let hash: string | undefined;
 
-      const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-      const hmac = createHmac("sha256", mpWebhookSecret.value());
-      const digest = hmac.update(manifest).digest("hex");
+    for (const part of parts) {
+      const [key, value] = part.split("=");
+      if (!key || !value) continue;
+      const trimmedKey = key.trim();
+      const trimmedValue = value.trim();
+      if (trimmedKey === "ts") ts = trimmedValue;
+      if (trimmedKey === "v1") hash = trimmedValue;
+    }
 
-      if (hash !== digest) {
-        logger.error(
-          "Assinatura do Webhook inválida! Possível tentativa de fraude."
-        );
-        response.status(403).send("Forbidden");
-        return;
-      }
+    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+    const hmac = createHmac("sha256", webhookSecret);
+    const digest = hmac.update(manifest).digest("hex");
+
+    if (hash !== digest) {
+      logger.error(
+        "Assinatura do Webhook inválida! Possível tentativa de fraude."
+      );
+      response.status(403).send("Forbidden");
+      return;
     }
 
     const { body } = request;
@@ -1157,19 +1311,47 @@ export const receiveWebhook = onRequest(
           payment.metadata &&
           payment.additional_info?.items
         ) {
-          const {
-            eventId,
-            userId: metadataUserId,
-            userEmail: metadataEmail,
-            ticketType: metadataTicketType,
-            paymentSessionId: metadataPaymentSessionId,
-          } = payment.metadata as {
-            eventId: string;
-            userId?: string;
-            userEmail?: string;
-            ticketType?: string;
-            paymentSessionId?: string;
-          };
+          const meta =
+            payment.metadata &&
+            typeof payment.metadata === "object"
+              ? (payment.metadata as Record<string, unknown>)
+              : {};
+          const eventId =
+            typeof meta.event_id === "string"
+              ? meta.event_id
+              : typeof meta.eventId === "string"
+                ? meta.eventId
+                : undefined;
+          const metadataUserId =
+            typeof meta.user_id === "string"
+              ? meta.user_id
+              : typeof meta.userId === "string"
+                ? meta.userId
+                : undefined;
+          const metadataEmail =
+            typeof meta.user_email === "string"
+              ? meta.user_email
+              : typeof meta.userEmail === "string"
+                ? meta.userEmail
+                : undefined;
+          const metadataTicketType =
+            typeof meta.ticket_type === "string"
+              ? meta.ticket_type
+              : typeof meta.ticketType === "string"
+                ? meta.ticketType
+                : undefined;
+          const metadataPaymentSessionId =
+            typeof meta.payment_session_id === "string"
+              ? meta.payment_session_id
+              : typeof meta.paymentSessionId === "string"
+                ? meta.paymentSessionId
+                : undefined;
+
+          if (!eventId) {
+            logger.warn("Webhook sem eventId no metadata. Ignorando.", { paymentId });
+            response.status(200).send("OK");
+            return;
+          }
           let resolvedTicketType = "standard";
           if (
             metadataTicketType &&
@@ -1424,15 +1606,30 @@ export const receiveWebhook = onRequest(
             `Compra processada para ${resolvedUserId} no evento ${eventId}.`
           );
 
-          await sendPurchaseEmail(newPurchaseRef.id, {
+          // Email is best-effort: failure must not affect ticket generation or
+          // cause MP to retry the webhook (which would duplicate tickets).
+          sendPurchaseEmail(newPurchaseRef.id, {
             userId: resolvedUserId,
             eventId,
             ticketsCount,
             accountCreated,
+          }).catch((emailErr) => {
+            logger.error(
+              `Falha ao enviar email de confirmação para compra ${newPurchaseRef.id}:`,
+              emailErr
+            );
           });
         }
       } catch (error) {
-        logger.error("Erro ao processar notificação de pagamento:", error);
+        // Real processing failure — return 500 so Mercado Pago retries the webhook.
+        logger.error("Erro ao processar notificação de pagamento:", {
+          error,
+          paymentId,
+          notificationType: body?.type,
+          notificationAction: body?.action,
+        });
+        response.status(500).send("Internal Server Error");
+        return;
       }
     }
 
@@ -1543,15 +1740,20 @@ export const validateTicket = onRequest(
           return;
         }
 
-        const {
-          tid: ticketId,
-          eid: eventId,
-          uid: userId,
-        } = decoded as {
-          tid: string;
-          eid: string;
-          uid: string;
-        };
+        const decodedPayload =
+          typeof decoded === "object" && decoded !== null ? decoded : {};
+        const ticketId =
+          typeof (decodedPayload as Record<string, unknown>).tid === "string"
+            ? ((decodedPayload as Record<string, unknown>).tid as string)
+            : undefined;
+        const eventId =
+          typeof (decodedPayload as Record<string, unknown>).eid === "string"
+            ? ((decodedPayload as Record<string, unknown>).eid as string)
+            : undefined;
+        const userId =
+          typeof (decodedPayload as Record<string, unknown>).uid === "string"
+            ? ((decodedPayload as Record<string, unknown>).uid as string)
+            : undefined;
 
         if (!ticketId || !eventId) {
           res.status(400).json({
@@ -1624,8 +1826,10 @@ export const validateTicket = onRequest(
         let holderEmail = "N/A";
 
         try {
-          const userRecord = await admin.auth().getUser(userId);
-          holderEmail = userRecord.email || "N/A";
+          if (userId) {
+            const userRecord = await admin.auth().getUser(userId);
+            holderEmail = userRecord.email || "N/A";
+          }
         } catch {
           logger.warn("Usuário do ingresso não encontrado:", userId);
         }
