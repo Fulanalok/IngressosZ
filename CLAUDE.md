@@ -1,99 +1,149 @@
-# IngressosZ - Documentação e Visão do Projeto
+# IngressosZ - Project Documentation and Vision
 
-Este arquivo serve como guia de referência para desenvolvedores e IAs que trabalham no IngressosZ. Ele detalha a filosofia, a direção do projeto e as diretrizes técnicas para garantir consistência e eficiência.
+This file serves as a reference guide for developers and AIs working on IngressosZ. It details the philosophy, project direction, and technical guidelines to ensure consistency and efficiency.
 
-## 🚀 Visão Geral
+## 🚀 Overview
 
-O **IngressosZ** é uma plataforma dedicada de venda e validação de ingressos, projetada para ser utilizada por uma **única empresa** (single-company). O objetivo é oferecer uma experiência premium, segura e extremamente simples tanto para o organizador quanto para o cliente final.
+**IngressosZ** is a dedicated ticket sales and validation platform, designed to be used by a **single company** (single-company). The goal is to offer a premium, secure, and extremely simple experience for both the organizer and the end customer.
 
-## 🧠 Filosofia do Projeto
+## 🧠 Project Philosophy
 
-- **Simplicidade Dedicada**: O sistema não é um marketplace multi-empresa. Ele é otimizado para os eventos de uma única entidade, o que simplifica a lógica de permissões e a navegação.
-- **Eficiência de Custo (Low Firestore Footprint)**: A arquitetura deve priorizar o baixo consumo de recursos do Firebase.
-  - Use `getDocs` para dados estáticos ou que mudam pouco (ex: "Meus Ingressos").
-  - Use `onSnapshot` criteriosamente (ex: Lista de eventos e Dashboard do Admin) para manter a UX em tempo real onde realmente importa.
-- **Interface Responsiva e Premium**: Design mobile-first, com foco em usabilidade em qualquer dispositivo. A experiência no celular deve ser tão fluida quanto em um app nativo.
+- **Dedicated Simplicity**: The system is not a multi-company marketplace. It is optimized for the events of a single entity, which simplifies permission logic and navigation.
+- **Cost Efficiency (Low Firestore Footprint)**: The architecture must prioritize low consumption of Firebase resources.
+  - Use `getDocs` for static data or data that changes little (e.g., "My Tickets").
+  - Use `onSnapshot` judiciously (e.g., Event list and Admin Dashboard) to keep UX real-time where it really matters.
+- **Responsive and Premium Interface**: Mobile-first design, focusing on usability on any device. The mobile experience should be as fluid as a native app.
 
-- **Cor Principal**: Azul Monocromático (Premium Blue).
-- **Tipografia**: **Outfit** (Google Fonts).
-- **Estética**: Glassmorphism (`glass-card`), bordas arredondadas (`rounded-xl` / `rounded-2xl`), sombras suaves e textos com gradiente (`blue-gradient-text`).
-- **Diretriz**: Utilizar a paleta de azuis definida em `index.css` para criar profundidade e um visual de SaaS moderno. Evite cores vibrantes fora da escala de azul, exceto para alertas críticos.
+- **Primary Color**: Monochromatic Blue (Premium Blue).
+- **Typography**: **Outfit** (Google Fonts).
+- **Aesthetics**: Glassmorphism (`glass-card`), rounded borders (`rounded-xl` / `rounded-2xl`), soft shadows, and text with gradients (`blue-gradient-text`).
+- **Guideline**: Use the blue palette defined in `index.css` to create depth and a modern SaaS look. Avoid vibrant colors outside the blue scale, except for critical alerts.
 
-## 🧭 Roadmap e Futuro
+## 🧭 Roadmap and Future
 
-O que queremos que o IngressosZ se torne:
+What we want IngressosZ to become:
 
-- **Validação Offline/Segura**: Aperfeiçoamento da validação de QR Code assinado.
+- **Offline/Secure Validation**: Improvement of signed QR Code validation.
 
-## 🚩 Pendências e Próximos Passos (Abril 2026)
+## 🚩 Pending Tasks and Next Steps (April 2026)
 
-### Alta Prioridade — Validação em Produção
+### High Priority — Production Validation
 
-- [ ] **Testar fluxo de pagamento end-to-end**: MP_ACCESS_TOKEN configurado, Functions deployadas com `getFirestore()`. Precisa validar compra com cartão e PIX em produção.
-- [ ] **Configurar Webhook no Mercado Pago**: A URL `receiveWebhook` precisa ser registrada no painel do MP para que pagamentos aprovados gerem ingressos automaticamente.
+- [ ] **Test end-to-end payment flow**: MP_ACCESS_TOKEN configured, Functions deployed with `getFirestore()`. Need to validate purchase with credit card and PIX in production.
+- [ ] **Configure Webhook in Mercado Pago**: The `receiveWebhook` URL needs to be registered in the MP dashboard so that approved payments generate tickets automatically.
   - URL: `https://<region>-<your-project>.cloudfunctions.net/receiveWebhook`
-- [ ] **Login (auth/invalid-credential)**: Validar credenciais de usuário admin no Firebase Console.
+- [ ] **Login (auth/invalid-credential)**: Validate admin user credentials in the Firebase Console.
 
+### UI/UX & Features
 
+- [ ] **PIX Checkout**: Validate Base64 QR Code in the modal after payment is approved via webhook.
+- [ ] **PWA icon**: `pwa-192.png` missing in build — console error (non-critical).
+- [ ] **App Check**: Enable in production (Auth, Firestore, Functions, Storage) for additional security.
 
-### UI/UX & Funcionalidades
+## 🛠️ Development Guidelines
 
-- [ ] **Checkout PIX**: Validar QR Code Base64 no modal após pagamento aprovado via webhook.
-- [ ] **PWA icon**: `pwa-192.png` ausente no build — erro no console (não crítico).
-- [ ] **App Check**: Habilitar em produção (Auth, Firestore, Functions, Storage) para segurança adicional.
+Always tell me before you do something what Agent Model I should use for the work and why.
 
+Use Claude Sonnet for: code implementation, general questions, data analysis, and document summarization.
+Use Claude Opus for: complex architecture decisions, more refined writing, and critical bug diagnostics.
+Use Claude Haiku for: quick answers, day-to-day demands, and simple tasks.
 
-## 🛠️ Diretrizes de Desenvolvimento
-
-Use o Claude Sonnet para: implementação de código, perguntas gerais, análise de dados e resumo de documentos.
-Use o Claude Opus para: decisões complexas de arquitetura, escrita mais refinada e diagnóstico crítico de bugs.
-Use o Claude Haiku para: respostas rápidas, demandas do dia a dia e tarefas simples.
-
-### Stack Técnica
+### Tech Stack
 
 - **Frontend**: React 19, Vite 7, TypeScript, Tailwind CSS v4.
-- **Roteamento**: React Router v7.
-- **Dados**: TanStack Query v5 + Firebase Firestore.
+- **Routing**: React Router v7.
+- **Data**: TanStack Query v5 + Firebase Firestore.
 - **Backend**: Firebase Functions v2 (Node.js 24).
 
-### Arquitetura de Componentes (`src/components/`)
+### Component Architecture (`src/components/`)
 
-- `admin/` — Telas e modais exclusivos do painel administrativo
-- `common/` — Componentes genéricos e utilitários
-- `dev/` — Ferramentas visíveis apenas em ambiente local (desenvolvimento)
-- `event/` — Tudo relacionado a exibição e manipulação de Eventos
-- `layout/` — Estrutura visual global (Navbar, etc.)
-- `qr/` — Geração e leitura de QR Codes (produção)
-- `ticket/` — Exibição de ingressos
-- `ui/` — Componentes base genéricos (Botões, Inputs, Cards, etc.)
-- `validator/` — Fluxo de validação de ingressos na portaria
+- `admin/` — Exclusive screens and modals for the administrative panel
+- `common/` — Generic and utility components
+- `dev/` — Tools visible only in local environment (development)
+- `event/` — Everything related to Event display and manipulation
+- `layout/` — Global visual structure (Navbar, etc.)
+- `qr/` — QR Code generation and reading (production)
+- `ticket/` — Ticket display
+- `ui/` — Generic base components (Buttons, Inputs, Cards, etc.)
+- `validator/` — Ticket validation flow at the entrance
 
-### Padrões de Código
+### Project Architecture
 
-- **Lógica e UI**: Mantenha a lógica complexa de dados em custom hooks ou serviços. Componentes devem se focar em renderização e UI.
-- **Estilização**: Use apenas Tailwind CSS v4. Evite CSS inline ou bibliotecas de componentes pesadas.
-- **Tipagem**: TypeScript rigoroso. Evite `any`.
-- **Segurança**: Regras do Firestore e Storage devem ser restritivas. Validação de tickets deve ser feita via HTTPS autenticado nas Functions.
-- **Admin SDK**: Sempre usar `getFirestore()` de `firebase-admin/firestore`, não `admin.firestore()`.
+📁 src/components/
+├── 📁 admin/ # Exclusive screens and modals for the administrative panel
+│ ├── AdminDashboard.tsx
+│ ├── AttendeeList.tsx
+│ └── SetAdminRole.tsx
+│
+├── 📁 common/ # Generic and utility components
+│ ├── GlobalErrorFallback.tsx
+│ └── SEO.tsx
+│
+├── 📁 dev/ # Tools visible only in local environment (development)
+│ ├── CameraTest.tsx
+│ ├── DevPanel.tsx
+│ ├── FirebaseDebug.tsx
+│ ├── QRGenerator.tsx
+│ └── QRTestDisplay.tsx
+│
+├── 📁 event/ # Everything related to Event display and manipulation
+│ ├── EventCard.tsx
+│ ├── EventCardSkeleton.tsx
+│ ├── EventDetailSkeleton.tsx
+│ ├── EventHeader.tsx
+│ ├── EventInfo.tsx
+│ ├── ShareButtons.tsx
+│ └── TicketPurchase.tsx
+│
+├── 📁 layout/ # Global visual structure
+│ ├── Navbar.tsx
+│ └── ThemeToggle.tsx
+│
+├── 📁 qr/ # QR Code generation and reading (production)
+│ ├── QRCodeDisplay.tsx
+│ └── QRScanner.tsx
+│
+├── 📁 ticket/ # Ticket display
+│ ├── Ticket.tsx
+│ └── TicketSkeleton.tsx
+│
+├── 📁 ui/ # Generic base components (Buttons, Inputs, Cards, etc.)
+│ ├── button.tsx
+│ ├── card.tsx
+│ ├── input.tsx
+│ └── skeleton.tsx
+│
+└── 📁 validator/ # Ticket validation flow at the entrance
+├── ScannerSection.tsx
+├── ValidationResult.tsx
+└── ValidatorForm.tsx
 
-### Comandos Úteis
+### Code Standards
 
-- `npm run dev`: Iniciar o frontend localmente.
-- `npm test`: Executar suite de testes (286 passing).
-- `firebase deploy --only hosting`: Deploy do frontend.
-- `firebase deploy --only functions`: Deploy do backend.
-- `firebase functions:log`: Ver logs de runtime em produção.
+- **Logic and UI**: Keep complex data logic in custom hooks or services. Components should focus on rendering and UI.
+- **Styling**: Use only Tailwind CSS v4. Avoid inline CSS or heavy component libraries.
+- **Typing**: Strict TypeScript. Avoid `any`.
+- **Security**: Firestore and Storage rules must be restrictive. Ticket validation must be done via authenticated HTTPS in Functions.
+- **Admin SDK**: Always use `getFirestore()` from `firebase-admin/firestore`, not `admin.firestore()`.
+
+### Useful Commands
+
+- `npm run dev`: Start the frontend locally.
+- `npm test`: Run test suite (286 passing).
+- `firebase deploy --only hosting`: Frontend deploy.
+- `firebase deploy --only functions`: Backend deploy.
+- `firebase functions:log`: View runtime logs in production.
 
 ---
 
-_Este documento é vivo e deve ser atualizado conforme o projeto evolui._
+_This document is alive and should be updated as the project evolves._
 
 <!-- code-review-graph MCP tools -->
 
 ## MCP Tools: code-review-graph
 
 **IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+code-review-graph MCP tools and NEVER use Grep/Glob/Read to explore
 the codebase.** The graph is faster, cheaper (fewer tokens), and gives
 you structural context (callers, dependents, test coverage) that file
 scanning cannot.
@@ -106,7 +156,7 @@ scanning cannot.
 - **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
 - **Architecture questions**: `get_architecture_overview` + `list_communities`
 
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+Never fall back to Grep/Glob/Read
 
 ### Key Tools
 

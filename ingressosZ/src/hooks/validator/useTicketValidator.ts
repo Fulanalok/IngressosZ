@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { logger } from "../../services/logger";
 import { TestDataService } from "../../services/testDataService";
-import { useAuth } from "../useAuth";
+import { useAuth } from "@/hooks/auth/useAuth";
 
 export interface TicketData {
   eventTitle: string;

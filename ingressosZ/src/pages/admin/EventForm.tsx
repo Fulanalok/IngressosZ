@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload, X, ImageIcon, ChevronRight } from "lucide-react";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import type { Event } from "../../types";
-import { storageService } from "../../services/storage";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { Event } from "@/types";
+import { storageService } from "@/services/storage";
 
 interface EventFormProps {
   initialData?: Event | null;

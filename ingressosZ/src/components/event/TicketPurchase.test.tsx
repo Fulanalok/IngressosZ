@@ -15,7 +15,7 @@ const mockCheckout = {
   error: null as string | null,
 };
 
-vi.mock("@/hooks/useMercadoPagoCheckout", () => ({
+vi.mock("@/hooks/payment/useMercadoPagoCheckout", () => ({
   useMercadoPagoCheckout: () => mockCheckout,
 }));
 

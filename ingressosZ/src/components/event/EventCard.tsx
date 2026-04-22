@@ -19,7 +19,7 @@ function EventCard({ event }: EventCardProps) {
       queryFn: () => eventService.getEventById(event.id),
     });
     // Pré-carregar também o chunk da página de detalhes
-    import("@/pages/EventDetailPage").catch(() => void 0);
+    import("@/pages/event/EventDetailPage").catch(() => void 0);
     if (!imagePrefetchedRef.current && event.image) {
       imagePrefetchedRef.current = true;
       const img = new Image();

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Users as UsersIcon, Plus, Calendar, Settings, X } from "lucide-react";
-import SetAdminRole from "../../components/admin/SetAdminRole";
-import AdminDashboard, { type EventMetric } from "../../components/admin/AdminDashboard";
-import AttendeeList from "../../components/admin/AttendeeList";
-import { Button } from "../../components/ui/button";
-import { useAuth } from "../../hooks/useAuth";
-import { adminRealtimeService, eventService, paymentService } from "../../services/firestore";
-import type { Event, PaymentSession, Ticket } from "../../types";
+import SetAdminRole from "@/components/admin/SetAdminRole";
+import AdminDashboard, { type EventMetric } from "@/components/admin/AdminDashboard";
+import AttendeeList from "@/components/admin/AttendeeList";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { adminRealtimeService, eventService, paymentService } from "@/services/firestore";
+import type { Event, PaymentSession, Ticket } from "@/types";
 import { EventForm } from "./EventForm";
 
 // ─── Event Form Modal ──────────────────────────────────────────────────────────

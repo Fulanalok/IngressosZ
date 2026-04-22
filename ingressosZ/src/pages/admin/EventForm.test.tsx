@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EventForm } from "./EventForm";
-import type { Event } from "../../types";
-import { storageService } from "../../services/storage";
+import type { Event } from "@/types";
+import { storageService } from "@/services/storage";
 
 // Mock storageService
 vi.mock("../../services/storage", () => ({

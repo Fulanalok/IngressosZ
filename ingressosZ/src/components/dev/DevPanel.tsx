@@ -2,7 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { functions } from '@/firebaseConfig';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/auth/useAuth';
 import { seedSampleEvents } from '@/utils/seedData';
 
 function DevPanel() {

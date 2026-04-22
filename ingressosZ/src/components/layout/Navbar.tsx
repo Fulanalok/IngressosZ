@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/auth/useAuth';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { Button } from '@/components/ui/button';
 

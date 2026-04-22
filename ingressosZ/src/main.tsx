@@ -5,7 +5,7 @@ import App from "./App";
 import "./index.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/context/AuthProvider";
+import { AuthProvider } from "@/context/auth/AuthProvider";
 import { HelmetProvider } from "@dr.pogodin/react-helmet";
 
 const queryClient = new QueryClient({

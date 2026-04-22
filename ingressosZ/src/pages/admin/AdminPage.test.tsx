@@ -1,8 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import AdminPage from "./AdminPage";
-import { eventService, adminRealtimeService, paymentService } from "../../services/firestore";
-import { useAuth } from "../../hooks/useAuth";
+import { eventService, adminRealtimeService, paymentService } from "@/services/firestore";
+import { useAuth } from "@/hooks/auth/useAuth";
 
 vi.mock("../../services/firestore", () => ({
   eventService: {
@@ -34,7 +34,7 @@ vi.mock("../../services/firestore", () => ({
   },
 }));
 
-vi.mock("../../hooks/useAuth", () => ({
+vi.mock("@/hooks/auth/useAuth", () => ({
   useAuth: vi.fn().mockReturnValue({
     userProfile: { uid: "admin-uid", role: "admin" },
   }),

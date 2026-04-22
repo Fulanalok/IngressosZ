@@ -4,7 +4,7 @@ import type { User } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { expect, test, vi } from "vitest";
 import App from "../App";
-import { AuthContext, type AuthContextType } from "../context/authContext";
+import { AuthContext, type AuthContextType } from "@/context/auth/authContext";
 import type { UserProfile } from "../types";
 
 function createClient() {
@@ -13,16 +13,16 @@ function createClient() {
   });
 }
 
-vi.mock("@/pages/Login", () => ({
+vi.mock("@/pages/auth/Login", () => ({
   default: () => <div>Bem-vindo de volta!</div>,
 }));
-vi.mock("@/pages/HomePage", () => ({
+vi.mock("@/pages/event/HomePage", () => ({
   default: () => <div>Explorar Eventos</div>,
 }));
-vi.mock("@/pages/EventsPage", () => ({
+vi.mock("@/pages/event/EventsPage", () => ({
   default: () => <div>Lista de Eventos</div>,
 }));
-vi.mock("@/pages/ValidatorPage", () => ({
+vi.mock("@/pages/validator/ValidatorPage", () => ({
   default: () => <div>Resultado da Validação</div>,
 }));
 

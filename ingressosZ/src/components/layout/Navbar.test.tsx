@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "@/hooks/auth/useAuth";
 import Navbar from "./Navbar";
 
-vi.mock("../hooks/useAuth");
+vi.mock("@/hooks/auth/useAuth");
 
 vi.mock("./ThemeToggle", () => ({
   default: () => <button aria-label="Toggle theme" />,

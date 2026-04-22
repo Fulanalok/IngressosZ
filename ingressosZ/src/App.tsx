@@ -2,8 +2,8 @@ import DevPanel from "@/components/dev/DevPanel";
 import FirebaseDebug from "@/components/dev/FirebaseDebug";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { ThemeProvider } from "@/context/ThemeContext";
-import { useAuth } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/context/theme/ThemeContext";
+import { useAuth } from "@/hooks/auth/useAuth";
 import { logger } from "@/services/logger";
 import { QueryErrorResetBoundary } from "@tanstack/react-query";
 import React, { Suspense, lazy, useEffect } from "react";
@@ -18,25 +18,25 @@ import {
 import { Toaster } from "sonner";
 
 const EventDetailPage = lazy(() =>
-  import("@/pages/EventDetailPage").then((module) => ({
+  import("@/pages/event/EventDetailPage").then((module) => ({
     default: module.default,
   }))
 );
-const EventsPage = lazy(() => import("@/pages/EventsPage"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
-const Login = lazy(() => import("@/pages/Login"));
-const MyTicketsPage = lazy(() => import("@/pages/MyTicketsPage"));
-const DevAutoPage = lazy(() => import("@/pages/DevAutoPage"));
-const PaymentCanceled = lazy(() => import("@/pages/PaymentCanceled"));
-const PaymentSuccess = lazy(() => import("@/pages/PaymentSuccess"));
-const QRTestPage = lazy(() => import("@/pages/QRTestPage"));
-const SignUp = lazy(() => import("@/pages/SignUp"));
-const ValidatorPage = lazy(() => import("@/pages/ValidatorPage"));
-const DocViewPage = lazy(() => import("@/pages/DocView"));
-const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const EventsPage = lazy(() => import("@/pages/event/EventsPage"));
+const HomePage = lazy(() => import("@/pages/event/HomePage"));
+const Login = lazy(() => import("@/pages/auth/Login"));
+const MyTicketsPage = lazy(() => import("@/pages/event/MyTicketsPage"));
+const DevAutoPage = lazy(() => import("@/pages/dev/DevAutoPage"));
+const PaymentCanceled = lazy(() => import("@/pages/checkout/PaymentCanceled"));
+const PaymentSuccess = lazy(() => import("@/pages/checkout/PaymentSuccess"));
+const QRTestPage = lazy(() => import("@/pages/dev/QRTestPage"));
+const SignUp = lazy(() => import("@/pages/auth/SignUp"));
+const ValidatorPage = lazy(() => import("@/pages/validator/ValidatorPage"));
+const DocViewPage = lazy(() => import("@/pages/dev/DocView"));
+const ProfilePage = lazy(() => import("@/pages/auth/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/admin/AdminPage"));
-const TermsPage = lazy(() => import("@/pages/TermsPage"));
-const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazy(() => import("@/pages/legal/TermsPage"));
+const PrivacyPage = lazy(() => import("@/pages/legal/PrivacyPage"));
 
 function App() {
   function RequireAuth({ children }: { children: React.ReactNode }) {

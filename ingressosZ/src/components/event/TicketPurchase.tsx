@@ -1,7 +1,7 @@
 import QRCodeDisplay from "@/components/qr/QRCodeDisplay";
 import { Button } from "@/components/ui/button";
 import { TICKET_TYPES } from "@/constants/ticketTypes";
-import { useMercadoPagoCheckout } from "@/hooks/useMercadoPagoCheckout";
+import { useMercadoPagoCheckout } from "@/hooks/payment/useMercadoPagoCheckout";
 import type { Event } from "@/types";
 import { StatusScreen, Wallet } from "@mercadopago/sdk-react";
 import type { User } from "firebase/auth";
