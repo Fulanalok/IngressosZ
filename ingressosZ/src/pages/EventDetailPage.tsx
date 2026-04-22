@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "@dr.pogodin/react-helmet";
-import { EventDetailSkeleton } from "@/components/EventDetailSkeleton";
+import { EventDetailSkeleton } from "@/components/event/EventDetailSkeleton";
 import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
 import { TicketPurchase, ShareButtons } from "@/components/event";

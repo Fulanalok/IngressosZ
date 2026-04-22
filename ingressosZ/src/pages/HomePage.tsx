@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import EventCard from "@/components/EventCard";
-import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import EventCard from "@/components/event/EventCard";
+import { EventCardSkeleton } from "@/components/event/EventCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {

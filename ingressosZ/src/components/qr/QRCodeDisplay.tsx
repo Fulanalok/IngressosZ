@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { QRCodeService } from "../services/qrCodeService";
+import { QRCodeService } from '@/services/qrCodeService';
 
 interface QRCodeDisplayProps {
   qrCode: string;

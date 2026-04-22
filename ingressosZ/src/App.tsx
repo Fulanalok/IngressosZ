@@ -1,6 +1,6 @@
-import DevPanel from "@/components/DevPanel";
-import FirebaseDebug from "@/components/FirebaseDebug";
-import Navbar from "@/components/Navbar";
+import DevPanel from "@/components/dev/DevPanel";
+import FirebaseDebug from "@/components/dev/FirebaseDebug";
+import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useAuth } from "@/hooks/useAuth";

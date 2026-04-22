@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
-import ThemeToggle from "./ThemeToggle";
-import { Button } from "./ui/button";
+import { useAuth } from '@/hooks/useAuth';
+import ThemeToggle from '@/components/layout/ThemeToggle';
+import { Button } from '@/components/ui/button';
 
 function Navbar() {
   const { userProfile, signOut } = useAuth();

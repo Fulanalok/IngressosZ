@@ -23,8 +23,6 @@ O **IngressosZ** é uma plataforma dedicada de venda e validação de ingressos,
 
 O que queremos que o IngressosZ se torne:
 
-- **Profissionalismo na Entrega**: Geração de ingressos em PDF e e-mails transacionais em HTML premium. ✅ Concluído.
-- **Dashboard de Gestão**: Painel do organizador com métricas de vendas em tempo real. ✅ Concluído.
 - **Validação Offline/Segura**: Aperfeiçoamento da validação de QR Code assinado.
 
 ## 🚩 Pendências e Próximos Passos (Abril 2026)
@@ -36,11 +34,7 @@ O que queremos que o IngressosZ se torne:
   - URL: `https://<region>-<your-project>.cloudfunctions.net/receiveWebhook`
 - [ ] **Login (auth/invalid-credential)**: Validar credenciais de usuário admin no Firebase Console.
 
-### Infraestrutura / Dev
 
-- [x] **CORS para desenvolvimento local**: Regex aceita qualquer `localhost:*`.
-- [x] **WEB_BASE_URL**: Configurado em `functions/.env.<your-firebase-project-id>`.
-- [x] **Firebase Admin SDK v13**: Migrado de `admin.firestore()` para `getFirestore()`.
 
 ### UI/UX & Funcionalidades
 
@@ -48,38 +42,11 @@ O que queremos que o IngressosZ se torne:
 - [ ] **PWA icon**: `pwa-192.png` ausente no build — erro no console (não crítico).
 - [ ] **App Check**: Habilitar em produção (Auth, Firestore, Functions, Storage) para segurança adicional.
 
-## ✅ Concluído
-
-### Funcionalidades Principais
-
-- [x] **UI Premium Blue completa**: Home, Eventos, Compra, Meus Ingressos, Validador, Admin.
-- [x] **Checkout Mercado Pago**: Preferência gerada no backend (callable + endpoint público).
-- [x] **Webhook com verificação HMAC**: `receiveWebhook` valida assinatura do MP.
-- [x] **Emissão de tickets com QR Code assinado**: JWT + Firestore.
-- [x] **Validador presencial**: Endpoint HTTP autenticado + UI com scanner.
-- [x] **Painel Admin**: CRUD de eventos, inventário por tipo, modal com aviso de formulário não salvo.
-- [x] **Dashboard do Organizador**: Métricas em tempo real (receita, ingressos, check-ins, gráficos).
-- [x] **E-mails transacionais Premium Blue**: Template HTML azulado via SMTP.
-- [x] **PDF de ingresso redesenhado**: QR Code azul, estética de ticket, Blob URL (sem popup blocker).
-- [x] **Proteção duplo clique no checkout**: Gate por `paymentStatus === "processing"`.
-- [x] **Aviso de formulário não salvo**: `isDirty` state no EventForm + confirmação ao fechar.
-- [x] **Páginas legais**: Termos de Uso (`/termos`) e Política de Privacidade (`/privacidade`) com LGPD.
-- [x] **Upload e otimização de imagens**: Storage + Cloud Function `optimizeImage`.
-- [x] **Observabilidade**: Sentry (frontend e backend).
-
-### Qualidade de Código
-
-- [x] **Limpeza de arquivos `.js` duplicados**: Removidos 72 artefatos de compilação TS de `src/`.
-- [x] **286 testes passando**: Vitest + Testing Library cobrindo todos os componentes críticos.
-  - `EventCard`, `Navbar`, `AttendeeList`, `TicketPurchase`, `ValidatorPage`, `AdminPage`
-  - `AdminDashboard`, `SetAdminRole`, `ScannerSection`, `ValidationResult`, `ValidatorForm`
-- [x] **Firebase Admin SDK v13**: `admin.firestore()` → `getFirestore()` em todas as Functions.
-- [x] **Dependências atualizadas**: Minor/patch de todos os pacotes (tailwindcss 4.2, firebase 12.11, vite 7.3, etc.).
 
 ## 🛠️ Diretrizes de Desenvolvimento
 
-Use o Claude Sonet para: implementação de código, perguntas gerai, análise de dado e resumo de documentos.
-Use o Claude Opus para: decisões complexas de arquitetura, escrita mais refinada e diagnóstico critico de bugs.
+Use o Claude Sonnet para: implementação de código, perguntas gerais, análise de dados e resumo de documentos.
+Use o Claude Opus para: decisões complexas de arquitetura, escrita mais refinada e diagnóstico crítico de bugs.
 Use o Claude Haiku para: respostas rápidas, demandas do dia a dia e tarefas simples.
 
 ### Stack Técnica
@@ -88,6 +55,18 @@ Use o Claude Haiku para: respostas rápidas, demandas do dia a dia e tarefas sim
 - **Roteamento**: React Router v7.
 - **Dados**: TanStack Query v5 + Firebase Firestore.
 - **Backend**: Firebase Functions v2 (Node.js 24).
+
+### Arquitetura de Componentes (`src/components/`)
+
+- `admin/` — Telas e modais exclusivos do painel administrativo
+- `common/` — Componentes genéricos e utilitários
+- `dev/` — Ferramentas visíveis apenas em ambiente local (desenvolvimento)
+- `event/` — Tudo relacionado a exibição e manipulação de Eventos
+- `layout/` — Estrutura visual global (Navbar, etc.)
+- `qr/` — Geração e leitura de QR Codes (produção)
+- `ticket/` — Exibição de ingressos
+- `ui/` — Componentes base genéricos (Botões, Inputs, Cards, etc.)
+- `validator/` — Fluxo de validação de ingressos na portaria
 
 ### Padrões de Código
 

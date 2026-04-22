@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { QRCodeService } from "../services/qrCodeService";
+import { QRCodeService } from '@/services/qrCodeService';
 
 interface QRGeneratorProps {
   onGenerate?: (qrData: string) => void;

@@ -30,7 +30,11 @@
       "mcp__code-review-graph__semantic_search_nodes_tool",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr *)",
+      "Bash(npm i *)",
+      "mcp__code-review-graph__detect_changes_tool"
     ],
     "additionalDirectories": [
       "C:\\Users\\lucasvilhena"

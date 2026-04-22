@@ -40,6 +40,16 @@
 ## 🧭 Estrutura do monorepo
 
 - **/ingressosZ**: SPA em React
+  - **/src/components**: Componentes organizados por contexto:
+    - `admin/` — Painel administrativo
+    - `common/` — Componentes genéricos e utilitários
+    - `dev/` — Ferramentas visíveis apenas em desenvolvimento
+    - `event/` — Exibição e manipulação de Eventos
+    - `layout/` — Estrutura visual global
+    - `qr/` — Geração e leitura de QR Codes
+    - `ticket/` — Exibição de ingressos
+    - `ui/` — Componentes base (Botões, Inputs, Cards)
+    - `validator/` — Fluxo de validação de ingressos na portaria
 - **/functions**: Cloud Functions v2
 - **firebase.json**: hosting, functions, emuladores e regras
 - **firestore.rules / storage.rules**: regras de segurança

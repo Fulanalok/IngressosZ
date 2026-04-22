@@ -1,8 +1,8 @@
 import { memo, useState } from "react";
 import { Download, QrCode, ChevronUp } from "lucide-react";
-import type { Ticket as TicketType } from "../types";
-import QRCodeDisplay from "./QRCodeDisplay";
-import { printTicket } from "../lib/pdfPrint";
+import type { Ticket as TicketType } from "@/types";
+import QRCodeDisplay from "@/components/qr/QRCodeDisplay";
+import { printTicket } from "@/lib/pdfPrint";
 
 interface TicketProps {
   ticket: TicketType;

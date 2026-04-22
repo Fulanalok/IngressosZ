@@ -1,9 +1,9 @@
 import { httpsCallable } from "firebase/functions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { functions } from "../firebaseConfig";
-import { useAuth } from "../hooks/useAuth";
-import { seedSampleEvents } from "../utils/seedData";
+import { functions } from '@/firebaseConfig';
+import { useAuth } from '@/hooks/useAuth';
+import { seedSampleEvents } from '@/utils/seedData';
 
 function DevPanel() {
   const navigate = useNavigate();

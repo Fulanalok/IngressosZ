@@ -1,5 +1,5 @@
-import EventCard from "@/components/EventCard";
-import { EventCardSkeleton } from "@/components/EventCardSkeleton";
+import EventCard from "@/components/event/EventCard";
+import { EventCardSkeleton } from "@/components/event/EventCardSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";

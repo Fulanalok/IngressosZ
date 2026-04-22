@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import CameraTest from "../components/CameraTest";
-import QRGenerator from "../components/QRGenerator";
-import QRTestDisplay from "../components/QRTestDisplay";
+import CameraTest from "../components/dev/CameraTest";
+import QRGenerator from "../components/dev/QRGenerator";
+import QRTestDisplay from "../components/dev/QRTestDisplay";
 import { Button } from "../components/ui/button";
 import {
   Card,

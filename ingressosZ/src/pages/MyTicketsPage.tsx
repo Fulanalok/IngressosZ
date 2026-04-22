@@ -1,5 +1,5 @@
-import Ticket from "@/components/Ticket";
-import { TicketSkeleton } from "@/components/TicketSkeleton";
+import Ticket from "@/components/ticket/Ticket";
+import { TicketSkeleton } from "@/components/ticket/TicketSkeleton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";

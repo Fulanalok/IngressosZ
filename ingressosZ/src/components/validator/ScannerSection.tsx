@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import type { UserProfile } from "../../types";
 
-const QRScannerLazy = lazy(() => import("../QRScanner"));
+const QRScannerLazy = lazy(() => import("@/components/qr/QRScanner"));
 
 interface ScannerSectionProps {
   userProfile: UserProfile | null;

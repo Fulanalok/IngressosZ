@@ -1,4 +1,4 @@
-import QRCodeDisplay from "@/components/QRCodeDisplay";
+import QRCodeDisplay from "@/components/qr/QRCodeDisplay";
 import { Button } from "@/components/ui/button";
 import { TICKET_TYPES } from "@/constants/ticketTypes";
 import { useMercadoPagoCheckout } from "@/hooks/useMercadoPagoCheckout";
