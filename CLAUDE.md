@@ -6,6 +6,56 @@ This file serves as a reference guide for developers and AIs working on Ingresso
 
 **IngressosZ** is a dedicated ticket sales and validation platform, designed to be used by a **single company** (single-company). The goal is to offer a premium, secure, and extremely simple experience for both the organizer and the end customer.
 
+## 📂 Workspaces & Routing Table
+
+This project is organized into **workspaces** — distinct areas of work with their own CONTEXT.md files. When Claude receives a task, it should:
+
+1. **Identify the workspace** using the table below
+2. **Read the relevant CONTEXT.md** before starting work
+3. **Follow the conventions** defined in that workspace
+
+### Workspace Map
+
+| Workspace | Location | Purpose | CONTEXT.md |
+|-----------|----------|---------|------------|
+| **Planning** | `planning/` | Roadmap, pending tasks, long-term vision | `planning/CONTEXT.md` |
+| **Specs** | `specs/` | Technical specifications, schemas, API contracts | `specs/CONTEXT.md` |
+| **Architecture** | `architecture/` | Design decisions, patterns, system structure | `architecture/CONTEXT.md` |
+| **Frontend** | `ingressosZ/src/` | React components, hooks, services | `ingressosZ/src/CONTEXT.md` |
+| **Components** | `ingressosZ/src/components/` | UI components (admin, event, ticket, etc) | `ingressosZ/src/components/CONTEXT.md` |
+| **Services** | `ingressosZ/src/services/` | Firebase & API integrations | `ingressosZ/src/services/CONTEXT.md` |
+| **Hooks** | `ingressosZ/src/hooks/` | Custom React hooks | `ingressosZ/src/hooks/CONTEXT.md` |
+| **Backend** | `functions/` | Firebase Functions (serverless backend) | `functions/CONTEXT.md` |
+| **Operations** | `ops/` | Deploy, monitoring, CI/CD | `ops/CONTEXT.md` |
+
+### Routing Table: Task Type → Workspace
+
+| Task Type | Read First | Then Read (if needed) |
+|-----------|------------|----------------------|
+| "Plan feature X" | `planning/CONTEXT.md` | `specs/CONTEXT.md`, `architecture/CONTEXT.md` |
+| "Explain payment flow" | `specs/CONTEXT.md` | `functions/CONTEXT.md` |
+| "Add new component" | `ingressosZ/src/components/CONTEXT.md` | `ingressosZ/src/CONTEXT.md` |
+| "Create custom hook" | `ingressosZ/src/hooks/CONTEXT.md` | `ingressosZ/src/CONTEXT.md` |
+| "Fix Firebase Function bug" | `functions/CONTEXT.md` | `specs/CONTEXT.md` |
+| "Integrate new API" | `ingressosZ/src/services/CONTEXT.md` | `specs/CONTEXT.md` |
+| "Deploy to production" | `ops/CONTEXT.md` | `functions/CONTEXT.md` |
+| "Review architecture decision" | `architecture/CONTEXT.md` | `specs/CONTEXT.md` |
+| "Update roadmap" | `planning/CONTEXT.md` | — |
+
+### File Naming & Organization
+
+When creating new files:
+
+- **Components**: PascalCase (`EventCard.tsx`) → `ingressosZ/src/components/{domain}/`
+- **Hooks**: camelCase with `use` prefix (`useAuth.ts`) → `ingressosZ/src/hooks/{domain}/`
+- **Services**: camelCase (`firestore.ts`) → `ingressosZ/src/services/{category}/`
+- **Functions**: camelCase (`createPreference.ts`) → `functions/src/{category}/`
+- **Types**: PascalCase (`Event.ts`) → `ingressosZ/src/types/`
+- **Utils**: camelCase (`formatCurrency.ts`) → `ingressosZ/src/utils/`
+- **Context docs**: `CONTEXT.md` (always uppercase) → workspace root
+
+**IMPORTANT**: The CONTEXT.md files are **living documents**. If Claude encounters something not covered in a CONTEXT.md, or finds outdated information, it should note this to the user and suggest updates.
+
 ## 🧠 Project Philosophy
 
 - **Dedicated Simplicity**: The system is not a multi-company marketplace. It is optimized for the events of a single entity, which simplifies permission logic and navigation.
