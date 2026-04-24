@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import CameraTest from "@/components/dev/CameraTest";
 import QRGenerator from "@/components/dev/QRGenerator";
 import QRTestDisplay from "@/components/dev/QRTestDisplay";

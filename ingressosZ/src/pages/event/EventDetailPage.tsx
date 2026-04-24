@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import { Helmet } from "@dr.pogodin/react-helmet";
 import { EventDetailSkeleton } from "@/components/event/EventDetailSkeleton";
 import { useEvent } from "@/hooks/event/useEvents";

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { Timestamp } from "firebase/firestore";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import type { Event } from "../types";
 import EventCard from "./EventCard";

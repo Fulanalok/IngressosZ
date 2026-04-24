@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Button } from '@/components/ui/button';
 import { eventService } from '@/services/firestore';
 import type { Event } from '@/types';

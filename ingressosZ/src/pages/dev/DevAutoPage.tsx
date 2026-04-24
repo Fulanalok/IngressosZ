@@ -1,6 +1,6 @@
 import { signInAnonymously } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { auth } from "@/firebaseConfig";
 import { TestDataService } from "@/services/testDataService";
 

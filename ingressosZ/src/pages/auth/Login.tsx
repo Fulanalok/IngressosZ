@@ -7,7 +7,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";

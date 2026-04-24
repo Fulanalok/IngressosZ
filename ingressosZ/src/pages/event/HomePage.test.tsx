@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { Timestamp } from "firebase/firestore";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { AuthContext, AuthContextType } from "@/context/auth/authContext";
 import HomePage from "./HomePage";

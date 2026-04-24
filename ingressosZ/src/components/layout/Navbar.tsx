@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { useAuth } from '@/hooks/auth/useAuth';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { Button } from '@/components/ui/button';

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useUserTickets } from "@/hooks/event/useTickets";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Ticket as TicketIcon, Compass, User, RefreshCcw } from "lucide-react";
 
 function MyTicketsPage() {

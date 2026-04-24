@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "@/context/auth/authContext";
 import { useMercadoPagoCheckout } from "./useMercadoPagoCheckout";

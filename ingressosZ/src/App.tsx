@@ -14,7 +14,7 @@ import {
   Route,
   Routes,
   useLocation,
-} from "react-router-dom";
+} from "react-router";
 import { Toaster } from "sonner";
 
 const EventDetailPage = lazy(() =>
