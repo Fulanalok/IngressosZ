@@ -24,6 +24,7 @@ function Ticket({ ticket }: TicketProps) {
   const isValid = ticket.status === "valid";
   const [showQR, setShowQR] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const price = typeof ticket.price === "number" ? ticket.price : 0;
 
   const statusLabel = isValid ? "VÁLIDO" : ticket.status === "used" ? "USADO" : "CANCELADO";
   const statusClass = isValid
@@ -97,7 +98,7 @@ function Ticket({ ticket }: TicketProps) {
             {TYPE_LABELS[ticket.ticketType] ?? ticket.ticketType}
           </span>
           <span className="text-base font-bold text-gray-900 dark:text-gray-100">
-            R$ {ticket.price.toFixed(2)}
+            R$ {price.toFixed(2)}
           </span>
         </div>
 

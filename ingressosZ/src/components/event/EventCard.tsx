@@ -59,7 +59,7 @@ function EventCard({ event }: EventCardProps) {
   }, [event.date]);
 
   const formattedTime = useMemo(() => {
-    return event.time.slice(0, 5);
+    return event.time ? event.time.slice(0, 5) : "--:--";
   }, [event.time]);
 
   const getCategoryColor = (category: string) => {

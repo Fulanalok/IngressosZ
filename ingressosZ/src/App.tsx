@@ -1,5 +1,3 @@
-import DevPanel from "@/components/dev/DevPanel";
-import FirebaseDebug from "@/components/dev/FirebaseDebug";
 import Navbar from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { ThemeProvider } from "@/context/theme/ThemeContext";
@@ -26,17 +24,27 @@ const EventsPage = lazy(() => import("@/pages/event/EventsPage"));
 const HomePage = lazy(() => import("@/pages/event/HomePage"));
 const Login = lazy(() => import("@/pages/auth/Login"));
 const MyTicketsPage = lazy(() => import("@/pages/event/MyTicketsPage"));
-const DevAutoPage = lazy(() => import("@/pages/dev/DevAutoPage"));
 const PaymentCanceled = lazy(() => import("@/pages/checkout/PaymentCanceled"));
 const PaymentSuccess = lazy(() => import("@/pages/checkout/PaymentSuccess"));
 const QRTestPage = lazy(() => import("@/pages/dev/QRTestPage"));
 const SignUp = lazy(() => import("@/pages/auth/SignUp"));
 const ValidatorPage = lazy(() => import("@/pages/validator/ValidatorPage"));
-const DocViewPage = lazy(() => import("@/pages/dev/DocView"));
 const ProfilePage = lazy(() => import("@/pages/auth/ProfilePage"));
 const AdminPage = lazy(() => import("@/pages/admin/AdminPage"));
 const TermsPage = lazy(() => import("@/pages/legal/TermsPage"));
 const PrivacyPage = lazy(() => import("@/pages/legal/PrivacyPage"));
+const DevPanel = import.meta.env.DEV
+  ? lazy(() => import("@/components/dev/DevPanel"))
+  : null;
+const DevAutoPage = import.meta.env.DEV
+  ? lazy(() => import("@/pages/dev/DevAutoPage"))
+  : null;
+const FirebaseDebug = import.meta.env.DEV
+  ? lazy(() => import("@/components/dev/FirebaseDebug"))
+  : null;
+const DocViewPage = import.meta.env.DEV
+  ? lazy(() => import("@/pages/dev/DocView"))
+  : null;
 
 function App() {
   function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -218,12 +226,13 @@ function App() {
                     <Route path="/cadastro" element={<SignUp />} />
 
                     {}
-                    {/* Rota dev para auto-setup (sem exigir login) */}
-                    <Route path="/dev-auto" element={<DevAutoPage />} />
-
                     {/* Rotas de debug — apenas em desenvolvimento */}
-                    {import.meta.env.DEV && (
+                    {import.meta.env.DEV &&
+                      DevAutoPage &&
+                      FirebaseDebug &&
+                      DocViewPage && (
                       <>
+                        <Route path="/dev-auto" element={<DevAutoPage />} />
                         <Route path="/debug/firebase" element={<FirebaseDebug />} />
                         <Route path="/doc" element={<DocViewPage />} />
                       </>
@@ -308,7 +317,7 @@ function App() {
           </Suspense>
         </main>
         {/* DevPanel precisa estar dentro do Router para useNavigate */}
-        {import.meta.env.DEV && <DevPanel />}
+        {import.meta.env.DEV && DevPanel && <DevPanel />}
 
         {/* Região de anúncio para mensagens não críticas */}
         <div

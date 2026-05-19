@@ -1,10 +1,7 @@
-import * as Sentry from "@sentry/node";
-import cors from "cors";
 import { createHmac } from "crypto";
 import * as admin from "firebase-admin";
 import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
-import { defineSecret, defineString } from "firebase-functions/params";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
@@ -22,131 +19,31 @@ import * as nodemailer from "nodemailer";
 import * as os from "os";
 import * as path from "path";
 import sharp from "sharp";
+import { corsHandler } from "./config/cors.js";
+import {
+  jwtSecret,
+  mercadopagoAccessToken,
+  mpWebhookSecret,
+  recaptchaV2Secret,
+  smtpEmail,
+  smtpHost,
+  smtpPassword,
+  smtpPort,
+  webBaseUrl,
+} from "./config/params.js";
+import { initSentry } from "./config/sentry.js";
+import {
+  MAX_PURCHASE_QUANTITY,
+  resolveMaxPerPurchase,
+} from "./domain/purchaseLimits.js";
+import { checkRateLimit } from "./utils/rateLimit.js";
 
-const sentryDsn = defineString("SENTRY_DSN");
-
-Sentry.init({
-  dsn: sentryDsn.value() || process.env.SENTRY_DSN,
-  integrations: [],
-  tracesSampleRate: 1.0,
-  profilesSampleRate: 1.0,
-  beforeSend(event) {
-    // Strip sensitive data before sending to Sentry
-    if (event.request?.cookies) delete event.request.cookies;
-    if (event.request?.headers) {
-      const h = event.request.headers as Record<string, string>;
-      delete h["authorization"];
-      delete h["x-signature"];
-      delete h["cookie"];
-    }
-    // Scrub email and payment IDs from extra context
-    if (event.extra) {
-      const extra = event.extra as Record<string, unknown>;
-      if (typeof extra.userEmail === "string")
-        extra.userEmail = "[redacted]";
-      if (typeof extra.paymentId === "string")
-        extra.paymentId = "[redacted]";
-    }
-    return event;
-  },
-});
+initSentry();
 
 setGlobalOptions({ region: "southamerica-east1" });
 
-const MAX_PURCHASE_QUANTITY = 5;
-const MAX_PURCHASE_QUANTITY_HARD_CAP = 50;
-
-const resolveMaxPerPurchase = (eventData: {
-  maxPerPurchase?: number;
-}): number => {
-  const cfg = eventData.maxPerPurchase;
-  if (
-    typeof cfg === "number" &&
-    Number.isInteger(cfg) &&
-    cfg >= 1 &&
-    cfg <= MAX_PURCHASE_QUANTITY_HARD_CAP
-  ) {
-    return cfg;
-  }
-  return MAX_PURCHASE_QUANTITY;
-};
-
-const mercadopagoAccessToken = defineSecret("MP_ACCESS_TOKEN");
-const mpWebhookSecret = defineSecret("MP_WEBHOOK_SECRET");
-const jwtSecret = defineSecret("JWT_SECRET");
-const smtpEmail = defineSecret("SMTP_EMAIL");
-const smtpPassword = defineSecret("SMTP_PASSWORD");
-const recaptchaV2Secret = defineSecret("RECAPTCHA_V2_SECRET");
-const smtpHost = defineString("SMTP_HOST", { default: "smtp.gmail.com" });
-const smtpPort = defineString("SMTP_PORT", { default: "465" });
-const webBaseUrl = defineString("WEB_BASE_URL", {
-  default: "https://ingressosz.web.app",
-});
-
-const webBase = String(webBaseUrl.value() || "").trim();
-const allowedOrigins = new Set(
-  [webBase, "http://localhost:5173", "http://127.0.0.1:5173",
-    "http://localhost:5174", "http://127.0.0.1:5174"]
-    .filter(Boolean)
-    .map((origin) => origin.replace(/\/+$/, ""))
-);
-const corsHandler = cors({
-  origin: (origin, callback) => {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    const normalized = origin.replace(/\/+$/, "");
-    // Robust localhost check for any port
-    const isLocalhost =
-      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized);
-    if (isLocalhost || allowedOrigins.has(normalized)) {
-      callback(null, true);
-      return;
-    }
-    callback(null, false);
-  },
-});
-
 if (typeof admin.initializeApp === "function") {
   admin.initializeApp();
-}
-
-/**
- * Sliding-window rate limiter backed by Firestore.
- * Returns true if the request is allowed, false if rate-limited.
- * Skipped entirely when running in the local emulator.
- */
-async function checkRateLimit(
-  key: string,
-  limitPerMinute: number
-): Promise<boolean> {
-  if (process.env.FUNCTIONS_EMULATOR === "true") return true;
-  const now = Date.now();
-  const windowMs = 60_000;
-  const ref = getFirestore()
-    .collection("rateLimits")
-    .doc(key.replace(/[/\\]/g, "_"));
-  try {
-    return await getFirestore().runTransaction(async (txn) => {
-      const snap = await txn.get(ref);
-      const data = snap.data() as
-        | { count?: number; windowStart?: number }
-        | undefined;
-      if (!data || now - (data.windowStart ?? 0) > windowMs) {
-        txn.set(ref, { count: 1, windowStart: now });
-        return true;
-      }
-      if ((data.count ?? 0) >= limitPerMinute) {
-        return false;
-      }
-      txn.update(ref, { count: FieldValue.increment(1) });
-      return true;
-    });
-  } catch {
-    // On error allow the request through — rate limiting is best-effort
-    return true;
-  }
 }
 
 export const health = onRequest((req, res) => {
@@ -541,7 +438,9 @@ export const createPaymentPreferencePublic = onRequest(
       ).split(",")[0].trim();
       const allowedPublicPref = await checkRateLimit(`pubpref:${clientIp}`, 10);
       if (!allowedPublicPref) {
-        res.status(429).json({ message: "Muitas tentativas. Tente novamente em instantes." });
+        res.status(429).json({
+          message: "Muitas tentativas. Tente novamente em instantes.",
+        });
         return;
       }
 
@@ -580,8 +479,8 @@ export const createPaymentPreferencePublic = onRequest(
       type SessionGuardResult =
         | { ok: true }
         | { ok: false; status: number; message: string };
-      const sessionResult = await getFirestore().runTransaction<SessionGuardResult>(
-        async (tx) => {
+      const sessionResult = await getFirestore()
+        .runTransaction<SessionGuardResult>(async (tx) => {
           const snap = await tx.get(paymentSessionRef);
           if (!snap.exists) {
             return {
@@ -610,8 +509,7 @@ export const createPaymentPreferencePublic = onRequest(
             };
           }
           return { ok: true };
-        }
-      );
+        });
       if (!sessionResult.ok) {
         res
           .status(sessionResult.status)
@@ -992,9 +890,14 @@ export const createPixPaymentPublic = onRequest(
       const clientIpPix = String(
         req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown"
       ).split(",")[0].trim();
-      const allowedPublicPix = await checkRateLimit(`pubpix:${clientIpPix}`, 10);
+      const allowedPublicPix = await checkRateLimit(
+        `pubpix:${clientIpPix}`,
+        10
+      );
       if (!allowedPublicPix) {
-        res.status(429).json({ message: "Muitas tentativas. Tente novamente em instantes." });
+        res.status(429).json({
+          message: "Muitas tentativas. Tente novamente em instantes.",
+        });
         return;
       }
 
@@ -1033,8 +936,8 @@ export const createPixPaymentPublic = onRequest(
       type SessionGuardResult =
         | { ok: true }
         | { ok: false; status: number; message: string };
-      const sessionResult = await getFirestore().runTransaction<SessionGuardResult>(
-        async (tx) => {
+      const sessionResult = await getFirestore()
+        .runTransaction<SessionGuardResult>(async (tx) => {
           const snap = await tx.get(paymentSessionRef);
           if (!snap.exists) {
             return {
@@ -1063,8 +966,7 @@ export const createPixPaymentPublic = onRequest(
             };
           }
           return { ok: true };
-        }
-      );
+        });
       if (!sessionResult.ok) {
         res
           .status(sessionResult.status)
@@ -1258,7 +1160,7 @@ export const receiveWebhook = onRequest(
 
     const webhookSecret = mpWebhookSecret.value();
     if (!webhookSecret) {
-      // Secret obrigatório em produção — rejeitar para não aceitar webhooks forjados
+      // Secret obrigatorio em producao; rejeitar webhooks forjados.
       logger.error(
         "MP_WEBHOOK_SECRET não configurado. Rejeitando webhook por segurança."
       );
@@ -1313,42 +1215,45 @@ export const receiveWebhook = onRequest(
         ) {
           const meta =
             payment.metadata &&
-            typeof payment.metadata === "object"
-              ? (payment.metadata as Record<string, unknown>)
-              : {};
+            typeof payment.metadata === "object" ?
+              (payment.metadata as Record<string, unknown>) :
+              {};
           const eventId =
-            typeof meta.event_id === "string"
-              ? meta.event_id
-              : typeof meta.eventId === "string"
-                ? meta.eventId
-                : undefined;
+            typeof meta.event_id === "string" ?
+              meta.event_id :
+              typeof meta.eventId === "string" ?
+                meta.eventId :
+                undefined;
           const metadataUserId =
-            typeof meta.user_id === "string"
-              ? meta.user_id
-              : typeof meta.userId === "string"
-                ? meta.userId
-                : undefined;
+            typeof meta.user_id === "string" ?
+              meta.user_id :
+              typeof meta.userId === "string" ?
+                meta.userId :
+                undefined;
           const metadataEmail =
-            typeof meta.user_email === "string"
-              ? meta.user_email
-              : typeof meta.userEmail === "string"
-                ? meta.userEmail
-                : undefined;
+            typeof meta.user_email === "string" ?
+              meta.user_email :
+              typeof meta.userEmail === "string" ?
+                meta.userEmail :
+                undefined;
           const metadataTicketType =
-            typeof meta.ticket_type === "string"
-              ? meta.ticket_type
-              : typeof meta.ticketType === "string"
-                ? meta.ticketType
-                : undefined;
+            typeof meta.ticket_type === "string" ?
+              meta.ticket_type :
+              typeof meta.ticketType === "string" ?
+                meta.ticketType :
+                undefined;
           const metadataPaymentSessionId =
-            typeof meta.payment_session_id === "string"
-              ? meta.payment_session_id
-              : typeof meta.paymentSessionId === "string"
-                ? meta.paymentSessionId
-                : undefined;
+            typeof meta.payment_session_id === "string" ?
+              meta.payment_session_id :
+              typeof meta.paymentSessionId === "string" ?
+                meta.paymentSessionId :
+                undefined;
 
           if (!eventId) {
-            logger.warn("Webhook sem eventId no metadata. Ignorando.", { paymentId });
+            logger.warn(
+              "Webhook sem eventId no metadata. Ignorando.",
+              { paymentId }
+            );
             response.status(200).send("OK");
             return;
           }
@@ -1391,8 +1296,9 @@ export const receiveWebhook = onRequest(
 
           const purchasesRef = getFirestore().collection("purchases");
 
-          // Idempotency guard: atomically claim the paymentSession so concurrent
-          // webhooks for the same paymentId cannot both proceed past this point.
+          // Idempotency guard: atomically claim paymentSession so concurrent
+          // webhooks for the same paymentId cannot both proceed past this
+          // point.
           if (paymentSessionId) {
             const sessionRef = getFirestore()
               .collection("paymentSessions")
@@ -1415,13 +1321,15 @@ export const receiveWebhook = onRequest(
             });
             if (alreadyProcessed) {
               logger.info(
-                `Pagamento ${paymentId} já processado (paymentSession). Ignorando.`
+                `Pagamento ${paymentId} ja processado ` +
+                "(paymentSession). Ignorando."
               );
               response.status(200).send("OK");
               return;
             }
           } else {
-            // Fallback for webhooks without paymentSessionId: query by paymentId
+            // Fallback for webhooks without paymentSessionId:
+            // query by paymentId.
             const snapshot = await purchasesRef
               .where("paymentId", "==", paymentId)
               .get();
@@ -1615,13 +1523,14 @@ export const receiveWebhook = onRequest(
             accountCreated,
           }).catch((emailErr) => {
             logger.error(
-              `Falha ao enviar email de confirmação para compra ${newPurchaseRef.id}:`,
+              "Falha ao enviar email de confirmacao para compra " +
+              `${newPurchaseRef.id}:`,
               emailErr
             );
           });
         }
       } catch (error) {
-        // Real processing failure — return 500 so Mercado Pago retries the webhook.
+        // Real processing failure; return 500 so Mercado Pago retries webhook.
         logger.error("Erro ao processar notificação de pagamento:", {
           error,
           paymentId,
@@ -1743,17 +1652,17 @@ export const validateTicket = onRequest(
         const decodedPayload =
           typeof decoded === "object" && decoded !== null ? decoded : {};
         const ticketId =
-          typeof (decodedPayload as Record<string, unknown>).tid === "string"
-            ? ((decodedPayload as Record<string, unknown>).tid as string)
-            : undefined;
+          typeof (decodedPayload as Record<string, unknown>).tid === "string" ?
+            ((decodedPayload as Record<string, unknown>).tid as string) :
+            undefined;
         const eventId =
-          typeof (decodedPayload as Record<string, unknown>).eid === "string"
-            ? ((decodedPayload as Record<string, unknown>).eid as string)
-            : undefined;
+          typeof (decodedPayload as Record<string, unknown>).eid === "string" ?
+            ((decodedPayload as Record<string, unknown>).eid as string) :
+            undefined;
         const userId =
-          typeof (decodedPayload as Record<string, unknown>).uid === "string"
-            ? ((decodedPayload as Record<string, unknown>).uid as string)
-            : undefined;
+          typeof (decodedPayload as Record<string, unknown>).uid === "string" ?
+            ((decodedPayload as Record<string, unknown>).uid as string) :
+            undefined;
 
         if (!ticketId || !eventId) {
           res.status(400).json({

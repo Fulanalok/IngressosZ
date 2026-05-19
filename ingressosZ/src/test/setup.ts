@@ -29,9 +29,11 @@ Object.defineProperty(window, "IntersectionObserver", {
 });
 
 // jsdom pode não implementar scrollTo; define fallback quando ausente
-if (typeof window.scrollTo !== "function") {
-  (window as unknown as { scrollTo: () => void }).scrollTo = () => {};
-}
+Object.defineProperty(window, "scrollTo", {
+  writable: true,
+  configurable: true,
+  value: vi.fn(),
+});
 
 // Mock global do Firebase para evitar erros de inicialização com config vazia
 vi.mock("firebase/app", () => ({
@@ -99,6 +101,11 @@ vi.mock("firebase/functions", async () => {
     httpsCallable: () => async () => ({ data: { success: true } }),
   };
 });
+
+vi.mock("firebase/app-check", () => ({
+  initializeAppCheck: vi.fn(() => ({})),
+  ReCaptchaEnterpriseProvider: vi.fn(),
+}));
 
 vi.mock("firebase/analytics", async () => {
   const actual = await vi.importActual<typeof import("firebase/analytics")>(

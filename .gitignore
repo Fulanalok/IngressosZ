@@ -36,6 +36,7 @@ ui-debug.log*
 
 # Test artifacts
 ingressosZ/test_output.txt
+ingressosZ/vite.config.js
 
 # Local tool configs
 .claude/.mcp.json
