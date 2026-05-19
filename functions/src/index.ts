@@ -36,6 +36,7 @@ import {
   MAX_PURCHASE_QUANTITY,
   resolveMaxPerPurchase,
 } from "./domain/purchaseLimits.js";
+import { planSaleInventoryUpdate } from "./domain/inventory.js";
 import { checkRateLimit } from "./utils/rateLimit.js";
 
 initSentry();
@@ -1370,21 +1371,17 @@ export const receiveWebhook = onRequest(
               price?: number;
               pricing?: Record<string, number>;
             };
-            const currentStock = data.availableTickets || 0;
-            const currentTypeStock =
-              data.inventory?.[resolvedTicketType] ?? currentStock;
-            const unitPrice = Number(
-              data.pricing?.[resolvedTicketType] ?? data.price ?? 0
+            const inventoryPlan = planSaleInventoryUpdate(
+              data,
+              resolvedTicketType,
+              ticketsCount
             );
 
-            if (
-              currentStock < ticketsCount ||
-              currentTypeStock < ticketsCount
-            ) {
+            if (inventoryPlan.oversold) {
               logger.error("Overselling detected", {
                 eventId,
-                currentStock,
-                currentTypeStock,
+                currentStock: inventoryPlan.currentStock,
+                currentTypeStock: inventoryPlan.currentTypeStock,
                 resolvedTicketType,
                 ticketsCount,
               });
@@ -1473,7 +1470,7 @@ export const receiveWebhook = onRequest(
                 eventId,
                 purchaseId: newPurchaseRef.id,
                 ticketType: resolvedTicketType,
-                price: unitPrice,
+                price: inventoryPlan.unitPrice,
                 userEmail: resolvedEmail,
                 qrCode: signedToken,
                 validated: false,

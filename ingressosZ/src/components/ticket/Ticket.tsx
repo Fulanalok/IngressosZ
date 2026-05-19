@@ -44,6 +44,7 @@ function Ticket({ ticket }: TicketProps) {
 
   return (
     <div
+      data-testid="ticket-card"
       className={`bg-card text-card-foreground rounded-2xl border border-border/50 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden group ${
         !isValid ? "opacity-60 grayscale-[0.5]" : ""
       }`}

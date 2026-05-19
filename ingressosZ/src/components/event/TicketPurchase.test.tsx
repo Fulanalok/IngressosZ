@@ -25,7 +25,7 @@ vi.mock("@mercadopago/sdk-react", () => ({
   initMercadoPago: vi.fn(),
 }));
 
-vi.mock("@/components/QRCodeDisplay", () => ({
+vi.mock("@/components/qr/QRCodeDisplay", () => ({
   default: ({ qrCode }: { qrCode: string }) => (
     <div data-testid="qr-display">{qrCode}</div>
   ),

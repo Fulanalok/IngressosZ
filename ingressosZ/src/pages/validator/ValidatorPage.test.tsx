@@ -5,10 +5,10 @@ import { useTicketValidator } from "@/hooks/validator/useTicketValidator";
 import ValidatorPage from "./ValidatorPage";
 
 vi.mock("@/hooks/auth/useAuth");
-vi.mock("../hooks/validator/useTicketValidator");
-vi.mock("../services/testDataService");
+vi.mock("@/hooks/validator/useTicketValidator");
+vi.mock("@/services/testDataService");
 
-vi.mock("../components/validator/ScannerSection", () => ({
+vi.mock("@/components/validator/ScannerSection", () => ({
   ScannerSection: () => <div data-testid="scanner-section">Scanner</div>,
 }));
 

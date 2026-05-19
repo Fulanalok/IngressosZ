@@ -1,11 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from "vitest";
 import { TestDataService } from "../../services/testDataService";
-import { useAuth } from "../useAuth";
+import { useAuth } from "../auth/useAuth";
 import { useTicketValidator } from "./useTicketValidator";
 
 // Mock dependencies
-vi.mock("../useAuth", () => ({
+vi.mock("../auth/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 

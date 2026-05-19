@@ -4,7 +4,7 @@ import { ScannerSection } from "./ScannerSection";
 import type { UserProfile } from "../../types";
 
 // Mock do QRScanner (lazy loaded) — evita interações com câmera
-vi.mock("../QRScanner", () => ({
+vi.mock("@/components/qr/QRScanner", () => ({
   default: ({ onScan, onError }: { onScan: (c: string) => void; onError: () => void }) => (
     <div data-testid="qr-scanner">
       <button onClick={() => onScan("TICKET-TEST-123")}>Simular Scan</button>

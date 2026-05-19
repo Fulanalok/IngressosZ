@@ -21,7 +21,7 @@ vi.mock("recharts", () => ({
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
-function fakeTs(dateStr: string) {
+function fakeTs(dateStr = new Date().toISOString()) {
   return { toDate: () => new Date(dateStr) } as unknown as Ticket["purchaseDate"];
 }
 
@@ -61,7 +61,7 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     validated: false,
     status: "valid",
     purchaseDate: fakeTs("2026-04-01T12:00:00"),
-    createdAt: fakeTs("2026-04-01T12:00:00"),
+    createdAt: fakeTs(),
     ...overrides,
   };
 }
@@ -74,7 +74,7 @@ function makePayment(overrides: Partial<PaymentSession> = {}): PaymentSession {
     totalAmount: 500,
     status: "approved",
     provider: "mercadopago",
-    createdAt: fakeTs("2026-04-01T12:00:00"),
+    createdAt: fakeTs(),
     ...overrides,
   } as PaymentSession;
 }

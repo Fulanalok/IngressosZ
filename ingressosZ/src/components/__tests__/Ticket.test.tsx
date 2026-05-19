@@ -1,16 +1,16 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import Ticket from "../Ticket";
+import Ticket from "../ticket/Ticket";
 import type { Ticket as TicketType } from "../../types";
 import { Timestamp } from "firebase/firestore";
 
 // Mock do módulo de impressão
-vi.mock("../../lib/pdfPrint", () => ({
+vi.mock("@/lib/pdfPrint", () => ({
   printTicket: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock do QRCodeDisplay para evitar dependência de canvas/geração assíncrona
-vi.mock("../QRCodeDisplay", () => ({
+vi.mock("@/components/qr/QRCodeDisplay", () => ({
   default: ({ qrCode }: { qrCode: string }) => (
     <div data-testid="qr-display">{qrCode}</div>
   ),
@@ -68,7 +68,7 @@ describe("Componente Ticket", () => {
   });
 
   it("deve chamar a função de impressão ao clicar no botão de download", async () => {
-    const { printTicket } = await import("../../lib/pdfPrint");
+    const { printTicket } = await import("@/lib/pdfPrint");
     render(<Ticket ticket={mockTicket} />);
     
     const downloadButton = screen.getByText(/Baixar Ingresso/i);

@@ -2,23 +2,28 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import QRTestPage from "./QRTestPage";
 
-// Mock router
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router"
+  );
+  return {
+    ...actual,
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
-}));
+  };
+});
 
 // Mock child components
-vi.mock("../components/CameraTest", () => ({
+vi.mock("@/components/dev/CameraTest", () => ({
   default: () => <div data-testid="camera-test">Camera Test Component</div>,
 }));
 
-vi.mock("../components/QRGenerator", () => ({
+vi.mock("@/components/dev/QRGenerator", () => ({
   default: () => <div data-testid="qr-generator">QR Generator Component</div>,
 }));
 
-vi.mock("../components/QRTestDisplay", () => ({
+vi.mock("@/components/dev/QRTestDisplay", () => ({
   default: ({ ticketId, eventId }: any) => (
     <div data-testid="qr-test-display">
       Display: {ticketId} - {eventId}

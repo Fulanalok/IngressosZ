@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { eventService } from "../services/firestore";
+import { eventService } from "../../services/firestore";
 import { useEvent, useEvents } from "./useEvents";
 
 // Mock eventService
-vi.mock("../services/firestore", () => ({
+vi.mock("../../services/firestore", () => ({
   eventService: {
     getEvents: vi.fn(),
     getEventById: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock("firebase/firestore", () => ({
   onSnapshot: vi.fn(() => vi.fn()),
 }));
 
-vi.mock("../firebaseConfig", () => ({
+vi.mock("../../firebaseConfig", () => ({
   db: {},
 }));
 

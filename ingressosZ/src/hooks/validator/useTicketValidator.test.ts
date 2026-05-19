@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useTicketValidator } from "./useTicketValidator";
 
 // Mock useAuth
-vi.mock("../useAuth", () => ({
+vi.mock("../auth/useAuth", () => ({
   useAuth: () => ({
     user: {
       getIdToken: vi.fn().mockResolvedValue("mock-token"),

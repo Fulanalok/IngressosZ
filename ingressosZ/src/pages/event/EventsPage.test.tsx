@@ -40,7 +40,7 @@ vi.mock("@/hooks/event/useEvents", () => {
   };
 });
 
-vi.mock("@/components/EventCard", () => ({
+vi.mock("@/components/event/EventCard", () => ({
   default: ({ event }: { event: { id: string; title: string } }) => (
     <div data-testid="event-card">{event.title}</div>
   ),

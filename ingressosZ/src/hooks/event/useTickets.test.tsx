@@ -1,10 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
-import type { Ticket } from "../types";
+import type { Ticket } from "../../types";
 
-vi.mock("../services/firestore", async (orig) => {
-  const mod = await orig<typeof import("../services/firestore")>();
+vi.mock("../../services/firestore", async (orig) => {
+  const mod = await orig<typeof import("../../services/firestore")>();
   const ticketsA: Ticket[] = [
     {
       id: "t1",

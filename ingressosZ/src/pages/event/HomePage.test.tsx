@@ -8,7 +8,7 @@ import { AuthContext, AuthContextType } from "@/context/auth/authContext";
 import HomePage from "./HomePage";
 
 // Mock do EventCard
-vi.mock("../components/EventCard", () => ({
+vi.mock("@/components/event/EventCard", () => ({
   default: ({ event }: { event: { id: string; title: string } }) => (
     <div data-testid="featured-event-card">{event.title}</div>
   ),

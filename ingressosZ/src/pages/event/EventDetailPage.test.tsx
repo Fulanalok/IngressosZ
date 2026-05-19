@@ -24,10 +24,19 @@ vi.mock("@/hooks/event/useEvents", () => ({
 }));
 
 const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router"
+  );
+  return {
+    ...actual,
   useParams: () => ({ eventId: "123" }),
   useNavigate: () => mockNavigate,
-}));
+    Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+      <a href={to}>{children}</a>
+    ),
+  };
+});
 
 vi.mock("@/components/event", () => ({
   TicketPurchase: () => <div data-testid="ticket-purchase" />,

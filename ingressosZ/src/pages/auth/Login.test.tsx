@@ -5,18 +5,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import Login from "./Login";
 
 // Mock firebaseConfig
-vi.mock("../firebaseConfig", () => ({
+vi.mock("@/firebaseConfig", () => ({
   auth: {},
   functions: {},
 }));
 
-// Mock react-router-dom
 const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router"
+  );
+  return {
+    ...actual,
   useNavigate: () => mockNavigate,
   useLocation: () => ({ state: undefined }),
-  Link: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
+    Link: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  };
+});
 
 vi.mock("@/hooks/auth/useAuth", () => ({
   useAuth: () => ({

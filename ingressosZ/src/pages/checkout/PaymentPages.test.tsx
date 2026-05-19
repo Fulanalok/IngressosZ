@@ -3,13 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import PaymentCanceled from "./PaymentCanceled";
 import PaymentSuccess from "./PaymentSuccess";
 
-// Mock router
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router"
+  );
+  return {
+    ...actual,
   useParams: () => ({ sessionId: "sess_123" }),
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
     <a href={to}>{children}</a>
   ),
-}));
+  };
+});
 
 describe("Payment Pages", () => {
   describe("PaymentSuccess", () => {

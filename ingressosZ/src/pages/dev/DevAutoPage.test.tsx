@@ -5,28 +5,37 @@ import { auth } from "@/firebaseConfig";
 import DevAutoPage from "./DevAutoPage";
 import { TestDataService } from "@/services/testDataService";
 
-// Mock firebase/auth
-vi.mock("firebase/auth", () => ({
-  signInAnonymously: vi.fn(),
-}));
+vi.mock("firebase/auth", async () => {
+  const actual = await vi.importActual<typeof import("firebase/auth")>(
+    "firebase/auth"
+  );
+  return {
+    ...actual,
+    signInAnonymously: vi.fn(),
+  };
+});
 
-// Mock firebaseConfig
-vi.mock("../firebaseConfig", () => ({
+vi.mock("@/firebaseConfig", () => ({
   functions: {},
   auth: { currentUser: { uid: "test-uid" } },
 }));
 
-vi.mock("../services/testDataService", () => ({
+vi.mock("@/services/testDataService", () => ({
   TestDataService: {
     createTestEvents: vi.fn(),
   },
 }));
 
-// Mock react-router-dom
 const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
-  useNavigate: () => mockNavigate,
-}));
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>(
+    "react-router"
+  );
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 describe("DevAutoPage", () => {
   beforeEach(() => {
