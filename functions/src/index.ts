@@ -1,6 +1,12 @@
 import { createHmac } from "crypto";
-import * as admin from "firebase-admin";
-import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import admin from "firebase-admin";
+import {
+  FieldValue,
+  getFirestore,
+  Timestamp,
+  type DocumentSnapshot,
+  type QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
@@ -8,7 +14,7 @@ import { setGlobalOptions } from "firebase-functions/v2/options";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import * as fs from "fs";
-import * as jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import {
   MercadoPagoConfig,
   Payment,
@@ -1530,6 +1536,8 @@ export const receiveWebhook = onRequest(
         // Real processing failure; return 500 so Mercado Pago retries webhook.
         logger.error("Erro ao processar notificação de pagamento:", {
           error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
           paymentId,
           notificationType: body?.type,
           notificationAction: body?.action,
@@ -1622,7 +1630,7 @@ export const validateTicket = onRequest(
           return;
         }
         const secret = jwtRawSecret;
-        let decoded: jwt.JwtPayload | string;
+        let decoded: JwtPayload | string;
         try {
           decoded = jwt.verify(qrCode, secret);
         } catch (e) {
@@ -2204,7 +2212,10 @@ export const refundPayment = onCall(
       );
     }
 
-    const { paymentId } = request.data as { paymentId: string };
+    const { paymentId, purchaseId } = (request.data ?? {}) as {
+      paymentId?: string;
+      purchaseId?: string;
+    };
 
     const client = new MercadoPagoConfig({
       accessToken: mercadopagoAccessToken.value(),
@@ -2213,15 +2224,40 @@ export const refundPayment = onCall(
     const refund = new PaymentRefund(client);
 
     try {
-      await refund.create({ payment_id: paymentId });
-
       const purchasesRef = getFirestore().collection("purchases");
-      const snapshot = await purchasesRef
-        .where("paymentId", "==", paymentId)
-        .get();
+      let resolvedPaymentId = paymentId;
+      let purchaseDoc:
+        | DocumentSnapshot
+        | QueryDocumentSnapshot
+        | undefined;
 
-      if (!snapshot.empty) {
-        const purchaseDoc = snapshot.docs[0];
+      if (purchaseId) {
+        const purchaseSnap = await purchasesRef.doc(purchaseId).get();
+        if (purchaseSnap.exists) {
+          purchaseDoc = purchaseSnap;
+          const purchaseData = purchaseSnap.data() as { paymentId?: string };
+          resolvedPaymentId = resolvedPaymentId || purchaseData.paymentId;
+        }
+      }
+
+      if (!purchaseDoc && resolvedPaymentId) {
+        const snapshot = await purchasesRef
+          .where("paymentId", "==", resolvedPaymentId)
+          .limit(1)
+          .get();
+        purchaseDoc = snapshot.docs[0];
+      }
+
+      if (!resolvedPaymentId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "ID de pagamento ou compra é obrigatório."
+        );
+      }
+
+      await refund.create({ payment_id: resolvedPaymentId });
+
+      if (purchaseDoc) {
         await purchaseDoc.ref.update({ status: "refunded" });
 
         const ticketsRef = getFirestore().collection("tickets");
@@ -2236,12 +2272,16 @@ export const refundPayment = onCall(
         await batch.commit();
       } else {
         logger.warn("Compra não encontrada para atualização de reembolso.", {
-          paymentId,
+          paymentId: resolvedPaymentId,
+          purchaseId,
         });
       }
 
       return { success: true, message: "Reembolso processado com sucesso." };
     } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
       logger.error("Erro ao processar reembolso:", error);
       throw new HttpsError(
         "internal",

@@ -172,6 +172,29 @@ describeEmulator("Regras de segurança do Firestore para Ingressos", () => {
         totalAmount: 100,
         status: "pending",
         provider: "mercadopago",
+        paymentMethod: "checkout",
+        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      })
+    );
+  });
+
+  it("deve BLOQUEAR criação de paymentSession com paymentMethod inválido", async () => {
+    const aliceContext = testEnv.authenticatedContext("alice", {
+      email: "alice@example.com",
+    });
+    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_metodo");
+    await assertFails(
+      setDoc(ref, {
+        eventId: "evento_1",
+        userId: "alice",
+        userEmail: "alice@example.com",
+        ticketType: "standard",
+        quantity: 2,
+        unitPrice: 50,
+        totalAmount: 100,
+        status: "pending",
+        provider: "mercadopago",
+        paymentMethod: "boleto",
         createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
       })
     );

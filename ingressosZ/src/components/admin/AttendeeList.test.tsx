@@ -1,27 +1,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { getDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ticketService } from "../../services/firestore";
 import AttendeeList from "./AttendeeList";
 
+const { mockRefundPayment } = vi.hoisted(() => ({
+  mockRefundPayment: vi.fn(),
+}));
+
 vi.mock("../../services/firestore", () => ({
   ticketService: { getTicketsByEvent: vi.fn() },
 }));
 
-vi.mock("../../firebaseConfig", () => ({ db: {}, functions: {} }));
+vi.mock("../../firebaseConfig", () => ({ functions: {} }));
 
-vi.mock("firebase/firestore", async () => {
-  const actual = await vi.importActual<typeof import("firebase/firestore")>("firebase/firestore");
+vi.mock("firebase/functions", () => {
   return {
-    ...actual,
-    getFirestore: vi.fn(() => ({})),
-    connectFirestoreEmulator: vi.fn(),
-    doc: vi.fn().mockReturnValue({}),
-    getDoc: vi.fn().mockResolvedValue({
-      exists: () => true,
-      data: () => ({ paymentId: "pay-1" }),
-    }),
+    httpsCallable: vi.fn(() => mockRefundPayment),
   };
 });
 
@@ -29,7 +25,9 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-const fakeTimestamp = (dateStr: string) => ({ toDate: () => new Date(dateStr) });
+const fakeTimestamp = (dateStr: string) => ({
+  toDate: () => new Date(dateStr),
+});
 
 const mockTickets = [
   {
@@ -80,6 +78,7 @@ describe("AttendeeList Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (ticketService.getTicketsByEvent as any).mockResolvedValue(mockTickets);
+    mockRefundPayment.mockResolvedValue({ data: { success: true } });
   });
 
   it("exibe loading enquanto busca participantes", () => {
@@ -187,6 +186,11 @@ describe("AttendeeList Component", () => {
     fireEvent.click(screen.getByText("Reembolsar"));
 
     await waitFor(() => {
+      expect(httpsCallable).toHaveBeenCalledWith(
+        expect.anything(),
+        "refundPayment"
+      );
+      expect(mockRefundPayment).toHaveBeenCalledWith({ purchaseId: "p1" });
       expect(toast.success).toHaveBeenCalledWith(
         "Reembolso processado para alice@example.com"
       );
@@ -203,7 +207,7 @@ describe("AttendeeList Component", () => {
 
     fireEvent.click(screen.getByText("Reembolsar"));
 
-    expect(getDoc).not.toHaveBeenCalled();
+    expect(mockRefundPayment).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });

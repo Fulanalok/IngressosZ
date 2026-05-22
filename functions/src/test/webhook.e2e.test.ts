@@ -1,13 +1,13 @@
 import { expect } from "chai";
-import { getAuth } from "firebase-admin/auth";
+import { createHmac } from "crypto";
+import admin from "firebase-admin";
+import { getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import functionsTestLib from "firebase-functions-test";
 import { Payment } from "mercadopago";
 import { after, afterEach, before, describe, it } from "mocha";
 import net from "net";
 import nodemailer from "nodemailer";
-
-const functionsTest = functionsTestLib();
 
 const parseHostPort = (value: string) => {
   const [host, port] = value.split(":");
@@ -42,7 +42,7 @@ type WebhookResponse = {
 };
 type WebhookHandler = (req: WebhookRequest, res: WebhookResponse) => void;
 type PaymentGet = typeof Payment.prototype.get;
-type GetUserByEmail = ReturnType<typeof getAuth>["getUserByEmail"];
+type GetUser = ReturnType<typeof admin.auth>["getUser"];
 type StubPayment = {
   payerEmail: string;
   metadata: {
@@ -59,20 +59,35 @@ type StubPayment = {
 };
 
 process.env.FUNCTIONS_EMULATOR = "true";
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "zingressos-test";
+process.env.GOOGLE_CLOUD_PROJECT =
+  process.env.GOOGLE_CLOUD_PROJECT || "zingressos-test";
+process.env.FIREBASE_CONFIG =
+  process.env.FIREBASE_CONFIG ||
+  JSON.stringify({
+    projectId: "zingressos-test",
+    storageBucket: "zingressos-test.appspot.com",
+  });
 process.env.FIRESTORE_EMULATOR_HOST =
   process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8086";
 process.env.FIREBASE_AUTH_EMULATOR_HOST =
   process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "e2e-secret";
 process.env.MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || "e2e-token";
-process.env.MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || "";
+process.env.MP_WEBHOOK_SECRET =
+  process.env.MP_WEBHOOK_SECRET || "webhook-e2e-secret";
 process.env.SMTP_EMAIL = process.env.SMTP_EMAIL || "";
 process.env.SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
+
+const functionsTest = functionsTestLib({
+  projectId: "zingressos-test",
+  storageBucket: "zingressos-test.appspot.com",
+});
 
 describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
   let receiveWebhook: WebhookHandler | undefined;
   let originalGet: PaymentGet | undefined;
-  let originalGetUser: GetUserByEmail | undefined;
+  let originalGetUser: GetUser | undefined;
   let originalCreateTransport: typeof nodemailer.createTransport | undefined;
   let stubPayment: StubPayment | null = null;
   const cleanupPaths: Array<{ path: string; id: string }> = [];
@@ -91,7 +106,26 @@ describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
         return;
       }
       let statusCode = 200;
-      const req: WebhookRequest = { body, headers: {} };
+      const paymentId =
+        typeof (body.data as { id?: unknown } | undefined)?.id === "string" ?
+          ((body.data as { id: string }).id) :
+          "";
+      const requestId = `request-${paymentId || Date.now()}`;
+      const ts = "1700000000";
+      const manifest = `id:${paymentId};request-id:${requestId};ts:${ts};`;
+      const hash = createHmac(
+        "sha256",
+        process.env.MP_WEBHOOK_SECRET || ""
+      )
+        .update(manifest)
+        .digest("hex");
+      const req: WebhookRequest = {
+        body,
+        headers: {
+          "x-request-id": requestId,
+          "x-signature": `ts=${ts},v1=${hash}`,
+        },
+      };
       const res: WebhookResponse = {
         status: (code: number) => {
           statusCode = code;
@@ -133,6 +167,9 @@ describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
     })) as unknown as typeof nodemailer.createTransport;
 
     const mod = await import("../../lib/index.js");
+    if (!getApps().length) {
+      initializeApp({ projectId: "zingressos-test" });
+    }
     receiveWebhook = mod.receiveWebhook as unknown as WebhookHandler;
     originalGet = Payment.prototype.get;
     Payment.prototype.get = async ({ id }: { id: string }) => {
@@ -147,13 +184,13 @@ describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
         payer: { email: stubPayment.payerEmail },
       } as unknown as Awaited<ReturnType<PaymentGet>>;
     };
-    const auth = getAuth();
-    originalGetUser = auth.getUserByEmail;
-    auth.getUserByEmail = async (email: string) => {
+    const auth = admin.auth();
+    originalGetUser = auth.getUser;
+    auth.getUser = async (uid: string) => {
       return {
-        uid: "e2e-user-id",
-        email: email || stubPayment?.payerEmail || "",
-      } as unknown as Awaited<ReturnType<GetUserByEmail>>;
+        uid,
+        email: stubPayment?.payerEmail || "e2e.user@example.com",
+      } as unknown as Awaited<ReturnType<GetUser>>;
     };
   });
 
@@ -176,8 +213,8 @@ describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
       Payment.prototype.get = originalGet;
     }
     if (originalGetUser) {
-      const auth = getAuth();
-      auth.getUserByEmail = originalGetUser;
+      const auth = admin.auth();
+      auth.getUser = originalGetUser;
     }
     if (originalCreateTransport) {
       nodemailer.createTransport = originalCreateTransport;

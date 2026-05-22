@@ -157,10 +157,15 @@ service cloud.firestore {
           && request.resource.data.role == 'user');
     }
 
+    function authEmailMatches(email) {
+      return !(email is string)
+        || !request.auth.token.keys().hasAny(['email'])
+        || email == request.auth.token.email;
+    }
+
     function emailMatchesAuth() {
-      return !(request.resource.data.email is string)
-        || !(request.auth.token.email is string)
-        || request.resource.data.email == request.auth.token.email;
+      return !('email' in request.resource.data)
+        || authEmailMatches(request.resource.data.email);
     }
 
     function isValidPaymentSessionCreate() {
@@ -174,6 +179,7 @@ service cloud.firestore {
           'totalAmount',
           'status',
           'provider',
+          'paymentMethod',
           'createdAt'
         ])
         && request.resource.data.eventId is string
@@ -185,6 +191,9 @@ service cloud.firestore {
         && request.resource.data.totalAmount is number
         && request.resource.data.status == 'pending'
         && request.resource.data.provider == 'mercadopago'
+        && (!('paymentMethod' in request.resource.data)
+          || request.resource.data.paymentMethod == 'pix'
+          || request.resource.data.paymentMethod == 'checkout')
         && request.resource.data.createdAt is timestamp
         && request.resource.data.quantity > 0
         && request.resource.data.unitPrice >= 0
@@ -192,7 +201,7 @@ service cloud.firestore {
         && request.resource.data.totalAmount
           == request.resource.data.unitPrice * request.resource.data.quantity
         && request.resource.data.userId == request.auth.uid
-        && emailMatchesAuth();
+        && authEmailMatches(request.resource.data.userEmail);
     }
 
     function ticketBelongsToUser(userId, ticketId) {

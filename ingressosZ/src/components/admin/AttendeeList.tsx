@@ -2,10 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, Search, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { httpsCallable } from "firebase/functions";
-import { doc, getDoc } from "firebase/firestore";
 import { Button } from "../ui/button";
 import { ticketService } from "../../services/firestore";
-import { db, functions } from "../../firebaseConfig";
+import { functions } from "../../firebaseConfig";
 import type { Ticket } from "../../types";
 
 interface AttendeeListProps {
@@ -49,26 +48,18 @@ export default function AttendeeList({
       return;
     }
 
-    if (!window.confirm(`Reembolsar o ingresso de ${ticket.userEmail}? Esta ação não pode ser desfeita.`)) {
+    const confirmed = window.confirm(
+      `Reembolsar o ingresso de ${ticket.userEmail}? ` +
+        "Esta ação não pode ser desfeita."
+    );
+    if (!confirmed) {
       return;
     }
 
     setRefundingId(ticket.id);
     try {
-      const purchaseSnap = await getDoc(doc(db, "purchases", ticket.purchaseId));
-      if (!purchaseSnap.exists()) {
-        toast.error("Compra não encontrada no banco de dados.");
-        return;
-      }
-
-      const purchaseData = purchaseSnap.data() as { paymentId?: string };
-      if (!purchaseData.paymentId) {
-        toast.error("ID de pagamento não encontrado.");
-        return;
-      }
-
       const refundPayment = httpsCallable(functions, "refundPayment");
-      await refundPayment({ paymentId: purchaseData.paymentId });
+      await refundPayment({ purchaseId: ticket.purchaseId });
 
       toast.success(`Reembolso processado para ${ticket.userEmail}`);
       await fetchAttendees();

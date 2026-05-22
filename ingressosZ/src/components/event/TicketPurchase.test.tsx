@@ -53,10 +53,6 @@ const mockEvent: Event = {
 const mockUser = { uid: "u1", email: "u1@example.com" } as User;
 
 describe("TicketPurchase Component", () => {
-  const originalPublicKey = (
-    import.meta as unknown as { env?: Record<string, string | undefined> }
-  ).env?.VITE_MERCADOPAGO_PUBLIC_KEY;
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckout.preferenceId = null;
@@ -66,10 +62,7 @@ describe("TicketPurchase Component", () => {
   });
 
   afterEach(() => {
-    (import.meta as unknown as { env?: Record<string, string | undefined> }).env = {
-      ...(import.meta as unknown as { env?: Record<string, string | undefined> }).env,
-      VITE_MERCADOPAGO_PUBLIC_KEY: originalPublicKey,
-    };
+    vi.unstubAllEnvs();
   });
 
   it("renders correctly", () => {
@@ -100,10 +93,7 @@ describe("TicketPurchase Component", () => {
   });
 
   it("calls createPreference when buy button is clicked", () => {
-    (import.meta as unknown as { env?: Record<string, string | undefined> }).env = {
-      ...(import.meta as unknown as { env?: Record<string, string | undefined> }).env,
-      VITE_MERCADOPAGO_PUBLIC_KEY: "test-public-key",
-    };
+    vi.stubEnv("VITE_MERCADOPAGO_PUBLIC_KEY", "test-public-key");
     render(<TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Ir para Pagamento" }));
     expect(mockCheckout.createPreference).toHaveBeenCalled();

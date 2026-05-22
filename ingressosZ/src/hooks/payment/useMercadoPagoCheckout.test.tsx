@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { addDoc } from "firebase/firestore";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "@/context/auth/authContext";
@@ -110,6 +111,10 @@ describe("useMercadoPagoCheckout", () => {
     });
 
     await waitFor(() => {
+      expect(addDoc).toHaveBeenCalled();
+      expect((addDoc as any).mock.calls[0][1]).toEqual(
+        expect.objectContaining({ paymentMethod: "checkout" })
+      );
       expect(result.current.preferenceId).toBe("pref-123");
     });
   });

@@ -2,7 +2,20 @@ import { expect } from "chai";
 import functionsTest from "firebase-functions-test";
 import { after, before, describe, it } from "mocha";
 
-const test = functionsTest();
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "zingressos-test";
+process.env.GOOGLE_CLOUD_PROJECT =
+  process.env.GOOGLE_CLOUD_PROJECT || "zingressos-test";
+process.env.FIREBASE_CONFIG =
+  process.env.FIREBASE_CONFIG ||
+  JSON.stringify({
+    projectId: "zingressos-test",
+    storageBucket: "zingressos-test.appspot.com",
+  });
+
+const test = functionsTest({
+  projectId: "zingressos-test",
+  storageBucket: "zingressos-test.appspot.com",
+});
 
 describe("Cloud Functions", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
