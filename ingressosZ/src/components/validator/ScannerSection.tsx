@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { normalizeUserRole, VALIDATOR_ROLES } from "@/constants/roles";
 import type { UserProfile } from "../../types";
 
 const QRScannerLazy = lazy(() => import("@/components/qr/QRScanner"));
@@ -16,9 +17,8 @@ export function ScannerSection({
   onScan,
   onError,
 }: ScannerSectionProps) {
-  const allowedRoles = ["validator", "organizer", "admin"];
-  const userRole = String(userProfile?.role || "user").toLowerCase();
-  if (!allowedRoles.includes(userRole) || !scannerActive) {
+  const userRole = normalizeUserRole(userProfile?.role);
+  if (!VALIDATOR_ROLES.includes(userRole) || !scannerActive) {
     return null;
   }
 

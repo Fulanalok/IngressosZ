@@ -1,3 +1,8 @@
+import {
+  normalizeUserRole,
+  USER_ROLES,
+  VALIDATOR_ROLES,
+} from "@/constants/roles";
 import type { UserProfile } from "../../types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -27,8 +32,7 @@ export function ValidatorForm({
   createTestData,
   isCreatingTestData,
 }: ValidatorFormProps) {
-  const allowedRoles = ["validator", "organizer", "admin"];
-  const userRole = String(userProfile?.role || "user").toLowerCase();
+  const userRole = normalizeUserRole(userProfile?.role);
   return (
     <div className="space-y-6">
       <form onSubmit={onSubmit} className="space-y-6" aria-busy={isValidating}>
@@ -70,7 +74,7 @@ export function ValidatorForm({
             disabled={
               isValidating ||
               !ticketCode.trim() ||
-              !allowedRoles.includes(userRole)
+              !VALIDATOR_ROLES.includes(userRole)
             }
             className="flex-1 flex justify-center items-center py-3 px-4 font-medium"
           >
@@ -109,7 +113,7 @@ export function ValidatorForm({
               Código Teste
             </Button>
             {createTestData &&
-              String(userProfile?.role || "user").toLowerCase() !== "user" && (
+              userRole !== USER_ROLES.USER && (
                 <Button
                   type="button"
                   onClick={createTestData}

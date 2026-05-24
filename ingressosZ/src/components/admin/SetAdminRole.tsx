@@ -1,4 +1,10 @@
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@/components/ui/button";
+import {
+  ASSIGNABLE_ROLE_OPTIONS,
+  normalizeUserRole,
+  ROLE_LABELS,
+  type UserRole,
+} from "@/constants/roles";
 import {
   Card,
   CardContent,
@@ -12,20 +18,13 @@ import type { UserProfile } from "@/types";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useState } from "react";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  organizer: "Organizador",
-  validator: "Validador",
-  user: "Usuário",
-};
+type AssignableRole = Exclude<UserRole, "user">;
 
 const SetAdminRole: React.FC = () => {
   const [email, setEmail] = useState("");
   const [foundUser, setFoundUser] = useState<UserProfile | null>(null);
   const [searching, setSearching] = useState(false);
-  const [role, setRole] = useState<"admin" | "organizer" | "validator">(
-    "validator"
-  );
+  const [role, setRole] = useState<AssignableRole>("validator");
   const [applying, setApplying] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -42,13 +41,8 @@ const SetAdminRole: React.FC = () => {
       const user = await userService.searchUserByEmail(email);
       if (user) {
         setFoundUser(user);
-        setRole(
-          user.role === "admin" ||
-            user.role === "organizer" ||
-            user.role === "validator"
-            ? user.role
-            : "validator"
-        );
+        const normalizedRole = normalizeUserRole(user.role);
+        setRole(normalizedRole === "user" ? "validator" : normalizedRole);
       } else {
         setMessage({
           type: "error",
@@ -134,7 +128,7 @@ const SetAdminRole: React.FC = () => {
               <p>
                 <span className="font-medium">Papel atual:</span>{" "}
                 <span className="capitalize px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-semibold">
-                  {ROLE_LABELS[foundUser.role] ?? foundUser.role}
+                  {ROLE_LABELS[normalizeUserRole(foundUser.role)]}
                 </span>
               </p>
               <p className="text-xs text-muted-foreground font-mono break-all">
@@ -146,13 +140,15 @@ const SetAdminRole: React.FC = () => {
               <label className="text-sm font-medium">Novo papel</label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as typeof role)}
+                onChange={(e) => setRole(e.target.value as AssignableRole)}
                 className="w-full border rounded p-2 text-sm bg-background"
                 disabled={applying}
               >
-                <option value="validator">Validador</option>
-                <option value="organizer">Organizador</option>
-                <option value="admin">Admin</option>
+                {ASSIGNABLE_ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -161,7 +157,7 @@ const SetAdminRole: React.FC = () => {
               disabled={applying || role === foundUser.role}
               className="w-full"
             >
-              {applying ? "Aplicando…" : `Definir como ${ROLE_LABELS[role]}`}
+              {applying ? "Aplicando..." : `Definir como ${ROLE_LABELS[role]}`}
             </Button>
           </div>
         )}

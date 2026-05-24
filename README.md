@@ -1,253 +1,104 @@
-# IngressosZ — Plataforma dedicada de eventos e ingressos
+# IngressosZ
 
-**IngressosZ** é uma plataforma ponta a ponta para criação de eventos, venda de ingressos digitais e validação presencial com QR Code. Diferente de outros marketplaces, o IngressosZ é **dedicado a uma única empresa**, garantindo uma experiência personalizada, segura e de baixo custo operacional.
+IngressosZ e uma plataforma single-company para criacao de eventos, venda de
+ingressos digitais, emissao de QR Codes e validacao presencial.
 
-## 🎨 Filosofia e Identidade Visual
+O projeto usa Firebase como base operacional e Mercado Pago para Checkout/Pix.
+A prioridade e manter um fluxo simples, seguro e barato de operar.
 
-- **Single-Company**: Foco em atender as necessidades de uma única organização, simplificando a gestão e o checkout.
-- **Premium Blue Identity**: O projeto utiliza uma paleta monocromática de azuis sofisticados (Deep Navy ao Sky Accent) para criar uma interface moderna, profissional e de alta profundidade visual.
-- **Tipografia & Estética**: Uso da fonte **Outfit** para um visual de SaaS moderno, com elementos de **Glassmorphism**, bordas arredondadas (**1rem/1.5rem**) e sombras suaves.
-- **Eficiência de Custos**: Arquitetura otimizada para o plano gratuito do Firebase (Spark), priorizando requisições sob demanda onde o tempo real não é crítico.
-- **Mobile-First**: Experiência de uso fluida em celulares, garantindo que o cliente compre seu ingresso com poucos toques.
+## Status Atual
 
-## 🔗 Links rápidos
-
-- Frontend: [README.md](./ingressosZ/README.md)
-- Backend (API): [API.md](./functions/API.md)
-
-## ✅ O que já funciona
-
-- UI Premium Blue completa (Home, Eventos, Ingressos, Fluxo de Compra).
-- Checkout Mercado Pago (preferência gerada no backend).
-- Webhook com verificação de assinatura (HMAC quando configurado).
-- Emissão de tickets com QR Code assinado no Firestore.
-- Validador de ingressos com endpoint HTTP autenticado.
-- Painel admin para eventos e roles.
-- Upload e otimização de imagens no Storage.
-- E-mails transacionais de confirmação.
+- UI Premium Blue para Home, Eventos, Ingressos e fluxo de compra.
+- Checkout Mercado Pago com `paymentSessions`.
+- `paymentSessions.paymentMethod` identifica `checkout` ou `pix`.
+- Webhook Mercado Pago com assinatura HMAC via `MP_WEBHOOK_SECRET`.
+- Emissao de tickets com QR Code JWT assinado.
+- Validador com endpoint HTTP autenticado.
+- Painel admin para eventos, roles e reembolsos.
+- Upload e otimizacao de imagens no Storage.
+- E-mails transacionais de confirmacao.
 - Observabilidade com Sentry.
 
-## 🧱 Stack
+## Stack
 
-- Frontend: React 19, Vite 7, TypeScript, Tailwind CSS v4
-- Roteamento: React Router v7
-- Dados: TanStack Query v5
-- Backend: Firebase Functions v2 (Node.js 24)
-- Banco: Firestore
-- Pagamentos: Mercado Pago (Checkout Pro)
-- Observabilidade: Sentry (frontend e backend)
+- Frontend: React 19, TypeScript, Vite, Tailwind v4.
+- Dados: TanStack Query v5.
+- Backend: Firebase Functions v2, Node.js 24.
+- Banco: Firestore.
+- Storage: Firebase Storage.
+- Auth: Firebase Authentication.
+- Pagamentos: Mercado Pago Checkout Pro e Pix.
+- Monitoramento: Sentry.
 
-## 🧭 Estrutura do monorepo
+## Estrutura
 
-- **/ingressosZ**: SPA em React
-  - **/src/components**: Componentes organizados por contexto:
-    - `admin/` — Painel administrativo
-    - `common/` — Componentes genéricos e utilitários
-    - `dev/` — Ferramentas visíveis apenas em desenvolvimento
-    - `event/` — Exibição e manipulação de Eventos
-    - `layout/` — Estrutura visual global
-    - `qr/` — Geração e leitura de QR Codes
-    - `ticket/` — Exibição de ingressos
-    - `ui/` — Componentes base (Botões, Inputs, Cards)
-    - `validator/` — Fluxo de validação de ingressos na portaria
-- **/functions**: Cloud Functions v2
-- **firebase.json**: hosting, functions, emuladores e regras
-- **firestore.rules / storage.rules**: regras de segurança
-
-## 🧩 Arquitetura (alto nível)
-
-```mermaid
-flowchart TD
-    subgraph Browser["🖥️ Frontend (React SPA)"]
-        UI["Páginas / Componentes"]
-        Hooks["Hooks + TanStack Query"]
-        MP_SDK["Mercado Pago SDK (Wallet)"]
-    end
-
-    subgraph Firebase["☁️ Firebase"]
-        Auth["Firebase Auth"]
-        Firestore["Firestore"]
-        Storage["Cloud Storage"]
-        subgraph Functions["Cloud Functions v2"]
-            createPref["createPaymentPreference\n(callable)"]
-            receiveWH["receiveWebhook\n(HTTP público)"]
-            validateT["validateTicket\n(HTTP autenticado)"]
-            setAdmin["setAdminRole\n(callable)"]
-            uploadImg["uploadEventImage\n(callable)"]
-        end
-    end
-
-    subgraph External["🌐 Externos"]
-        MP["Mercado Pago API"]
-        SMTP["SMTP (e-mail)"]
-        Sentry["Sentry"]
-    end
-
-    UI --> Hooks
-    Hooks -->|"callable / HTTP"| createPref
-    Hooks -->|"callable"| setAdmin
-    Hooks -->|"callable"| uploadImg
-    Hooks -->|"Bearer token"| validateT
-    Hooks -->|"listener / query"| Firestore
-    Hooks -->|"signIn / signOut"| Auth
-
-    MP_SDK -->|"checkout"| MP
-    createPref -->|"cria preferência"| MP
-    MP -->|"webhook"| receiveWH
-
-    receiveWH -->|"valida assinatura"| MP
-    receiveWH -->|"gera tickets"| Firestore
-    receiveWH -->|"envia confirmação"| SMTP
-
-    validateT -->|"verifica ID Token"| Auth
-    validateT -->|"lê / atualiza ticket"| Firestore
-    uploadImg -->|"salva banner"| Storage
-
-    Browser -->|"erros / traces"| Sentry
-    Functions -->|"erros / traces"| Sentry
+```text
+.
+|-- ingressosZ/              # Frontend React/Vite
+|-- functions/               # Firebase Functions
+|-- firestore.rules          # Regras Firestore
+|-- firestore.indexes.json   # Indices Firestore
+|-- storage.rules            # Regras Storage
+|-- firebase.json            # Hosting, Functions e emuladores
+|-- planning/CONTEXT.md      # Roadmap operacional
+|-- architecture/CONTEXT.md  # Arquitetura atual
+|-- ops/CONTEXT.md           # Deploy e operacoes
+`-- functions/API.md         # Contratos backend
 ```
 
-## ⚙️ Pré-requisitos
+## Fluxo de Pagamento
 
-- Node.js 24
-- Firebase CLI
+1. Usuario autenticado escolhe evento, tipo de ingresso e quantidade.
+2. Frontend cria `paymentSessions/{id}` no Firestore com:
+   - `eventId`
+   - `userId`
+   - `userEmail`
+   - `ticketType`
+   - `quantity`
+   - `unitPrice`
+   - `totalAmount`
+   - `status: "pending"`
+   - `provider: "mercadopago"`
+   - `paymentMethod: "checkout"` ou `"pix"`
+3. Frontend chama `createPaymentPreference` ou `createPixPayment`.
+4. Mercado Pago processa o pagamento.
+5. Mercado Pago chama `receiveWebhook`.
+6. Backend valida HMAC, consulta a API do Mercado Pago, atualiza a sessao,
+   cria `purchases`, decrementa estoque, gera `tickets` e envia e-mail.
 
-## ▶️ Setup local
+## Regras de Seguranca
 
-Frontend:
+- `events`: leitura publica; escrita controlada por owner/organizer/admin.
+- `paymentSessions`: criacao pelo usuario autenticado; `paymentMethod` limitado
+  a `checkout` ou `pix`.
+- `tickets`: leitura pelo dono/admin; escrita direta pelo cliente bloqueada.
+- `purchases`: sem acesso direto do cliente.
+- `users`: role protegida contra alteracao comum.
+
+## Setup Local
 
 ```bash
-cd ingressosZ
 npm install
+npm run install:all
 ```
-
-Backend:
-
-```bash
-cd functions
-npm install
-```
-
-### Variáveis do frontend (`/ingressosZ/.env.local`)
-
-```env
-VITE_FIREBASE_API_KEY="sua_api_key"
-VITE_FIREBASE_AUTH_DOMAIN="seu_auth_domain"
-VITE_FIREBASE_PROJECT_ID="seu_project_id"
-VITE_FIREBASE_STORAGE_BUCKET="seu_storage_bucket"
-VITE_FIREBASE_MESSAGING_SENDER_ID="seu_messaging_sender_id"
-VITE_FIREBASE_APP_ID="seu_app_id"
-VITE_FIREBASE_MEASUREMENT_ID="seu_measurement_id"
-VITE_MERCADOPAGO_PUBLIC_KEY="sua_chave_publica_do_mercado_pago"
-VITE_RECAPTCHA_V2_SITE_KEY="sua_chave_publica_recaptcha_v2"
-VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY="sua_chave_appcheck_recaptcha_enterprise"
-VITE_APPCHECK_DEBUG_TOKEN="false"
-VITE_FUNCTIONS_REGION="southamerica-east1"
-VITE_FUNCTIONS_PORT="5001"
-VITE_API_URL=""
-VITE_SENTRY_DSN=""
-```
-
-### Secrets e Params das Functions
-
-Secrets (obrigatórios):
-
-- `MP_ACCESS_TOKEN`
-- `MP_WEBHOOK_SECRET`
-- `JWT_SECRET`
-- `SMTP_EMAIL`
-- `SMTP_PASSWORD`
-- `RECAPTCHA_V2_SECRET`
-
-Params (com padrão):
-
-- `SMTP_HOST` (smtp.gmail.com)
-- `SMTP_PORT` (465)
-- `WEB_BASE_URL` (https://ingressosz.web.app)
-- `SENTRY_DSN` (opcional)
-
-Exemplo (CLI):
-
-```bash
-npx firebase-tools functions:secrets:set MP_ACCESS_TOKEN
-npx firebase-tools functions:secrets:set MP_WEBHOOK_SECRET
-npx firebase-tools functions:secrets:set JWT_SECRET
-npx firebase-tools functions:secrets:set SMTP_EMAIL
-npx firebase-tools functions:secrets:set SMTP_PASSWORD
-npx firebase-tools functions:secrets:set RECAPTCHA_V2_SECRET
-```
-
-## 🧪 Execução local
 
 Frontend:
 
 ```bash
-cd ingressosZ
-npm run dev
+npm --prefix ingressosZ run dev
 ```
 
-Functions (emulador):
+Functions/emuladores:
 
 ```bash
-cd functions
-npm run serve
+firebase emulators:start
 ```
 
-Para subir tudo no emulador:
+## Variaveis do Frontend
 
-```bash
-npx firebase-tools emulators:start
-```
+Crie `ingressosZ/.env.local` usando `ingressosZ/.env.example` como base.
 
-## ✅ Testes
-
-Frontend:
-
-```bash
-cd ingressosZ
-npm test
-```
-
-Backend:
-
-```bash
-cd functions
-npm test
-```
-
-## 🚀 Deploy
-
-Frontend:
-
-```bash
-cd ingressosZ
-npm run build
-firebase deploy --only hosting
-```
-
-Backend:
-
-```bash
-cd functions
-firebase deploy --only functions
-```
-
-Após o deploy, configure a URL da função `receiveWebhook` no painel do Mercado Pago.
-
-Deploy completo:
-
-```bash
-firebase deploy
-```
-
-## 🏁 Produção (checklist prático)
-
-- Criar projeto Firebase separado (dev/staging/prod) e usar alias `prod`.
-- Configurar domínio de produção em **Authentication → Authorized domains**.
-- Enforçar **App Check** para Auth, Firestore, Functions e Storage.
-- Publicar regras de Firestore/Storage do repo.
-- Definir `WEB_BASE_URL` com o domínio real.
-- Preencher `.env.production` no frontend:
+Principais variaveis:
 
 ```env
 VITE_FIREBASE_API_KEY="..."
@@ -257,32 +108,93 @@ VITE_FIREBASE_STORAGE_BUCKET="..."
 VITE_FIREBASE_MESSAGING_SENDER_ID="..."
 VITE_FIREBASE_APP_ID="..."
 VITE_FIREBASE_MEASUREMENT_ID="..."
+VITE_FUNCTIONS_REGION="southamerica-east1"
+VITE_API_URL=""
 VITE_MERCADOPAGO_PUBLIC_KEY="..."
 VITE_RECAPTCHA_V2_SITE_KEY="..."
 VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY="..."
-VITE_FUNCTIONS_REGION="southamerica-east1"
-VITE_API_URL="https://<region>-<project-id>.cloudfunctions.net"
-VITE_SENTRY_DSN="..."
+VITE_APPCHECK_DEBUG_TOKEN="false"
+VITE_USE_EMULATORS="false"
+VITE_FUNCTIONS_PORT="5001"
+VITE_FIREBASE_EMULATOR_FUNCTIONS_PORT="5001"
+VITE_FIREBASE_EMULATOR_AUTH_PORT="9099"
+VITE_FIREBASE_EMULATOR_FIRESTORE_PORT="8086"
+VITE_FIREBASE_EMULATOR_STORAGE_PORT="9199"
+VITE_SENTRY_DSN=""
 ```
 
-## 🔁 Fluxos principais
+## Secrets e Params das Functions
 
-### Checkout e pagamento
+Secrets obrigatorios:
 
-1. Usuário autenticado inicia a compra.
-2. O frontend cria `paymentSession` no Firestore.
-3. O app chama `createPaymentPreference` (callable) ou endpoint público.
-4. O Mercado Pago responde com `preferenceId`.
-5. O `Wallet` inicia o checkout.
+```bash
+firebase functions:secrets:set MP_ACCESS_TOKEN
+firebase functions:secrets:set MP_WEBHOOK_SECRET
+firebase functions:secrets:set JWT_SECRET
+firebase functions:secrets:set SMTP_EMAIL
+firebase functions:secrets:set SMTP_PASSWORD
+firebase functions:secrets:set RECAPTCHA_V2_SECRET
+```
 
-### Webhook e emissão
+Params em `functions/.env`:
 
-1. Mercado Pago chama `receiveWebhook`.
-2. Backend valida assinatura (quando configurado).
-3. Em pagamento aprovado: cria `purchases`, desconta estoque, gera `tickets` e envia e-mail.
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+WEB_BASE_URL=https://ingressosz.web.app
+SENTRY_DSN=
+```
 
-### Validação presencial
+## Testes
 
-1. Usuário abre **Meus Ingressos** e mostra o QR.
-2. **/validador** chama `/functions/validateTicket`.
-3. Backend valida e marca como usado.
+Frontend:
+
+```bash
+npm --prefix ingressosZ run lint
+npm --prefix ingressosZ run build
+npm --prefix ingressosZ run test -- --run
+```
+
+Backend:
+
+```bash
+npm --prefix functions run lint
+npm --prefix functions run build
+npm --prefix functions run test
+```
+
+O teste E2E do webhook roda completo quando Firestore/Auth emulators estao
+ativos. Sem emuladores, ele fica pendente.
+
+## Deploy
+
+```bash
+firebase use
+firebase deploy --only firestore:rules,storage,functions,hosting
+```
+
+Apos o deploy, cadastre a URL publica da Function `receiveWebhook` no painel do
+Mercado Pago e habilite o evento `Payments`.
+
+## Checklist de Producao
+
+- [ ] `firebase use` aponta para o projeto correto.
+- [ ] Frontend `.env.local` contem Firebase, Mercado Pago, reCAPTCHA e App
+  Check.
+- [ ] Functions secrets configurados.
+- [ ] `WEB_BASE_URL` aponta para a URL publica real.
+- [ ] Dominios autorizados no Firebase Auth.
+- [ ] Dominios autorizados no reCAPTCHA v2.
+- [ ] Dominios autorizados no reCAPTCHA Enterprise/App Check.
+- [ ] Webhook Mercado Pago cadastrado e testado.
+- [ ] Compra real de baixo valor testada em Checkout e Pix.
+- [ ] QR Code validado com role `validator`, `organizer` ou `admin`.
+- [ ] Reembolso/admin testado em compra elegivel.
+
+## Documentacao Relacionada
+
+- [functions/API.md](functions/API.md)
+- [architecture/CONTEXT.md](architecture/CONTEXT.md)
+- [planning/CONTEXT.md](planning/CONTEXT.md)
+- [ops/CONTEXT.md](ops/CONTEXT.md)
+- [ingressosZ/README.md](ingressosZ/README.md)

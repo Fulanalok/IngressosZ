@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router";
+import { ADMIN_PANEL_ROLES, VALIDATOR_ROLES } from "@/constants/roles";
 import { useAuth } from '@/hooks/auth/useAuth';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,7 @@ function Navbar() {
             >
               Meus ingressos
             </Link>
-            {userProfile?.role === "organizer" && (
+            {userProfile && ADMIN_PANEL_ROLES.includes(userProfile.role) && (
               <Link
                 to="/admin"
                 className={`nav-link ${
@@ -67,7 +68,7 @@ function Navbar() {
                 Painel Admin
               </Link>
             )}
-            {(userProfile?.role === "validator" || userProfile?.role === "organizer") && (
+            {userProfile && VALIDATOR_ROLES.includes(userProfile.role) && (
               <Link
                 to="/validador"
                 className={`nav-link ${

@@ -1,79 +1,124 @@
-# Documentação da API - IngressosZ (Backend)
+# API Backend - IngressosZ
 
-O backend do IngressosZ é construído sobre **Firebase Cloud Functions v2**, oferecendo uma arquitetura serverless escalável e orientada a eventos.
+O backend usa Firebase Cloud Functions v2 em Node.js 24, com TypeScript,
+Firestore, Mercado Pago, Nodemailer, Sharp e Sentry.
 
-## 🛠️ Tech Stack
+## Organizacao do Codigo
 
-- **Runtime:** Node.js 24
-- **Framework:** Firebase Functions v2
-- **Linguagem:** TypeScript
-- **Banco de Dados:** Cloud Firestore
-- **Outras Libs:**
-  - `mercadopago`: SDK oficial para processamento de pagamentos.
-  - `nodemailer`: Envio de e-mails transacionais (confirmação de compra).
-  - `sharp`: Processamento e otimização de imagens (upload de banners de eventos).
+`functions/src/index.ts` e somente o ponto de exportacao das Functions. Os
+handlers vivem em `functions/src/endpoints/`:
 
-## ⚡ Funções Disponíveis
+- `payments.ts`: Checkout Pro, Pix e webhook Mercado Pago.
+- `tickets.ts`: validacao de ingressos.
+- `email.ts`: trigger de ticket e envio de e-mails.
+- `refunds.ts`: reembolso administrativo.
+- `users.ts`: definicao de roles/custom claims.
+- `system.ts`: healthcheck, log de erro do cliente e reCAPTCHA v2.
+- `storage.ts`: otimizacao de imagens.
+- `seed.ts`: carga de desenvolvimento.
+- `maintenance.ts`: expiracao agendada de sessoes Pix.
 
-### 1. Callable Functions (Cliente -> Backend)
+## Callable Functions
 
-Estas funções são invocadas diretamente pelo frontend usando o SDK do Firebase.
+Funcoes chamadas pelo frontend com o SDK do Firebase.
 
-#### `seedDatabase`
+### `seedDatabase`
 
-- **Descrição:** Popula o banco de dados com eventos e ingressos de teste. Útil para desenvolvimento e demonstrações.
-- **Acesso:** Requer autenticação.
-- **Retorno:** Status da operação e IDs criados.
+- **Descricao:** popula eventos e dados de teste para desenvolvimento.
+- **Acesso:** autenticado.
+- **Retorno:** status da operacao e IDs criados.
 
-#### `createPaymentPreference`
+### `createPaymentPreference`
 
-- **Descrição:** Cria uma preferência de pagamento no Mercado Pago para um ingresso específico.
-- **Parâmetros:** `eventId`, `ticketType`, `quantity`.
-- **Retorno:** URL de checkout do Mercado Pago (`init_point`).
+- **Descricao:** cria uma preferencia de Checkout Pro no Mercado Pago.
+- **Parametros:** `eventId`, `ticketType`, `quantity` e dados do usuario
+  autenticado.
+- **Pre-condicao:** o frontend cria uma `paymentSession` no Firestore com
+  `paymentMethod: "checkout"`.
+- **Retorno:** `preferenceId`/dados de checkout usados pelo Wallet do Mercado
+  Pago.
 
-#### `validateTicket`
+### `createPixPayment`
 
-- **Descrição:** Valida um ingresso scaneado pelo app do validador.
-- **Parâmetros:** `qrCode`.
-- **Lógica:** Verifica se o código existe, se pertence ao evento correto e se já foi utilizado.
-- **Retorno:** Status (`valid`, `used`, `invalid`) e dados do portador.
+- **Descricao:** cria pagamento Pix no Mercado Pago.
+- **Parametros:** `eventId`, `ticketType`, `quantity` e dados do usuario
+  autenticado.
+- **Pre-condicao:** o frontend cria uma `paymentSession` com
+  `paymentMethod: "pix"`.
+- **Retorno:** QR Code Pix, QR Code Base64 e dados de acompanhamento.
 
-### 2. HTTPS Triggers (Webhooks)
+### `refundPayment`
 
-Endpoints HTTP públicos para integrações externas.
+- **Descricao:** executa reembolso no Mercado Pago e atualiza o estado interno
+  da compra.
+- **Acesso:** usuarios com permissao administrativa.
+- **Efeito:** registra status de reembolso para auditoria e evita alterar dados
+  diretamente pelo cliente.
 
-#### `receiveWebhook`
+### `validateTicket`
 
-- **Método:** `POST`
-- **URL:** `/receiveWebhook`
-- **Descrição:** Recebe notificações de status de pagamento do Mercado Pago.
+- **Descricao:** valida QR Code apresentado na entrada do evento.
+- **Parametros:** `qrCode`.
+- **Permissao:** `validator`, `organizer` ou `admin`.
+- **Retorno:** resultado de validacao e dados do ingresso.
+
+## HTTP Endpoints
+
+### `receiveWebhook`
+
+- **Metodo:** `POST`
+- **URL publica:** URL gerada pelo deploy da Function `receiveWebhook`.
+- **Descricao:** recebe notificacoes de pagamento do Mercado Pago.
+- **Seguranca:** valida assinatura HMAC com `MP_WEBHOOK_SECRET`.
 - **Fluxo:**
-  1.  Recebe notificação `payment.updated`.
-  2.  Verifica status na API do Mercado Pago.
-  3.  Se aprovado, gera o ingresso na coleção `tickets`.
-  4.  Envia e-mail de confirmação com os dados do evento e ingressos.
+  1. Recebe notificacao de pagamento.
+  2. Valida `x-signature` e `x-request-id`.
+  3. Consulta o pagamento na API do Mercado Pago.
+  4. Resolve `paymentSessionId`, usuario, evento, tipo e quantidade.
+  5. Se aprovado, atualiza `paymentSessions`, cria `purchases`, desconta
+     estoque, gera `tickets` com QR Code JWT e envia e-mail.
+  6. Em oversell ou erro operacional, registra o estado para auditoria e evita
+     duplicidade.
 
-### 3. Firestore Triggers (Eventos de Banco)
+### `createPaymentPreferencePublic` e `createPixPaymentPublic`
 
-Funções disparadas automaticamente por mudanças no banco de dados.
+- **Descricao:** variantes HTTP publicas para criacao de checkout/Pix quando o
+  fluxo precisa chamar endpoint direto.
+- **Observacao:** devem manter o mesmo contrato de `paymentSessions` usado pelas
+  callables.
 
-#### `onTicketCreated`
+## Firestore Triggers
 
-- **Gatilho:** Criação de documento em `tickets/{ticketId}`.
-- **Ação:** Complementa dados do ticket, atualiza contadores do evento e dispara e-mail de confirmação por compra.
+### `onTicketCreated`
 
-## 🧪 Testes
+- **Gatilho:** criacao de documento em `tickets/{ticketId}`.
+- **Acao:** complementa dados do ticket e envia e-mail de confirmacao quando
+  aplicavel.
 
-O backend utiliza **Mocha** e **Chai** para testes, juntamente com `firebase-functions-test` para simular o ambiente Cloud.
+## Regras Relacionadas
+
+- `paymentSessions` aceita criacao pelo usuario autenticado quando:
+  - `userId` corresponde a `request.auth.uid`;
+  - `userEmail` corresponde ao email autenticado quando presente no token;
+  - `status` e `provider` sao `pending` e `mercadopago`;
+  - `paymentMethod` e opcional, mas quando presente deve ser `checkout` ou
+    `pix`.
+- `purchases` e `tickets` continuam protegidos contra escrita direta do cliente;
+  a emissao acontece via Functions.
+
+## Testes
 
 ```bash
-# Rodar testes do backend
+npm run lint
+npm run build
 npm run test
 ```
 
-## 📦 Deploy
+O teste E2E do webhook simula assinatura HMAC e fica pendente quando os
+emuladores Firebase nao estao rodando.
+
+## Deploy
 
 ```bash
-# Deploy apenas das functions
 firebase deploy --only functions
 ```

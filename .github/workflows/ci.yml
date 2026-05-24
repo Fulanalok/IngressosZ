@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+﻿name: CI/CD Pipeline
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # Job de Verificação (Roda em todo PR e Push)
+  # Job de verificacao (roda em todo PR e push)
   quality-check:
-    name: 🛡️ Quality Check (Lint & Tests)
+    name: Quality Check (Lint & Tests)
     runs-on: ubuntu-latest
 
     steps:
@@ -24,27 +24,27 @@ jobs:
       - name: Install Dependencies
         run: npm run install:all
 
-      - name: 🔍 Linting (Frontend)
+      - name: Linting (Frontend)
         working-directory: ./ingressosZ
         run: npm run lint
 
-      - name: 🔎 Typecheck (Frontend)
+      - name: Typecheck (Frontend)
         working-directory: ./ingressosZ
         run: npm run typecheck
 
-      - name: 🔍 Linting (Backend)
+      - name: Linting (Backend)
         working-directory: ./functions
         run: npm run lint
 
-      - name: 🧪 Unit Tests (Frontend)
+      - name: Unit Tests (Frontend)
         working-directory: ./ingressosZ
         run: npm run test
 
-      - name: 🧪 Unit Tests (Backend)
+      - name: Unit Tests (Backend)
         working-directory: ./functions
         run: npm run test
 
-      - name: 🧪 E2E (Cypress)
+      - name: E2E (Cypress)
         uses: cypress-io/github-action@v6
         with:
           working-directory: ./ingressosZ
@@ -53,9 +53,9 @@ jobs:
           wait-on: http://127.0.0.1:5173
           wait-on-timeout: 120
 
-  # Job de Build (Garante que o projeto compila)
+  # Job de build (garante que o projeto compila)
   build-check:
-    name: 🏗️ Build Verification
+    name: Build Verification
     needs: quality-check
     runs-on: ubuntu-latest
 

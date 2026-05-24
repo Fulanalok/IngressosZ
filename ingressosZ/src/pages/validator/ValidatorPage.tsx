@@ -9,6 +9,7 @@ import {
 import { ScannerSection } from "@/components/validator/ScannerSection";
 import { ValidationResult } from "@/components/validator/ValidationResult";
 import { ValidatorForm } from "@/components/validator/ValidatorForm";
+import { normalizeUserRole, VALIDATOR_ROLES } from "@/constants/roles";
 import { useAuth } from "@/hooks/auth/useAuth";
 import {
   useTicketValidator,
@@ -100,8 +101,7 @@ function ValidatorPage() {
     resetValidation();
   };
 
-  const allowedRoles = ["validator", "organizer", "admin"];
-  const userRole = String(userProfile?.role || "user").toLowerCase();
+  const userRole = normalizeUserRole(userProfile?.role);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -267,7 +267,7 @@ function ValidatorPage() {
               <button
                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors"
                 onClick={() => setScannerActive((s) => !s)}
-                disabled={!allowedRoles.includes(userRole)}
+                disabled={!VALIDATOR_ROLES.includes(userRole)}
               >
                 {scannerActive ? "Fechar Scanner" : "Scanear QR"}
               </button>

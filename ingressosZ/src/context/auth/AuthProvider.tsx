@@ -1,4 +1,5 @@
 import { auth } from "@/firebaseConfig";
+import { normalizeUserRole, USER_ROLES } from "@/constants/roles";
 import { userService } from "@/services/firestore";
 import { logger } from "@/services/logger";
 import type { UserProfile } from "@/types";
@@ -22,33 +23,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: currentUser.email || "",
             displayName: currentUser.displayName || "",
             phone: currentUser.phoneNumber || "",
-            role: "user",
+            role: USER_ROLES.USER,
             avatarUrl: currentUser.photoURL || "",
           };
           await userService.createUserProfile(currentUser.uid, newUserProfile);
           profile = await userService.getUserProfile(currentUser.uid);
         }
 
-        let roleFromClaims: UserProfile["role"] = profile?.role || "user";
+        let roleFromClaims: UserProfile["role"] = normalizeUserRole(
+          profile?.role
+        );
         try {
           const tokenResult = await currentUser.getIdTokenResult();
           const claimsRole = tokenResult.claims.role;
           const isAdmin = tokenResult.claims.admin === true;
           if (isAdmin) {
-            roleFromClaims = "admin";
+            roleFromClaims = USER_ROLES.ADMIN;
           } else if (typeof claimsRole === "string") {
-            const normalized = claimsRole.toLowerCase();
-            if (
-              normalized === "user" ||
-              normalized === "organizer" ||
-              normalized === "validator" ||
-              normalized === "admin"
-            ) {
-              roleFromClaims = normalized as UserProfile["role"];
-            }
+            roleFromClaims = normalizeUserRole(claimsRole);
           }
         } catch {
-          roleFromClaims = profile?.role || "user";
+          roleFromClaims = normalizeUserRole(profile?.role);
         }
 
         if (profile && profile.role !== roleFromClaims) {
@@ -80,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: authUser.email || "",
               displayName: authUser.displayName || "",
               phone: authUser.phoneNumber || "",
-              role: "user",
+              role: USER_ROLES.USER,
               avatarUrl: authUser.photoURL || "",
             };
             await userService.createUserProfile(authUser.uid, newUserProfile);

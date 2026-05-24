@@ -1,18 +1,12 @@
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { normalizeUserRole, ROLE_LABELS } from "@/constants/roles";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { userService } from "@/services/firestore";
 import { sendPasswordResetEmail, updateProfile } from "firebase/auth";
 import { useState } from "react";
 import { toast } from "sonner";
 import { auth } from "@/firebaseConfig";
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  organizer: "Organizador",
-  validator: "Validador",
-  user: "Usuário",
-};
 
 function ProfilePage() {
   const { user, userProfile, signOut } = useAuth();
@@ -92,7 +86,7 @@ function ProfilePage() {
                   type="submit"
                   disabled={savingName || !displayName.trim()}
                 >
-                  {savingName ? "Salvando…" : "Salvar"}
+                  {savingName ? "Salvando..." : "Salvar"}
                 </Button>
                 <Button
                   type="button"
@@ -140,8 +134,7 @@ function ProfilePage() {
               <div className="flex justify-between items-center border-b border-border pb-3">
                 <span className="font-medium text-foreground">Função</span>
                 <span className="capitalize px-2 py-1 bg-primary/10 text-primary rounded text-sm">
-                  {ROLE_LABELS[userProfile?.role ?? "user"] ??
-                    userProfile?.role}
+                  {ROLE_LABELS[normalizeUserRole(userProfile?.role)]}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -170,7 +163,7 @@ function ProfilePage() {
                   onClick={handleChangePassword}
                   disabled={sendingReset}
                 >
-                  {sendingReset ? "Enviando…" : "Alterar senha"}
+                  {sendingReset ? "Enviando..." : "Alterar senha"}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">

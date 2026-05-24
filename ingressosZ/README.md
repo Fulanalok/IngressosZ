@@ -60,12 +60,13 @@ Utilizamos componentes encapsulados em `src/components/ui`, construídos com Tai
 
 O frontend se comunica com o backend em `/functions` ou via `VITE_API_URL` para operações críticas:
 
-- **Criação de preferência de pagamento**
+- **Criação de sessão e pagamento**
 
-  - Implementado no hook [useMercadoPagoCheckout.ts](src/hooks/useMercadoPagoCheckout.ts).
-  - Usa a função callable `createPaymentPreference` do Firebase Functions.
-  - Se necessário (legado), faz fallback para `${VITE_API_URL}/create-preference`.
-  - O ID da preferência retornado é usado para inicializar o fluxo de checkout do Mercado Pago no frontend.
+  - Implementado no hook [useMercadoPagoCheckout.ts](src/hooks/payment/useMercadoPagoCheckout.ts).
+  - Antes de chamar o Mercado Pago, cria `paymentSessions` no Firestore.
+  - O campo `paymentMethod` identifica `checkout` ou `pix`.
+  - Usa as funções `createPaymentPreference` e `createPixPayment` do Firebase Functions.
+  - O checkout usa o `preferenceId`; o Pix usa QR Code e QR Code Base64.
 
 - **Validação de ingressos (Página do Validador)**
 
@@ -80,6 +81,7 @@ O frontend se comunica com o backend em `/functions` ou via `VITE_API_URL` para 
 
 - **Webhook de pagamento**
   - A função `receiveWebhook` é chamada diretamente pelo Mercado Pago (não pelo frontend).
+  - O backend valida assinatura HMAC, atualiza `paymentSessions`, cria `purchases`, emite `tickets` e envia e-mail.
   - Após o processamento no backend, o frontend passa a enxergar os ingressos gerados via coleções do Firestore (serviços em `src/services/firestore.ts` e hooks de tickets).
 
 De forma geral, componentes de UI usam hooks em `src/hooks/` e estes, por sua vez, usam serviços em `src/services/` para isolar detalhes de rede/integração do restante da aplicação.

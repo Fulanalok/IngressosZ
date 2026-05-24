@@ -1,229 +1,128 @@
-# IngressosZ - Project Documentation and Vision
+# CLAUDE.md - IngressosZ
 
-This file serves as a reference guide for developers and AIs working on IngressosZ. It details the philosophy, project direction, and technical guidelines to ensure consistency and efficiency.
+IngressosZ e uma plataforma single-company para venda, emissao e validacao de
+ingressos digitais.
 
-## 🚀 Overview
+## Como Navegar o Projeto
 
-**IngressosZ** is a dedicated ticket sales and validation platform, designed to be used by a **single company** (single-company). The goal is to offer a premium, secure, and extremely simple experience for both the organizer and the end customer.
+Use os arquivos de contexto por area:
 
-## 📂 Workspaces & Routing Table
+| Area | Caminho |
+| --- | --- |
+| Visao geral | `README.md` |
+| Frontend | `ingressosZ/README.md`, `ingressosZ/src/CONTEXT.md` |
+| Backend/API | `functions/API.md`, `functions/CONTEXT.md` |
+| Arquitetura | `architecture/CONTEXT.md` |
+| Operacoes/deploy | `ops/CONTEXT.md` |
+| Roadmap | `planning/CONTEXT.md` |
+| Componentes | `ingressosZ/src/components/CONTEXT.md` |
+| Hooks | `ingressosZ/src/hooks/CONTEXT.md` |
+| Services | `ingressosZ/src/services/CONTEXT.md` |
 
-This project is organized into **workspaces** — distinct areas of work with their own CONTEXT.md files. When Claude receives a task, it should:
+## Estado Atual
 
-1. **Identify the workspace** using the table below
-2. **Read the relevant CONTEXT.md** before starting work
-3. **Follow the conventions** defined in that workspace
+- Checkout Mercado Pago e Pix usam `paymentSessions`.
+- `paymentSessions.paymentMethod` aceita `checkout` ou `pix`.
+- Firestore Rules validam usuario, email e metodo de pagamento.
+- Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
+- Tickets usam QR Code JWT assinado por `JWT_SECRET`.
+- `tickets` e `purchases` nao aceitam escrita direta do cliente.
+- Admin/organizer/validator/user sao as roles atuais.
+- Fluxo de reembolso/admin foi reforcado no backend.
 
-### Workspace Map
+## Pendencias de Producao
 
-| Workspace | Location | Purpose | CONTEXT.md |
-|-----------|----------|---------|------------|
-| **Planning** | `planning/` | Roadmap, pending tasks, long-term vision | `planning/CONTEXT.md` |
-| **Specs** | `specs/` | Technical specifications, schemas, API contracts | `specs/CONTEXT.md` |
-| **Architecture** | `architecture/` | Design decisions, patterns, system structure | `architecture/CONTEXT.md` |
-| **Frontend** | `ingressosZ/src/` | React components, hooks, services | `ingressosZ/src/CONTEXT.md` |
-| **Components** | `ingressosZ/src/components/` | UI components (admin, event, ticket, etc) | `ingressosZ/src/components/CONTEXT.md` |
-| **Services** | `ingressosZ/src/services/` | Firebase & API integrations | `ingressosZ/src/services/CONTEXT.md` |
-| **Hooks** | `ingressosZ/src/hooks/` | Custom React hooks | `ingressosZ/src/hooks/CONTEXT.md` |
-| **Backend** | `functions/` | Firebase Functions (serverless backend) | `functions/CONTEXT.md` |
-| **Operations** | `ops/` | Deploy, monitoring, CI/CD | `ops/CONTEXT.md` |
+- Testar compra real de baixo valor via Checkout.
+- Testar compra real via Pix.
+- Confirmar webhook `receiveWebhook` no dashboard Mercado Pago.
+- Confirmar `MP_WEBHOOK_SECRET` no Secret Manager.
+- Confirmar App Check e reCAPTCHA com os dominios reais.
+- Confirmar admin real com claims `admin: true` e `role: "admin"`.
+- Validar e-mail transacional.
+- Validar QR Code com role `validator`, `organizer` ou `admin`.
 
-### Routing Table: Task Type → Workspace
+## Padroes de Codigo
 
-| Task Type | Read First | Then Read (if needed) |
-|-----------|------------|----------------------|
-| "Plan feature X" | `planning/CONTEXT.md` | `specs/CONTEXT.md`, `architecture/CONTEXT.md` |
-| "Explain payment flow" | `specs/CONTEXT.md` | `functions/CONTEXT.md` |
-| "Add new component" | `ingressosZ/src/components/CONTEXT.md` | `ingressosZ/src/CONTEXT.md` |
-| "Create custom hook" | `ingressosZ/src/hooks/CONTEXT.md` | `ingressosZ/src/CONTEXT.md` |
-| "Fix Firebase Function bug" | `functions/CONTEXT.md` | `specs/CONTEXT.md` |
-| "Integrate new API" | `ingressosZ/src/services/CONTEXT.md` | `specs/CONTEXT.md` |
-| "Deploy to production" | `ops/CONTEXT.md` | `functions/CONTEXT.md` |
-| "Review architecture decision" | `architecture/CONTEXT.md` | `specs/CONTEXT.md` |
-| "Update roadmap" | `planning/CONTEXT.md` | — |
+- Frontend em `ingressosZ/src`.
+- Functions em `functions/src`.
+- Componentes em PascalCase.
+- Hooks com prefixo `use`.
+- Services em camelCase.
+- Tipos compartilhados em `ingressosZ/src/types`.
+- Backend deve usar `getFirestore()` de `firebase-admin/firestore`.
+- Evitar escrita direta em Firestore quando a operacao pertence ao backend.
 
-### File Naming & Organization
+## Comandos Uteis
 
-When creating new files:
+Frontend:
 
-- **Components**: PascalCase (`EventCard.tsx`) → `ingressosZ/src/components/{domain}/`
-- **Hooks**: camelCase with `use` prefix (`useAuth.ts`) → `ingressosZ/src/hooks/{domain}/`
-- **Services**: camelCase (`firestore.ts`) → `ingressosZ/src/services/{category}/`
-- **Functions**: camelCase (`createPreference.ts`) → `functions/src/{category}/`
-- **Types**: PascalCase (`Event.ts`) → `ingressosZ/src/types/`
-- **Utils**: camelCase (`formatCurrency.ts`) → `ingressosZ/src/utils/`
-- **Context docs**: `CONTEXT.md` (always uppercase) → workspace root
+```bash
+npm --prefix ingressosZ run lint
+npm --prefix ingressosZ run build
+npm --prefix ingressosZ run test -- --run
+```
 
-**IMPORTANT**: The CONTEXT.md files are **living documents**. If Claude encounters something not covered in a CONTEXT.md, or finds outdated information, it should note this to the user and suggest updates.
+Backend:
 
-## 🧠 Project Philosophy
+```bash
+npm --prefix functions run lint
+npm --prefix functions run build
+npm --prefix functions run test
+```
 
-- **Dedicated Simplicity**: The system is not a multi-company marketplace. It is optimized for the events of a single entity, which simplifies permission logic and navigation.
-- **Cost Efficiency (Low Firestore Footprint)**: The architecture must prioritize low consumption of Firebase resources.
-  - Use `getDocs` for static data or data that changes little (e.g., "My Tickets").
-  - Use `onSnapshot` judiciously (e.g., Event list and Admin Dashboard) to keep UX real-time where it really matters.
-- **Responsive and Premium Interface**: Mobile-first design, focusing on usability on any device. The mobile experience should be as fluid as a native app.
+Deploy:
 
-- **Primary Color**: Monochromatic Blue (Premium Blue).
-- **Typography**: **Outfit** (Google Fonts).
-- **Aesthetics**: Glassmorphism (`glass-card`), rounded borders (`rounded-xl` / `rounded-2xl`), soft shadows, and text with gradients (`blue-gradient-text`).
-- **Guideline**: Use the blue palette defined in `index.css` to create depth and a modern SaaS look. Avoid vibrant colors outside the blue scale, except for critical alerts.
+```bash
+firebase deploy --only firestore:rules,storage,functions,hosting
+```
 
-## 🧭 Roadmap and Future
+## Variaveis e Secrets
 
-What we want IngressosZ to become:
+Frontend:
 
-- **Offline/Secure Validation**: Improvement of signed QR Code validation.
+- `VITE_FIREBASE_*`
+- `VITE_MERCADOPAGO_PUBLIC_KEY`
+- `VITE_RECAPTCHA_V2_SITE_KEY`
+- `VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY`
+- `VITE_FUNCTIONS_REGION`
+- `VITE_SENTRY_DSN`
 
-## 🚩 Pending Tasks and Next Steps (April 2026)
+Functions secrets:
 
-### High Priority — Production Validation
+- `MP_ACCESS_TOKEN`
+- `MP_WEBHOOK_SECRET`
+- `JWT_SECRET`
+- `SMTP_EMAIL`
+- `SMTP_PASSWORD`
+- `RECAPTCHA_V2_SECRET`
 
-- [ ] **Test end-to-end payment flow**: MP_ACCESS_TOKEN configured, Functions deployed with `getFirestore()`. Need to validate purchase with credit card and PIX in production.
-- [ ] **Configure Webhook in Mercado Pago**: The `receiveWebhook` URL needs to be registered in the MP dashboard so that approved payments generate tickets automatically.
-  - URL: `https://<region>-<your-project>.cloudfunctions.net/receiveWebhook`
-- [ ] **Login (auth/invalid-credential)**: Validate admin user credentials in the Firebase Console.
+Functions params:
 
-### UI/UX & Features
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `WEB_BASE_URL`
+- `SENTRY_DSN`
 
-- [ ] **PIX Checkout**: Validate Base64 QR Code in the modal after payment is approved via webhook.
-- [ ] **PWA icon**: `pwa-192.png` missing in build — console error (non-critical).
-- [ ] **App Check**: Enable in production (Auth, Firestore, Functions, Storage) for additional security.
+## Fluxo de Pagamento
 
-## 🛠️ Development Guidelines
-
-Always tell me before you do something what Agent Model I should use for the work and why.
-
-Use Claude Sonnet for: code implementation, general questions, data analysis, and document summarization.
-Use Claude Opus for: complex architecture decisions, more refined writing, and critical bug diagnostics.
-Use Claude Haiku for: quick answers, day-to-day demands, and simple tasks.
-
-### Tech Stack
-
-- **Frontend**: React 19, Vite 7, TypeScript, Tailwind CSS v4.
-- **Routing**: React Router v7.
-- **Data**: TanStack Query v5 + Firebase Firestore.
-- **Backend**: Firebase Functions v2 (Node.js 24).
-
-### Component Architecture (`src/components/`)
-
-- `admin/` — Exclusive screens and modals for the administrative panel
-- `common/` — Generic and utility components
-- `dev/` — Tools visible only in local environment (development)
-- `event/` — Everything related to Event display and manipulation
-- `layout/` — Global visual structure (Navbar, etc.)
-- `qr/` — QR Code generation and reading (production)
-- `ticket/` — Ticket display
-- `ui/` — Generic base components (Buttons, Inputs, Cards, etc.)
-- `validator/` — Ticket validation flow at the entrance
-
-### Project Architecture
-
-📁 src/components/
-├── 📁 admin/ # Exclusive screens and modals for the administrative panel
-│ ├── AdminDashboard.tsx
-│ ├── AttendeeList.tsx
-│ └── SetAdminRole.tsx
-│
-├── 📁 common/ # Generic and utility components
-│ ├── GlobalErrorFallback.tsx
-│ └── SEO.tsx
-│
-├── 📁 dev/ # Tools visible only in local environment (development)
-│ ├── CameraTest.tsx
-│ ├── DevPanel.tsx
-│ ├── FirebaseDebug.tsx
-│ ├── QRGenerator.tsx
-│ └── QRTestDisplay.tsx
-│
-├── 📁 event/ # Everything related to Event display and manipulation
-│ ├── EventCard.tsx
-│ ├── EventCardSkeleton.tsx
-│ ├── EventDetailSkeleton.tsx
-│ ├── EventHeader.tsx
-│ ├── EventInfo.tsx
-│ ├── ShareButtons.tsx
-│ └── TicketPurchase.tsx
-│
-├── 📁 layout/ # Global visual structure
-│ ├── Navbar.tsx
-│ └── ThemeToggle.tsx
-│
-├── 📁 qr/ # QR Code generation and reading (production)
-│ ├── QRCodeDisplay.tsx
-│ └── QRScanner.tsx
-│
-├── 📁 ticket/ # Ticket display
-│ ├── Ticket.tsx
-│ └── TicketSkeleton.tsx
-│
-├── 📁 ui/ # Generic base components (Buttons, Inputs, Cards, etc.)
-│ ├── button.tsx
-│ ├── card.tsx
-│ ├── input.tsx
-│ └── skeleton.tsx
-│
-└── 📁 validator/ # Ticket validation flow at the entrance
-├── ScannerSection.tsx
-├── ValidationResult.tsx
-└── ValidatorForm.tsx
-
-### Code Standards
-
-- **Logic and UI**: Keep complex data logic in custom hooks or services. Components should focus on rendering and UI.
-- **Styling**: Use only Tailwind CSS v4. Avoid inline CSS or heavy component libraries.
-- **Typing**: Strict TypeScript. Avoid `any`.
-- **Security**: Firestore and Storage rules must be restrictive. Ticket validation must be done via authenticated HTTPS in Functions.
-- **Admin SDK**: Always use `getFirestore()` from `firebase-admin/firestore`, not `admin.firestore()`.
-
-### Useful Commands
-
-- `npm run dev`: Start the frontend locally.
-- `npm test`: Run test suite (286 passing).
-- `firebase deploy --only hosting`: Frontend deploy.
-- `firebase deploy --only functions`: Backend deploy.
-- `firebase functions:log`: View runtime logs in production.
-
----
-
-_This document is alive and should be updated as the project evolves._
-
-<!-- code-review-graph MCP tools -->
+1. Frontend cria `paymentSessions`.
+2. Frontend chama Checkout ou Pix.
+3. Mercado Pago chama `receiveWebhook`.
+4. Backend valida HMAC e consulta o pagamento.
+5. Backend atualiza sessao, compra, estoque e tickets.
+6. Frontend le tickets gerados pelo Firestore.
 
 ## MCP Tools: code-review-graph
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools and NEVER use Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+Este projeto possui grafo de conhecimento. Antes de explorar codigo com busca
+textual, tente usar as ferramentas do `code-review-graph`:
 
-### When to use graph tools FIRST
+- `detect_changes`
+- `get_review_context`
+- `get_impact_radius`
+- `get_affected_flows`
+- `query_graph`
+- `semantic_search_nodes`
+- `get_architecture_overview`
 
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Never fall back to Grep/Glob/Read
-
-### Key Tools
-
-| Tool                        | Use when                                               |
-| --------------------------- | ------------------------------------------------------ |
-| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
-| `get_review_context`        | Need source snippets for review — token-efficient      |
-| `get_impact_radius`         | Understanding blast radius of a change                 |
-| `get_affected_flows`        | Finding which execution paths are impacted             |
-| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
-| `get_architecture_overview` | Understanding high-level codebase structure            |
-| `refactor_tool`             | Planning renames, finding dead code                    |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
+Se o grafo nao trouxer resultado ou estourar timeout, use `rg`/leitura direta.

@@ -1,155 +1,133 @@
-# Architecture - Arquitetura IngressosZ
+# architecture/ - Arquitetura do IngressosZ
 
-Decisões arquiteturais, padrões de design e estrutura do sistema.
+## Visao Geral
 
-## Visão Geral
+IngressosZ e uma plataforma single-company para venda, emissao e validacao de
+ingressos. A arquitetura prioriza Firebase, baixo custo operacional e fluxos
+seguros de pagamento.
 
-IngressosZ é uma aplicação **single-company** para venda e validação de ingressos, com arquitetura **serverless** usando Firebase.
+## Stack
 
-```
-┌─────────────┐
-│   Cliente   │ (React 19 + Vite 7 + Tailwind v4)
-│  (Browser)  │
-└──────┬──────┘
-       │
-       ├─── Firebase Auth (autenticação)
-       ├─── Firestore (banco de dados)
-       ├─── Storage (imagens de eventos)
-       └─── Functions v2 (backend serverless)
-              │
-              └─── Mercado Pago API (pagamentos)
-```
+- **Frontend:** React 19, Vite, TypeScript, Tailwind v4.
+- **Roteamento:** React Router v7.
+- **Estado servidor:** TanStack Query.
+- **Backend:** Firebase Cloud Functions v2, Node.js 24, ESM.
+- **Banco:** Cloud Firestore.
+- **Storage:** Firebase Storage.
+- **Auth:** Firebase Authentication.
+- **Pagamentos:** Mercado Pago Checkout Pro e Pix.
+- **Monitoramento:** Sentry frontend/backend.
 
-## Stack Tecnológico
+## Principios
 
-### Frontend
-- **Framework**: React 19 + TypeScript
-- **Build**: Vite 7 (fast refresh, code splitting)
-- **Routing**: React Router v7
-- **State**: TanStack Query v5 (server state) + Context API (global state)
-- **Styling**: Tailwind CSS v4 (mobile-first, glassmorphism)
-- **UI**: Componentes customizados (sem biblioteca pesada)
+### Security by Default
 
-### Backend
-- **Firebase Functions v2**: Node.js 24, ESM, TypeScript
-- **Database**: Firestore (NoSQL, real-time)
-- **Storage**: Firebase Storage (imagens de eventos)
-- **Auth**: Firebase Authentication
-- **Payments**: Mercado Pago SDK
+- Firestore Rules por collection.
+- `paymentSessions` criado pelo cliente autenticado, mas validado por regras.
+- `paymentMethod` permitido apenas como `checkout` ou `pix`.
+- `purchases` e `tickets` nao aceitam escrita direta do cliente.
+- Webhook Mercado Pago validado por HMAC com `MP_WEBHOOK_SECRET`.
+- QR Code dos ingressos e JWT assinado com `JWT_SECRET`.
+- Validacao presencial exige auth e role adequada.
+- Backend usa `getFirestore()` de `firebase-admin/firestore`.
 
-### DevOps
-- **Hosting**: Firebase Hosting (CDN global, HTTPS automático)
-- **CI/CD**: Manual via Firebase CLI (deploy seletivo)
-- **Monitoring**: Firebase Performance, Sentry (PII stripped)
+### Single-Company Simplicity
 
-## Princípios Arquiteturais
+- Sem multi-tenancy.
+- Roles atuais:
+  - `user`: comprador.
+  - `validator`: valida ingressos.
+  - `organizer`: gerencia eventos e validacao.
+  - `admin`: acesso administrativo amplo.
+- Permissoes continuam simples, mas nao se limitam mais a `admin` e `user`.
 
-### 1. Low Firestore Footprint
+### Fluxo de Pagamento
 
-**Objetivo**: Minimizar custos de leituras/escritas.
+1. Usuario autenticado escolhe evento, tipo e quantidade.
+2. Frontend cria `paymentSessions/{id}` com:
+   `eventId`, `userId`, `userEmail`, `ticketType`, `quantity`, `unitPrice`,
+   `totalAmount`, `provider: "mercadopago"`, `status: "pending"` e
+   `paymentMethod`.
+3. Frontend chama callable/endpoint de Checkout ou Pix.
+4. Mercado Pago confirma via `receiveWebhook`.
+5. Function valida assinatura, consulta pagamento, atualiza sessao, cria compra,
+   decrementa estoque e emite tickets.
+6. Reembolso/oversell atualiza estado para auditoria.
 
-- **`getDocs`** para dados estáticos (Meus Ingressos)
-- **`onSnapshot`** apenas onde real-time é essencial (lista de eventos, admin)
-- **Indices compostos** para queries complexas
+## Organizacao do Frontend
 
-### 2. Mobile-First
-
-- Design responsivo com breakpoints Tailwind
-- Touch-friendly (botões grandes, espaçamento adequado)
-- PWA para experiência "app-like"
-
-### 3. Security by Default
-
-- **Firestore Rules**: Restrições granulares por collection
-- **Functions**: Validação de signatures (MP webhook), rate limiting
-- **QR Code**: Hash assinado com secret server-side
-- **Admin SDK**: Sempre `getFirestore()`, nunca `admin.firestore()`
-
-### 4. Single-Company Simplicity
-
-- **Sem multi-tenancy**: Todos os eventos são da mesma empresa
-- **Permissões simplificadas**: Apenas `admin` e `user`
-- **UI limpa**: Foco em UX, sem complexidade de marketplace
-
-## Padrões de Design
-
-### Frontend
-
-#### Component Organization
-```
-src/components/
-├── admin/       # Exclusivo para painel administrativo
-├── common/      # Componentes genéricos (ErrorBoundary, SEO)
-├── dev/         # Ferramentas de desenvolvimento
-├── event/       # Relacionados a eventos
-├── layout/      # Estrutura global (Navbar, Footer)
-├── qr/          # Geração/leitura de QR Code
-├── ticket/      # Exibição de ingressos
-├── ui/          # Componentes base (Button, Card, Input)
-└── validator/   # Validação de ingressos (entrada)
+```text
+ingressosZ/src/
+|-- components/
+|   |-- admin/
+|   |-- common/
+|   |-- dev/
+|   |-- event/
+|   |-- layout/
+|   |-- qr/
+|   |-- ticket/
+|   |-- ui/
+|   `-- validator/
+|-- context/
+|-- hooks/
+|-- pages/
+|-- routing/
+|-- services/
+`-- types/
 ```
 
-#### Custom Hooks
-- **Data fetching**: `useEvents`, `useTickets`, `useTicketValidation`
-- **Auth**: `useAuth` (Context wrapper)
-- **Theme**: `useTheme` (dark/light mode)
-- **Payment**: `useCheckout` (Mercado Pago)
+Hooks principais:
 
-#### State Management
-- **Server state**: TanStack Query (cache, refetch, optimistic updates)
-- **Global state**: Context API (Auth, Theme)
-- **Local state**: `useState` (form inputs, UI toggles)
+- `useEvents`, `useTickets`
+- `useMercadoPagoCheckout`
+- `useTicketValidator`
+- `useAuth`
+- `useTheme`
 
-### Backend
+## Organizacao das Functions
 
-#### Functions Organization
-```
+O backend usa `functions/src/index.ts` apenas como agregador de exports. Os
+handlers ficam separados por dominio em `functions/src/endpoints/`:
+
+```text
 functions/src/
-├── payment/
-│   ├── createPreference.ts   # Criar preferência MP
-│   └── receiveWebhook.ts     # Webhook MP (gera tickets)
-├── ticket/
-│   ├── validateTicket.ts     # Validar QR Code
-│   └── fetchTicketsByPurchaseId.ts
-└── admin/
-    └── setAdminRole.ts        # Definir role admin
+|-- config/
+|   |-- bootstrap.ts
+|   |-- cors.ts
+|   |-- params.ts
+|   `-- sentry.ts
+|-- domain/
+|   |-- inventory.ts
+|   `-- purchaseLimits.ts
+|-- endpoints/
+|   |-- email.ts
+|   |-- maintenance.ts
+|   |-- payments.ts
+|   |-- refunds.ts
+|   |-- seed.ts
+|   |-- storage.ts
+|   |-- system.ts
+|   |-- tickets.ts
+|   `-- users.ts
+|-- utils/
+|   `-- rateLimit.ts
+|-- test/
+`-- index.ts
 ```
 
-#### Middleware Pattern
-- **CORS**: Habilitado para domínios permitidos
-- **Auth**: `verifyIdToken` para rotas protegidas
-- **Rate Limit**: In-memory map (IP → tentativas)
-- **Error Handling**: Try-catch + logs estruturados
+## Regras Firestore Relevantes
 
-## Decisões Técnicas
+- `events`: leitura publica; escrita por owner/organizer/admin conforme regra.
+- `paymentSessions`: criacao pelo usuario autenticado; leitura pelo dono ou
+  owner/admin; sem update/delete pelo cliente.
+- `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
+- `purchases`: sem acesso direto do cliente.
+- `users`: usuario gerencia dados proprios, role protegida.
 
-### Por que React 19?
-- **Compiler nativo**: Otimizações automáticas (sem `React.memo` manual)
-- **Concurrent features**: Melhor UX em interações lentas
-- **Ecosystem maduro**: Vasto suporte de bibliotecas
+## Limitacoes Conhecidas
 
-### Por que Firestore?
-- **Real-time**: Essencial para admin dashboard e lista de eventos
-- **Escalabilidade**: Serverless, paga pelo uso
-- **Integração**: Nativo com Firebase Auth e Functions
-
-### Por que Tailwind v4?
-- **Velocidade**: JIT compiler, sem CSS não utilizado
-- **Customização**: Paleta blue premium via `index.css`
-- **Responsive**: Mobile-first por padrão
-
-### Por que Functions v2?
-- **Node.js 24**: Performance moderna
-- **ESM**: Import/export nativo, sem Babel
-- **Concurrency**: Melhor controle de recursos
-
-## Limitações Conhecidas
-
-1. **Webhook Race Condition**: Mitigado com lock de `purchaseId`, mas não 100% à prova de falhas (risco em alta concorrência).
-2. **QR Code Offline**: Validação requer conexão (sem crypto client-side).
-3. **PWA iOS**: Limitações do Safari (não é app nativo completo).
-4. **Firestore Cost**: Real-time onSnapshot pode escalar custo com muitos usuários simultâneos.
-
----
-
-**Última atualização**: 2026-04-23
+1. O teste E2E do webhook depende dos emuladores Firebase para rodar completo.
+2. QR Code offline ainda exige desenho futuro; validacao atual depende do
+   backend.
+3. Fluxo real de Mercado Pago precisa validacao manual em producao antes de
+   publico amplo.

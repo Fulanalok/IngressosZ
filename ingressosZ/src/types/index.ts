@@ -1,4 +1,5 @@
 import { QueryDocumentSnapshot, Timestamp } from "firebase/firestore";
+import type { UserRole } from "@/constants/roles";
 
 // Tipos para Eventos
 export interface Event {
@@ -51,7 +52,7 @@ export interface UserProfile {
   displayName?: string;
   phone?: string;
   createdAt: Timestamp;
-  role: "user" | "organizer" | "validator" | "admin";
+  role: UserRole;
   avatarUrl?: string;
 }
 
