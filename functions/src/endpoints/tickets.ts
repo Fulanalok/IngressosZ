@@ -5,12 +5,15 @@ import { onRequest } from "firebase-functions/v2/https";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { corsHandler } from "../config/cors.js";
 import { jwtSecret } from "../config/params.js";
+import { requireAppCheck } from "../utils/appCheck.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 export const validateTicket = onRequest(
   { secrets: [jwtSecret] },
   async (req, res) => {
     corsHandler(req, res, async () => {
       try {
+        if (!(await requireAppCheck(req, res))) return;
+
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
           res.status(401).json({ success: false, message: "Não autorizado" });

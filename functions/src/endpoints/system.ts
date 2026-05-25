@@ -2,6 +2,9 @@ import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { corsHandler } from "../config/cors.js";
 import { recaptchaV2Secret } from "../config/params.js";
+import { callableSecurityOptions } from "../config/security.js";
+import { sanitizeLogPayload } from "../utils/logging.js";
+import { checkRateLimit } from "../utils/rateLimit.js";
 
 export const health = onRequest((req, res) => {
   corsHandler(req, res, () => {
@@ -19,21 +22,30 @@ export const health = onRequest((req, res) => {
   });
 });
 
-export const logClientError = onCall((request) => {
-  const payload = request.data as Record<string, unknown>;
-  const uid = request.auth?.uid || payload.uid || "anonymous";
+export const logClientError = onCall(
+  callableSecurityOptions,
+  async (request) => {
+    const uid = request.auth?.uid || "anonymous";
+    const clientIp = request.rawRequest.ip || "unknown";
+    const allowed = await checkRateLimit(`client-error:${uid}:${clientIp}`, 30);
+    if (!allowed) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Muitas tentativas. Aguarde um momento e tente novamente."
+      );
+    }
 
-  logger.warn("ClientError", {
-    ...payload,
-    uid,
-    ip: request.rawRequest.ip,
-  });
+    logger.warn("ClientError", {
+      uid,
+      payload: sanitizeLogPayload(request.data),
+    });
 
-  return { success: true };
-});
+    return { success: true };
+  }
+);
 
 export const verifyRecaptchaV2 = onCall(
-  { secrets: [recaptchaV2Secret], cors: true },
+  { ...callableSecurityOptions, secrets: [recaptchaV2Secret], cors: true },
   async (request) => {
     const token = (request.data as { token?: string } | null)?.token;
     if (!token || typeof token !== "string") {

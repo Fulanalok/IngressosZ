@@ -19,21 +19,38 @@ const queryClient = new QueryClient({
   },
 });
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  integrations: [Sentry.browserTracingIntegration()],
-  tracesSampleRate: 1.0,
-  beforeSend(event) {
-    // Strip potentially sensitive fields before sending to Sentry
-    if (event.request?.cookies) delete event.request.cookies;
-    if (event.request?.headers) {
-      const h = event.request.headers as Record<string, string>;
-      delete h["authorization"];
-      delete h["cookie"];
-    }
-    return event;
-  },
-});
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+const sentryTraceSampleRate = Number(
+  import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? "0.1"
+);
+
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    integrations: [Sentry.browserTracingIntegration()],
+    sendDefaultPii: false,
+    tracesSampleRate: Number.isFinite(sentryTraceSampleRate)
+      ? sentryTraceSampleRate
+      : 0.1,
+    beforeSend(event) {
+      if (event.request?.cookies) delete event.request.cookies;
+      if (event.request?.headers) {
+        const h = event.request.headers as Record<string, string>;
+        delete h["authorization"];
+        delete h["cookie"];
+      }
+      if (event.user) {
+        event.user = event.user.id ? { id: event.user.id } : undefined;
+      }
+      if (event.extra) {
+        delete event.extra.userEmail;
+        delete event.extra.paymentId;
+        delete event.extra.qrCode;
+      }
+      return event;
+    },
+  });
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { logger } from "../../services/logger";
 import { TestDataService } from "../../services/testDataService";
+import { appCheck } from "@/firebaseConfig";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { getToken } from "firebase/app-check";
 
 export interface TicketData {
   eventTitle: string;
@@ -42,6 +44,16 @@ export function useTicketValidator() {
         "Content-Type": "application/json",
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (appCheck) {
+        try {
+          const appCheckToken = await getToken(appCheck, false);
+          headers["X-Firebase-AppCheck"] = appCheckToken.token;
+        } catch (error) {
+          logger.warn("Falha ao obter App Check para validação", {
+            error: error instanceof Error ? error.message : "unknown",
+          });
+        }
+      }
 
       let resp = await fetch(`${functionsUrl}/validateTicket`, {
         method: "POST",

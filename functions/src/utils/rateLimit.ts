@@ -34,6 +34,6 @@ export async function checkRateLimit(
       return true;
     });
   } catch {
-    return true;
+    return false;
   }
 }

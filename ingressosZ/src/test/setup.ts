@@ -105,6 +105,7 @@ vi.mock("firebase/functions", async () => {
 vi.mock("firebase/app-check", () => ({
   initializeAppCheck: vi.fn(() => ({})),
   ReCaptchaEnterpriseProvider: vi.fn(),
+  getToken: vi.fn(async () => ({ token: "test-app-check-token" })),
 }));
 
 vi.mock("firebase/analytics", async () => {

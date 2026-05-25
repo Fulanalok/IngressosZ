@@ -1,9 +1,14 @@
 import { Link } from "react-router";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { legalInfo } from "@/config/legal";
 
-const LAST_UPDATED = "2 de abril de 2026";
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mb-8">
       <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
@@ -21,7 +26,6 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen gradient-bg pt-20 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
-        {/* Back link */}
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-8"
@@ -30,194 +34,209 @@ export default function PrivacyPage() {
           Voltar ao início
         </Link>
 
-        {/* Header */}
         <div className="glass-card p-8 md:p-10 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-primary/10 p-3 rounded-xl">
               <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-extrabold blue-gradient-text">Política de Privacidade</h1>
+              <h1 className="text-3xl font-extrabold blue-gradient-text">
+                Política de Privacidade
+              </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Última atualização: {LAST_UPDATED}
+                Última atualização: {legalInfo.lastUpdated}
               </p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            O <strong className="text-foreground">IngressosZ</strong> leva a sua privacidade a sério. Este documento
-            explica quais dados coletamos, como os utilizamos e quais são seus direitos como titular,
-            em conformidade com a{" "}
-            <strong className="text-foreground">Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018)</strong>.
+            Esta política explica como o {legalInfo.brandName} trata dados
+            pessoais para cadastro, compra, emissão e validação de ingressos
+            digitais, conforme a LGPD.
           </p>
         </div>
 
-        {/* Content */}
         <div className="glass-card p-8 md:p-10 space-y-2">
-          <Section title="1. Dados que Coletamos">
-            <p>Coletamos apenas os dados necessários para a prestação do serviço:</p>
+          <Section title="1. Controlador e Contato">
+            <p>
+              <strong className="text-foreground">Controlador:</strong>{" "}
+              {legalInfo.controllerName}
+            </p>
+            <p>
+              <strong className="text-foreground">CNPJ/CPF:</strong>{" "}
+              {legalInfo.controllerDocument}
+            </p>
+            <p>
+              <strong className="text-foreground">Endereço:</strong>{" "}
+              {legalInfo.controllerAddress}
+            </p>
+            <p>
+              <strong className="text-foreground">
+                Canal de privacidade:
+              </strong>{" "}
+              {legalInfo.privacyEmail} ({legalInfo.dpoName})
+            </p>
+            <p>
+              <strong className="text-foreground">Suporte:</strong>{" "}
+              {legalInfo.supportEmail}
+            </p>
+          </Section>
+
+          <Section title="2. Dados que Coletamos">
             <ul className="list-disc list-inside space-y-1 mt-1">
               <li>
-                <strong className="text-foreground">Dados de cadastro:</strong> nome, endereço de e-mail e senha
-                (armazenada de forma criptografada)
+                Dados de cadastro: nome, e-mail, telefone e credenciais
+                gerenciadas pelo Firebase Auth.
               </li>
               <li>
-                <strong className="text-foreground">Dados de pagamento:</strong> processados diretamente pelo
-                Mercado Pago; não armazenamos dados de cartão de crédito
+                Dados de conta: identificador Firebase, foto, permissões e
+                papéis de acesso.
               </li>
               <li>
-                <strong className="text-foreground">Dados de ingressos:</strong> histórico de compras e validações
-                vinculado ao seu perfil
+                Dados de compra: evento, tipo de ingresso, quantidade, status,
+                identificadores de pagamento e histórico de reembolso.
               </li>
               <li>
-                <strong className="text-foreground">Dados técnicos:</strong> endereço IP, logs de acesso e erros,
-                para segurança e diagnóstico
+                Dados de validação: QR Code assinado, status do ingresso,
+                data/hora de emissão e data/hora de validação.
+              </li>
+              <li>
+                Dados técnicos: IP, navegador, logs de erro, App Check,
+                reCAPTCHA, tentativas de acesso e eventos antifraude.
+              </li>
+            </ul>
+            <p>
+              Dados de cartão são tratados pelo Mercado Pago. O {legalInfo.brandName}
+              não armazena número completo de cartão, CVV ou senha bancária.
+            </p>
+          </Section>
+
+          <Section title="3. Finalidades e Bases Legais">
+            <ul className="list-disc list-inside space-y-1 mt-1">
+              <li>
+                Criar conta, vender e emitir ingressos: execução de contrato.
+              </li>
+              <li>
+                Processar pagamentos e reembolsos: execução de contrato e
+                cumprimento de obrigações legais/regulatórias.
+              </li>
+              <li>
+                Validar QR Code, prevenir fraude e proteger a plataforma:
+                legítimo interesse e segurança.
+              </li>
+              <li>
+                Enviar e-mails transacionais: execução de contrato.
+              </li>
+              <li>
+                Guardar registros fiscais, contábeis e de auditoria:
+                cumprimento de obrigação legal.
+              </li>
+              <li>
+                Comunicações não essenciais ou marketing: consentimento, quando
+                essa funcionalidade existir.
               </li>
             </ul>
           </Section>
 
-          <Section title="2. Finalidade do Tratamento">
-            <p>Seus dados são utilizados exclusivamente para:</p>
-            <ul className="list-disc list-inside space-y-1 mt-1">
-              <li>Criação e gestão da sua conta na plataforma</li>
-              <li>Processamento e confirmação de pagamentos</li>
-              <li>Emissão e validação de ingressos</li>
-              <li>Envio de e-mails transacionais (confirmação de compra, redefinição de senha)</li>
-              <li>Prevenção a fraudes e manutenção da segurança</li>
-              <li>Cumprimento de obrigações legais</li>
-            </ul>
+          <Section title="4. Compartilhamento">
             <p>
-              <strong className="text-foreground">Não vendemos, alugamos ou compartilhamos</strong> seus dados
-              pessoais com terceiros para fins de marketing.
+              Compartilhamos dados somente quando necessário para operar a
+              plataforma:
             </p>
-          </Section>
-
-          <Section title="3. Base Legal">
-            <p>O tratamento dos seus dados é fundamentado nas seguintes bases legais da LGPD:</p>
             <ul className="list-disc list-inside space-y-1 mt-1">
+              <li>Google Firebase/Google Cloud: autenticação, banco e storage.</li>
+              <li>Mercado Pago: pagamento, Pix, antifraude e reembolso.</li>
+              <li>Serviço de e-mail: envio de mensagens transacionais.</li>
+              <li>Sentry: diagnóstico de falhas e monitoramento técnico.</li>
               <li>
-                <strong className="text-foreground">Execução de contrato</strong> — para processar compras e emitir
-                ingressos (Art. 7°, V)
-              </li>
-              <li>
-                <strong className="text-foreground">Consentimento</strong> — para o envio de comunicações não
-                essenciais, quando aplicável (Art. 7°, I)
-              </li>
-              <li>
-                <strong className="text-foreground">Legítimo interesse</strong> — para prevenção a fraudes e
-                segurança da plataforma (Art. 7°, IX)
-              </li>
-              <li>
-                <strong className="text-foreground">Cumprimento de obrigação legal</strong> — quando exigido por
-                autoridades competentes (Art. 7°, II)
-              </li>
-            </ul>
-          </Section>
-
-          <Section title="4. Compartilhamento de Dados">
-            <p>Compartilhamos dados apenas com parceiros essenciais à prestação do serviço:</p>
-            <ul className="list-disc list-inside space-y-1 mt-1">
-              <li>
-                <strong className="text-foreground">Google Firebase</strong> — autenticação, banco de dados e
-                armazenamento de arquivos
-              </li>
-              <li>
-                <strong className="text-foreground">Mercado Pago</strong> — processamento de pagamentos (sujeito à
-                política de privacidade do Mercado Pago)
-              </li>
-              <li>
-                <strong className="text-foreground">Sentry</strong> — monitoramento de erros (dados anonimizados)
+                Organizadores/validadores: dados mínimos para controle do
+                evento, lista de participantes e validação de ingresso.
               </li>
             </ul>
             <p>
-              Todos os parceiros são contratualmente obrigados a tratar seus dados em conformidade
-              com a LGPD e regulamentações equivalentes.
+              Esses provedores podem tratar dados fora do Brasil. Quando isso
+              ocorrer, adotamos fornecedores com medidas contratuais e técnicas
+              compatíveis com proteção de dados.
             </p>
           </Section>
 
-          <Section title="5. Retenção de Dados">
-            <p>
-              Mantemos seus dados pelo tempo necessário para a prestação do serviço e cumprimento
-              de obrigações legais:
-            </p>
+          <Section title="5. Retenção e Exclusão">
             <ul className="list-disc list-inside space-y-1 mt-1">
-              <li>Dados de conta: enquanto a conta estiver ativa</li>
-              <li>Dados de transações: 5 anos (prazo fiscal mínimo exigido por lei)</li>
-              <li>Logs técnicos: até 90 dias</li>
-            </ul>
-            <p>
-              Após o período de retenção, os dados são anonimizados ou excluídos de forma segura.
-            </p>
-          </Section>
-
-          <Section title="6. Seus Direitos (LGPD)">
-            <p>Como titular de dados, você tem os seguintes direitos:</p>
-            <ul className="list-disc list-inside space-y-1 mt-1">
+              <li>Conta: enquanto ativa ou enquanto houver obrigação legal.</li>
               <li>
-                <strong className="text-foreground">Acesso</strong> — solicitar uma cópia dos seus dados pessoais
+                Compras, pagamentos, ingressos e reembolsos: pelo prazo exigido
+                para defesa de direitos, obrigações fiscais e auditoria.
               </li>
               <li>
-                <strong className="text-foreground">Correção</strong> — atualizar dados incompletos ou incorretos
-                diretamente no seu perfil
-              </li>
-              <li>
-                <strong className="text-foreground">Exclusão</strong> — solicitar a remoção dos seus dados,
-                respeitados os prazos legais de retenção
-              </li>
-              <li>
-                <strong className="text-foreground">Portabilidade</strong> — receber seus dados em formato
-                estruturado
-              </li>
-              <li>
-                <strong className="text-foreground">Revogação do consentimento</strong> — a qualquer momento, sem
-                prejuízo ao tratamento realizado anteriormente
+                Logs técnicos e antifraude: pelo menor prazo operacional viável,
+                salvo necessidade de segurança, investigação ou obrigação legal.
               </li>
             </ul>
             <p>
-              Para exercer qualquer um desses direitos, entre em contato pelo e-mail de suporte
-              disponível na plataforma.
+              Ao final da retenção, os dados são excluídos ou anonimizados de
+              forma segura, quando tecnicamente possível.
             </p>
           </Section>
 
-          <Section title="7. Segurança">
+          <Section title="6. Direitos do Titular">
             <p>
-              Adotamos medidas técnicas e organizacionais para proteger seus dados contra acesso
-              não autorizado, perda ou alteração, incluindo:
+              Você pode solicitar confirmação de tratamento, acesso, correção,
+              anonimização, bloqueio, eliminação, portabilidade, informação
+              sobre compartilhamento, revogação de consentimento, oposição a
+              tratamento irregular e revisão de decisões automatizadas quando
+              aplicável.
             </p>
-            <ul className="list-disc list-inside space-y-1 mt-1">
-              <li>Criptografia em trânsito (HTTPS/TLS) e em repouso</li>
-              <li>Autenticação multifator disponível para contas administrativas</li>
-              <li>Regras de acesso restritivas no banco de dados (Firestore Security Rules)</li>
-              <li>Tokens de QR Code assinados digitalmente para prevenção de falsificação</li>
-              <li>Monitoramento contínuo de erros e anomalias</li>
-            </ul>
-          </Section>
-
-          <Section title="8. Cookies e Rastreamento">
             <p>
-              Utilizamos apenas cookies essenciais para o funcionamento da plataforma (sessão de
-              autenticação). Não utilizamos cookies de rastreamento publicitário ou pixels de
-              terceiros.
+              Solicitações devem ser enviadas para {legalInfo.privacyEmail}.
+              Podemos pedir informações adicionais para confirmar sua identidade
+              antes de atender ao pedido.
             </p>
           </Section>
 
-          <Section title="9. Alterações nesta Política">
+          <Section title="7. Segurança e Incidentes">
             <p>
-              Esta política pode ser atualizada periodicamente. Notificaremos sobre mudanças
-              significativas por e-mail ou via aviso na plataforma com pelo menos 15 dias de
-              antecedência.
+              Usamos HTTPS/TLS, Firebase Security Rules, App Check, reCAPTCHA,
+              segredos em ambiente protegido, QR Code assinado, rate limit e
+              registros de auditoria para reduzir riscos.
+            </p>
+            <p>
+              Se houver incidente confirmado envolvendo dados pessoais e risco
+              ou dano relevante, avaliaremos as medidas de contenção e a
+              necessidade de comunicação aos titulares e à ANPD dentro dos
+              prazos regulatórios aplicáveis.
             </p>
           </Section>
 
-          <Section title="10. Contato e Encarregado (DPO)">
+          <Section title="8. Cookies, Cache e Monitoramento">
             <p>
-              Para questões sobre privacidade ou para exercer seus direitos, entre em contato
-              através do e-mail de suporte disponível na plataforma. Retornaremos em até 15 dias
-              úteis, conforme exigido pela LGPD.
+              Usamos tecnologias necessárias para autenticação, segurança,
+              prevenção de abuso e funcionamento do aplicativo. reCAPTCHA, App
+              Check, Firebase e Sentry podem coletar dados técnicos para essas
+              finalidades.
+            </p>
+            <p>
+              O aplicativo pode armazenar arquivos estáticos no dispositivo para
+              melhorar desempenho. Dados pessoais não devem ser guardados no
+              cache offline público do navegador sem necessidade operacional.
+            </p>
+          </Section>
+
+          <Section title="9. Menores de Idade">
+            <p>
+              A plataforma não é direcionada a crianças. Compras ou uso por
+              menores devem ocorrer com ciência e responsabilidade dos pais ou
+              responsáveis, respeitando as regras do evento.
+            </p>
+          </Section>
+
+          <Section title="10. Alterações">
+            <p>
+              Esta política pode ser atualizada. Mudanças relevantes serão
+              comunicadas por aviso na plataforma, e-mail ou outro canal
+              adequado antes de produzirem efeitos relevantes.
             </p>
           </Section>
         </div>
 
-        {/* Footer links */}
         <p className="text-center text-xs text-muted-foreground mt-8">
           Veja também nossos{" "}
           <Link to="/termos" className="text-primary hover:underline font-medium">

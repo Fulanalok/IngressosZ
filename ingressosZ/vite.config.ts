@@ -39,19 +39,10 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          // Cache pages and assets so tickets load offline
+          // Cache static shell/assets only. Do not cache Firestore API
+          // responses here because they may include personal ticket data.
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
           runtimeCaching: [
-            {
-              // Cache Firestore/Firebase API responses (user tickets)
-              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
-              handler: "NetworkFirst",
-              options: {
-                cacheName: "firestore-cache",
-                networkTimeoutSeconds: 4,
-                expiration: { maxEntries: 50, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              },
-            },
             {
               // Cache event banner images
               urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,
@@ -96,7 +87,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules/react")) return "vendor-react";
-            if (id.includes("node_modules/react-router-dom"))
+            if (id.includes("node_modules/react-router"))
               return "vendor-router";
             if (id.includes("node_modules/@tanstack/react-query"))
               return "vendor-query";

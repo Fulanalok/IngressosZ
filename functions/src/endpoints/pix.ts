@@ -4,13 +4,15 @@ import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { corsHandler } from "../config/cors.js";
 import { mercadopagoAccessToken } from "../config/params.js";
+import { callableSecurityOptions } from "../config/security.js";
 import {
   MAX_PURCHASE_QUANTITY,
   resolveMaxPerPurchase,
 } from "../domain/purchaseLimits.js";
+import { requireAppCheck } from "../utils/appCheck.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 export const createPixPayment = onCall(
-  { secrets: [mercadopagoAccessToken] },
+  { ...callableSecurityOptions, secrets: [mercadopagoAccessToken] },
   async (request) => {
     const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
     let accessToken: string;
@@ -248,6 +250,7 @@ export const createPixPaymentPublic = onRequest(
         res.status(405).send("Method Not Allowed");
         return;
       }
+      if (!(await requireAppCheck(req, res))) return;
 
       const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
       let accessToken: string;

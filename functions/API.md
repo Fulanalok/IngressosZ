@@ -25,10 +25,14 @@ handlers vivem em `functions/src/endpoints/`:
 
 Funcoes chamadas pelo frontend com o SDK do Firebase.
 
+Todas as callables sensiveis exigem Firebase App Check em producao. As
+operacoes de pagamento, reembolso, roles e logs tambem aplicam rate limit por
+usuario ou contexto para reduzir automacao abusiva.
+
 ### `seedDatabase`
 
 - **Descricao:** popula eventos e dados de teste para desenvolvimento.
-- **Acesso:** autenticado.
+- **Acesso:** desabilitada fora do emulador.
 - **Retorno:** status da operacao e IDs criados.
 
 ### `createPaymentPreference`
@@ -58,13 +62,6 @@ Funcoes chamadas pelo frontend com o SDK do Firebase.
 - **Efeito:** registra status de reembolso para auditoria e evita alterar dados
   diretamente pelo cliente.
 
-### `validateTicket`
-
-- **Descricao:** valida QR Code apresentado na entrada do evento.
-- **Parametros:** `qrCode`.
-- **Permissao:** `validator`, `organizer` ou `admin`.
-- **Retorno:** resultado de validacao e dados do ingresso.
-
 ## HTTP Endpoints
 
 ### `receiveWebhook`
@@ -87,8 +84,20 @@ Funcoes chamadas pelo frontend com o SDK do Firebase.
 
 - **Descricao:** variantes HTTP publicas para criacao de checkout/Pix quando o
   fluxo precisa chamar endpoint direto.
+- **Seguranca:** exigem header `X-Firebase-AppCheck`, validam
+  `paymentSessionId` e aplicam rate limit por IP.
 - **Observacao:** devem manter o mesmo contrato de `paymentSessions` usado pelas
   callables.
+
+### `validateTicket`
+
+- **Metodo:** `POST`
+- **Descricao:** valida QR Code apresentado na entrada do evento.
+- **Seguranca:** exige `Authorization: Bearer <Firebase ID token>`,
+  `X-Firebase-AppCheck`, role `validator`, `organizer` ou `admin`, e rate limit
+  por usuario validador.
+- **Parametros:** `qrCode`.
+- **Retorno:** resultado de validacao e dados do ingresso.
 
 ## Firestore Triggers
 

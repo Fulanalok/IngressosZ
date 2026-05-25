@@ -2,10 +2,28 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import jwt from "jsonwebtoken";
 import { jwtSecret } from "../config/params.js";
+import { callableSecurityOptions } from "../config/security.js";
+import { checkRateLimit } from "../utils/rateLimit.js";
 
 export const seedDatabase = onCall(
-  { secrets: [jwtSecret] },
+  { ...callableSecurityOptions, secrets: [jwtSecret] },
   async (request) => {
+    const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
+    if (!isEmulator) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Seed de dados fica desabilitado fora do emulador."
+      );
+    }
+    const rateKey = request.auth?.uid || "anonymous";
+    const allowedSeed = await checkRateLimit(`seed:${rateKey}`, 2);
+    if (!allowedSeed) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Muitas tentativas. Aguarde um momento e tente novamente."
+      );
+    }
+
     const db = getFirestore();
     const batch = db.batch();
 
@@ -42,9 +60,8 @@ export const seedDatabase = onCall(
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    const isEmulatorSeed = process.env.FUNCTIONS_EMULATOR === "true";
     const secret =
-      jwtSecret.value() || (isEmulatorSeed ? "default-dev-secret" : null);
+      jwtSecret.value() || (isEmulator ? "default-dev-secret" : null);
     if (!secret) {
       throw new HttpsError("internal", "JWT_SECRET não configurado.");
     }

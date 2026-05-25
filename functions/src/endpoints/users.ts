@@ -2,12 +2,24 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { callableSecurityOptions } from "../config/security.js";
+import { checkRateLimit } from "../utils/rateLimit.js";
 
-export const setAdminRole = onCall(async (request) => {
+export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
   if (request.auth?.token.admin !== true) {
     throw new HttpsError(
       "permission-denied",
       "Apenas administradores podem realizar esta operação."
+    );
+  }
+  const allowedAdminRole = await checkRateLimit(
+    `role-admin:${request.auth.uid}`,
+    10
+  );
+  if (!allowedAdminRole) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "Muitas tentativas. Aguarde um momento e tente novamente."
     );
   }
 
@@ -31,7 +43,7 @@ export const setAdminRole = onCall(async (request) => {
   }
 });
 
-export const setUserRole = onCall(async (request) => {
+export const setUserRole = onCall(callableSecurityOptions, async (request) => {
   const isAdmin = request.auth?.token.admin === true;
   const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
   if (!isAdmin) {
@@ -41,6 +53,20 @@ export const setUserRole = onCall(async (request) => {
         "Apenas administradores podem realizar esta operação."
       );
     }
+  }
+  const requesterUid = request.auth?.uid;
+  if (!requesterUid) {
+    throw new HttpsError("permission-denied", "Autenticação obrigatória.");
+  }
+  const allowedUserRole = await checkRateLimit(
+    `role-user:${requesterUid}`,
+    20
+  );
+  if (!allowedUserRole) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "Muitas tentativas. Aguarde um momento e tente novamente."
+    );
   }
 
   const { uid, role } = request.data as {

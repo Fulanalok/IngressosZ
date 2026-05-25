@@ -1,6 +1,5 @@
 import { defineSecret, defineString } from "firebase-functions/params";
 
-export const sentryDsn = defineString("SENTRY_DSN");
 export const mercadopagoAccessToken = defineSecret("MP_ACCESS_TOKEN");
 export const mpWebhookSecret = defineSecret("MP_WEBHOOK_SECRET");
 export const jwtSecret = defineSecret("JWT_SECRET");

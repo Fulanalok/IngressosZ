@@ -7,13 +7,25 @@ import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 import { mercadopagoAccessToken } from "../config/params.js";
+import { callableSecurityOptions } from "../config/security.js";
+import { checkRateLimit } from "../utils/rateLimit.js";
 export const refundPayment = onCall(
-  { secrets: [mercadopagoAccessToken] },
+  { ...callableSecurityOptions, secrets: [mercadopagoAccessToken] },
   async (request) => {
     if (request.auth?.token.admin !== true) {
       throw new HttpsError(
         "permission-denied",
         "Apenas admins podem reembolsar."
+      );
+    }
+    const allowedRefund = await checkRateLimit(
+      `refund:${request.auth.uid}`,
+      10
+    );
+    if (!allowedRefund) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Muitas tentativas. Aguarde um momento e tente novamente."
       );
     }
 
