@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "bootstrap": "npm install && npm run install:all",
-    "install:all": "concurrently \"npm run install:frontend\" \"npm run install:backend\"",
+    "install:all": "npm run install:frontend && npm run install:backend",
     "install:frontend": "npm --prefix ingressosZ install",
     "install:backend": "npm --prefix functions install",
     "ci:install": "npm ci && npm --prefix ingressosZ ci && npm --prefix functions ci",

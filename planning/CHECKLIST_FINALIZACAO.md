@@ -26,10 +26,17 @@ validacao manual.
 
 - [x] Confirmar que `.firebaserc` aponta para `<your-firebase-project-id>`.
 - [x] Rodar `firebase use` e confirmar o projeto ativo antes do deploy.
-- [x] Confirmar que o Hosting publico esperado e `https://ingressosz.web.app`.
+- [ ] Confirmar URL final do Hosting.
+  - 2026-05-25: `firebase hosting:sites:list` mostrou o site
+    `https://<your-project>.web.app`.
+  - Pendente: decidir se a URL final sera essa ou se deve existir
+    `https://ingressosz.web.app`; alinhar `WEB_BASE_URL`, Mercado Pago,
+    Firebase Auth, reCAPTCHA e App Check com a URL escolhida.
 - [x] Confirmar que a regiao das Functions e `southamerica-east1`.
 - [ ] Confirmar que Auth, Firestore, Storage, Functions e Hosting estao ativos
   no projeto Firebase.
+  - 2026-05-25: Firestore, Functions, Hosting e Web Apps confirmados via CLI.
+    Storage/Auth e dominios autorizados ainda exigem conferencia no console.
 - [ ] Confirmar dominios autorizados no Firebase Auth.
 
 ## 2. Secrets e Params das Functions
@@ -44,6 +51,9 @@ Configure secrets com `firebase functions:secrets:set`.
 - [ ] `SMTP_PASSWORD` configurado com app password ou credencial apropriada.
 - [ ] `RECAPTCHA_V2_SECRET` configurado.
 - [ ] `functions/.env` criado localmente quando necessario.
+  - 2026-05-25: nao existe `functions/.env`; existe
+    `functions/.env.<your-firebase-project-id>` gerado pelo Firebase CLI.
+    Conferir valores sem versionar secrets.
 - [ ] `SMTP_HOST=smtp.gmail.com` confirmado ou ajustado para o provedor real.
 - [ ] `SMTP_PORT=465` confirmado ou ajustado para o provedor real.
 - [ ] `WEB_BASE_URL=https://ingressosz.web.app` confirmado.
@@ -52,6 +62,10 @@ Configure secrets com `firebase functions:secrets:set`.
 ## 3. Variaveis do Frontend
 
 Use `ingressosZ/.env.example` como base para `ingressosZ/.env.local`.
+
+2026-05-25: existe `ingressosZ/.env`; nao existe `ingressosZ/.env.local`.
+Conferir se este arquivo local aponta para a URL final escolhida e se nao usa
+emuladores em producao.
 
 - [ ] `VITE_FIREBASE_API_KEY` configurado.
 - [ ] `VITE_FIREBASE_AUTH_DOMAIN` configurado.
@@ -87,6 +101,8 @@ Instale dependencias antes da rodada de qualidade.
 
 - [x] Rodar `npm install`.
 - [x] Rodar `npm run install:all`.
+  - 2026-05-25: script ajustado para instalar frontend/backend em sequencia;
+    passou localmente.
 - [x] Rodar `npm --prefix ingressosZ run lint`.
 - [x] Rodar `npm --prefix ingressosZ run typecheck`.
 - [x] Rodar `npm --prefix ingressosZ run build`.
@@ -94,12 +110,17 @@ Instale dependencias antes da rodada de qualidade.
 - [x] Rodar `npm --prefix functions run lint`.
 - [x] Rodar `npm --prefix functions run build`.
 - [x] Rodar `npm --prefix functions run test`.
-- [x] Rodar teste com emulador quando possivel:
+- [ ] Rodar teste com emulador quando possivel:
   `npm run test:emulator`.
+  - [ ] Instalar Java/JDK e garantir `java -version` no PATH para rodar os
+    emuladores Firebase nesta maquina.
 - [x] Registrar aqui qualquer teste pendente ou pulado:
-  `2026-05-25: frontend Vitest 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped. Backend Mocha 9 passing, 1 pending no E2E webhook sem emulador no teste normal. npm run test:emulator saiu com codigo 0.`
+  `2026-05-25: frontend Vitest 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped. Backend Mocha 9 passing, 1 pending no E2E webhook sem emulador no teste normal. Cypress E2E smoke passou com 1 spec/1 teste. npm run test:emulator nao rodou nesta maquina porque Java nao esta instalado/no PATH.`
 - [x] Validar localmente os passos do GitHub Actions `Quality Check (Lint &
   Tests)` e `Build Verification`, incluindo Cypress E2E smoke test.
+- [ ] Confirmar no GitHub que o workflow mais recente passou.
+  - 2026-05-25: validacao local passou; `gh` nao esta instalado nesta
+    maquina para consultar Actions via terminal.
 
 ## 6. Deploy
 
@@ -162,6 +183,10 @@ Instale dependencias antes da rodada de qualidade.
 - [ ] Resolver vulnerabilidades moderadas transitivas de producao no backend
   ligadas a `uuid` quando houver caminho sem `npm audit fix --force`
   quebrando Mercado Pago/Firebase.
+  - 2026-05-25: `npm --prefix functions audit --omit=dev` ainda aponta
+    vulnerabilidades moderadas transitivas por `uuid`; `npm audit fix --force`
+    faria downgrade quebravel de `mercadopago`, entao ficou como pendencia
+    monitorada.
 - [x] Confirmar que cliente nao escreve diretamente em `tickets`.
 - [x] Confirmar que cliente nao escreve diretamente em `purchases`.
 - [x] Confirmar que `paymentSessions.userId` precisa bater com
