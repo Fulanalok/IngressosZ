@@ -37,12 +37,22 @@ ui-debug.log*
 # Test artifacts
 ingressosZ/test_output.txt
 ingressosZ/vite.config.js
+ingressosZ/vite.config.d.ts
+*.tsbuildinfo
 
 # Local tool configs
+.code-review-graph/
+.claude/
+.idx/
+.kiro/
+.trae/
 .claude/.mcp.json
 .claude/settings.json
 .claude/settings.local.json
 .codex/
-.kiro/settings/mcp.json
 .mcp.json
 .opencode.json
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+GEMINI.md
