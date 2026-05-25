@@ -1,34 +1,37 @@
 # architecture/ - Arquitetura do IngressosZ
 
+Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+
 ## Visao Geral
 
-IngressosZ e uma plataforma single-company para venda, emissao e validacao de
-ingressos. A arquitetura prioriza Firebase, baixo custo operacional e fluxos
-seguros de pagamento.
+IngressosZ e uma plataforma single-company para criacao de eventos, venda de
+ingressos digitais, emissao de QR Codes e validacao presencial. A arquitetura
+prioriza Firebase, baixo custo operacional, seguranca por padrao e um fluxo de
+pagamento rastreavel via Mercado Pago.
 
-## Stack
+## Stack Atual
 
-- **Frontend:** React 19, Vite, TypeScript, Tailwind v4.
-- **Roteamento:** React Router v7.
-- **Estado servidor:** TanStack Query.
-- **Backend:** Firebase Cloud Functions v2, Node.js 24, ESM.
-- **Banco:** Cloud Firestore.
-- **Storage:** Firebase Storage.
-- **Auth:** Firebase Authentication.
-- **Pagamentos:** Mercado Pago Checkout Pro e Pix.
-- **Monitoramento:** Sentry frontend/backend.
+- Frontend: React 19, Vite, TypeScript e Tailwind v4.
+- Roteamento: React Router v7.
+- Estado servidor: TanStack Query.
+- Backend: Firebase Cloud Functions v2, Node.js 24 e ESM.
+- Banco: Cloud Firestore.
+- Storage: Firebase Storage.
+- Auth: Firebase Authentication.
+- Pagamentos: Mercado Pago Checkout Pro e Pix.
+- Monitoramento: Sentry frontend/backend.
 
 ## Principios
 
 ### Security by Default
 
 - Firestore Rules por collection.
-- `paymentSessions` criado pelo cliente autenticado, mas validado por regras.
-- `paymentMethod` permitido apenas como `checkout` ou `pix`.
+- `paymentSessions` e criada pelo cliente autenticado e validada por regras.
+- `paymentMethod` aceita apenas `checkout` ou `pix`.
 - `purchases` e `tickets` nao aceitam escrita direta do cliente.
-- Webhook Mercado Pago validado por HMAC com `MP_WEBHOOK_SECRET`.
-- QR Code dos ingressos e JWT assinado com `JWT_SECRET`.
-- Validacao presencial exige auth e role adequada.
+- Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
+- QR Code dos ingressos usa JWT assinado com `JWT_SECRET`.
+- Validacao presencial exige auth e role permitida.
 - Backend usa `getFirestore()` de `firebase-admin/firestore`.
 
 ### Single-Company Simplicity
@@ -39,20 +42,22 @@ seguros de pagamento.
   - `validator`: valida ingressos.
   - `organizer`: gerencia eventos e validacao.
   - `admin`: acesso administrativo amplo.
-- Permissoes continuam simples, mas nao se limitam mais a `admin` e `user`.
+- Rotas administrativas aceitam `organizer` e `admin`.
+- Rotas de validacao aceitam `validator`, `organizer` e `admin`.
 
-### Fluxo de Pagamento
+## Fluxo de Pagamento
 
-1. Usuario autenticado escolhe evento, tipo e quantidade.
-2. Frontend cria `paymentSessions/{id}` com:
-   `eventId`, `userId`, `userEmail`, `ticketType`, `quantity`, `unitPrice`,
-   `totalAmount`, `provider: "mercadopago"`, `status: "pending"` e
-   `paymentMethod`.
-3. Frontend chama callable/endpoint de Checkout ou Pix.
-4. Mercado Pago confirma via `receiveWebhook`.
-5. Function valida assinatura, consulta pagamento, atualiza sessao, cria compra,
-   decrementa estoque e emite tickets.
-6. Reembolso/oversell atualiza estado para auditoria.
+1. Usuario autenticado escolhe evento, tipo de ingresso e quantidade.
+2. Frontend cria `paymentSessions/{id}` com `eventId`, `userId`,
+   `userEmail`, `ticketType`, `quantity`, `unitPrice`, `totalAmount`,
+   `status: "pending"`, `provider: "mercadopago"` e `paymentMethod`.
+3. Frontend chama `createPaymentPreference` ou `createPixPayment`.
+4. Se callable falhar e `VITE_API_URL` estiver configurado, o frontend usa as
+   variantes HTTP publicas.
+5. Mercado Pago confirma via `receiveWebhook`.
+6. Function valida assinatura, consulta o pagamento, atualiza a sessao, cria a
+   compra, decrementa estoque, emite tickets JWT e dispara e-mail.
+7. Oversell, falha e reembolso ficam registrados para auditoria.
 
 ## Organizacao do Frontend
 
@@ -68,26 +73,32 @@ ingressosZ/src/
 |   |-- ticket/
 |   |-- ui/
 |   `-- validator/
+|-- constants/
 |-- context/
 |-- hooks/
+|-- lib/
 |-- pages/
 |-- routing/
 |-- services/
-`-- types/
+|-- test/
+|-- types/
+`-- utils/
 ```
 
 Hooks principais:
 
-- `useEvents`, `useTickets`
-- `useMercadoPagoCheckout`
-- `useTicketValidator`
 - `useAuth`
 - `useTheme`
+- `useEvents`
+- `useTickets`
+- `useMercadoPagoCheckout`
+- `useTicketValidator`
+- `useAnalytics`
 
 ## Organizacao das Functions
 
-O backend usa `functions/src/index.ts` apenas como agregador de exports. Os
-handlers ficam separados por dominio em `functions/src/endpoints/`:
+`functions/src/index.ts` e apenas o agregador de exports. Os handlers vivem em
+`functions/src/endpoints/`.
 
 ```text
 functions/src/
@@ -112,25 +123,53 @@ functions/src/
 |   |-- tickets.ts
 |   |-- users.ts
 |   `-- webhook.ts
-|-- utils/
-|   `-- rateLimit.ts
 |-- test/
+|-- utils/
 `-- index.ts
 ```
 
+Exports publicos atuais:
+
+- `createPaymentPreference`
+- `createPaymentPreferencePublic`
+- `createPixPayment`
+- `createPixPaymentPublic`
+- `receiveWebhook`
+- `refundPayment`
+- `validateTicket`
+- `setAdminRole`
+- `setUserRole`
+- `seedDatabase`
+- `onTicketCreated`
+- `optimizeImage`
+- `expireStalePixSessions`
+- `health`
+- `logClientError`
+- `verifyRecaptchaV2`
+
 ## Regras Firestore Relevantes
 
-- `events`: leitura publica; escrita por owner/organizer/admin conforme regra.
+- `events`: leitura publica; escrita por owner, organizer ou admin.
 - `paymentSessions`: criacao pelo usuario autenticado; leitura pelo dono ou
-  owner/admin; sem update/delete pelo cliente.
+  por owner/admin; sem update/delete pelo cliente.
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
-- `purchases`: sem acesso direto do cliente.
-- `users`: usuario gerencia dados proprios, role protegida.
+- `purchases`: sem acesso direto pelo cliente.
+- `users`: usuario gerencia dados proprios, mas `role` e protegida.
 
 ## Limitacoes Conhecidas
 
-1. O teste E2E do webhook depende dos emuladores Firebase para rodar completo.
-2. QR Code offline ainda exige desenho futuro; validacao atual depende do
+1. O teste E2E do webhook depende de emuladores Firebase para rodar completo.
+2. Validacao offline de QR Code ainda e futura; validacao atual depende do
    backend.
-3. Fluxo real de Mercado Pago precisa validacao manual em producao antes de
+3. Fluxo real do Mercado Pago precisa validacao manual em producao antes de
    publico amplo.
+4. O MCP `code-review-graph` estava indisponivel nesta rodada; a pasta local
+   `.code-review-graph/` deve permanecer ignorada pelo Git.
+
+## Referencias
+
+- `README.md`
+- `functions/API.md`
+- `planning/CONTEXT.md`
+- `planning/CHECKLIST_FINALIZACAO.md`
+- `ops/CONTEXT.md`

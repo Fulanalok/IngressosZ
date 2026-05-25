@@ -7,6 +7,7 @@
     "install:all": "concurrently \"npm run install:frontend\" \"npm run install:backend\"",
     "install:frontend": "npm --prefix ingressosZ install",
     "install:backend": "npm --prefix functions install",
+    "ci:install": "npm ci && npm --prefix ingressosZ ci && npm --prefix functions ci",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "npm --prefix ingressosZ run dev",
     "dev:backend": "npm --prefix functions run serve",

@@ -104,6 +104,36 @@ describeEmulator("Regras de segurança do Firestore para Ingressos", () => {
     await assertFails(getDoc(ref));
   });
 
+  it("deve BLOQUEAR escrita direta em tickets pelo cliente", async () => {
+    const aliceContext = testEnv.authenticatedContext("alice");
+    const ref = doc(aliceContext.firestore(), "tickets/ticket_direto");
+
+    await assertFails(
+      setDoc(ref, {
+        eventId: "evento_1",
+        userId: "alice",
+        status: "valid",
+      })
+    );
+  });
+
+  it("deve BLOQUEAR update direto em tickets pelo cliente", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "tickets/ticket_update"), {
+        eventId: "evento_1",
+        userId: "alice",
+        status: "valid",
+      });
+    });
+
+    const aliceContext = testEnv.authenticatedContext("alice");
+    await assertFails(
+      updateDoc(doc(aliceContext.firestore(), "tickets/ticket_update"), {
+        status: "used",
+      })
+    );
+  });
+
   it("deve PERMITIR criação de evento com dados válidos", async () => {
     const aliceContext = testEnv.authenticatedContext("alice");
     const ref = doc(aliceContext.firestore(), "events/evento_1");
@@ -170,6 +200,72 @@ describeEmulator("Regras de segurança do Firestore para Ingressos", () => {
         quantity: 2,
         unitPrice: 50,
         totalAmount: 100,
+        status: "pending",
+        provider: "mercadopago",
+        paymentMethod: "checkout",
+        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      })
+    );
+  });
+
+  it("deve PERMITIR criacao de paymentSession Pix valida", async () => {
+    const aliceContext = testEnv.authenticatedContext("alice", {
+      email: "alice@example.com",
+    });
+    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_pix");
+    await assertSucceeds(
+      setDoc(ref, {
+        eventId: "evento_1",
+        userId: "alice",
+        userEmail: "alice@example.com",
+        ticketType: "standard",
+        quantity: 1,
+        unitPrice: 50,
+        totalAmount: 50,
+        status: "pending",
+        provider: "mercadopago",
+        paymentMethod: "pix",
+        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      })
+    );
+  });
+
+  it("deve BLOQUEAR paymentSession com userId diferente do auth", async () => {
+    const aliceContext = testEnv.authenticatedContext("alice", {
+      email: "alice@example.com",
+    });
+    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_userid");
+    await assertFails(
+      setDoc(ref, {
+        eventId: "evento_1",
+        userId: "bob",
+        userEmail: "alice@example.com",
+        ticketType: "standard",
+        quantity: 1,
+        unitPrice: 50,
+        totalAmount: 50,
+        status: "pending",
+        provider: "mercadopago",
+        paymentMethod: "checkout",
+        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      })
+    );
+  });
+
+  it("deve BLOQUEAR paymentSession com userEmail diferente do auth", async () => {
+    const aliceContext = testEnv.authenticatedContext("alice", {
+      email: "alice@example.com",
+    });
+    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_email");
+    await assertFails(
+      setDoc(ref, {
+        eventId: "evento_1",
+        userId: "alice",
+        userEmail: "bob@example.com",
+        ticketType: "standard",
+        quantity: 1,
+        unitPrice: 50,
+        totalAmount: 50,
         status: "pending",
         provider: "mercadopago",
         paymentMethod: "checkout",

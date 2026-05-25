@@ -1,256 +1,104 @@
-# services/ - Serviços de Integração
+# services/ - Servicos de Integracao
 
-Lógica de comunicação com Firebase e APIs externas.
+Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
 
-## Estrutura
+Services encapsulam acesso a Firebase, Storage, QR helpers, logs e dados de
+desenvolvimento. Eles nao devem renderizar UI nem conhecer detalhes de rotas.
 
-```
+## Estrutura Atual
+
+```text
 services/
-├── firebase/
-│   ├── auth.ts         # Autenticação (login, logout, signUp)
-│   ├── firestore.ts    # CRUD Firestore (events, tickets, purchases)
-│   └── storage.ts      # Upload/download de imagens (Storage)
-├── payment/
-│   ├── mercadopago.ts  # Integração Mercado Pago (createPreference)
-│   └── webhook.ts      # (Backend) Processamento webhook MP
-└── validation/
-    └── ticket.ts       # Validação de ingressos (validateTicket)
+|-- firestore.ts
+|-- logger.ts
+|-- qrCodeService.ts
+|-- storage.ts
+`-- testDataService.ts
 ```
 
-## 📁 firebase/
+Cada arquivo possui testes correspondentes quando aplicavel.
 
-### `auth.ts`
+## `firestore.ts`
 
-**Responsabilidade**: Operações de autenticação.
+Agrupa services por dominio.
 
-#### Funções principais
+### `eventService`
 
-```typescript
-// Login com email/senha
-export async function signIn(email: string, password: string): Promise<User> {
-  const credential = await signInWithEmailAndPassword(auth, email, password);
-  return credential.user;
-}
+- `getEvents(pageSize, lastDoc?)`
+- `getAdminEvents()`
+- `getEventById(eventId)`
+- `createEvent(eventData)`
+- `updateEvent(eventId, eventData)`
+- `deleteEvent(eventId)`
+- `decrementAvailableTickets(eventId, quantity)`
 
-// Cadastro
-export async function signUp(email: string, password: string): Promise<User> {
-  const credential = await createUserWithEmailAndPassword(auth, email, password);
-  return credential.user;
-}
+Usa `events`, ordenacao por data e filtros de disponibilidade.
 
-// Logout
-export async function signOut(): Promise<void> {
-  await auth.signOut();
-}
+### `ticketService`
 
-// Verificar se usuário é admin
-export async function isAdmin(user: User): Promise<boolean> {
-  const token = await user.getIdTokenResult();
-  return token.claims.admin === true;
-}
-```
+- `getUserTickets(userId)`
+- `subscribeToUserTickets(userId, onUpdate, onError)`
+- `getTicketById(ticketId)`
+- `getTicketForValidation(ticketId)`
+- `markTicketAsUsed(ticketId, validatorId)`
+- `getAllTickets()`
+- `getTicketsByEvent(eventId)`
 
-**Uso típico**:
-```typescript
-try {
-  const user = await signIn(email, password);
-  navigate('/');
-} catch (error) {
-  toast.error('Credenciais inválidas');
-}
-```
+Escrita direta em tickets pelo cliente nao e o caminho de producao para emissao;
+emissao deve acontecer via Functions/webhook.
 
----
+### `userService`
 
-### `firestore.ts`
+- `getUserProfile(userId)`
+- `createUserProfile(userId, data)`
+- `updateUserProfile(userId, data)`
+- `onUserProfileSnapshot(userId, callback)`
+- `searchUserByEmail(email)`
 
-**Responsabilidade**: CRUD de coleções Firestore.
+Role e campo protegido por Firestore Rules e Functions administrativas.
 
-#### Eventos
+### `paymentService`
 
-```typescript
-// Listar eventos (real-time)
-export function subscribeToEvents(callback: (events: Event[]) => void) {
-  return onSnapshot(collection(db, 'events'), (snapshot) => {
-    const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(events);
-  });
-}
+- `getAllPayments()`
+- `getPaymentsByEvent(eventId)`
+- `subscribeToAllPayments(onUpdate, onError)`
 
-// Buscar evento por ID
-export async function getEventById(id: string): Promise<Event | null> {
-  const docRef = doc(db, 'events', id);
-  const docSnap = await getDoc(docRef);
-  return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
-}
+Le `paymentSessions` aprovadas para dashboards/analytics.
 
-// Criar evento (admin)
-export async function createEvent(eventData: Omit<Event, 'id'>): Promise<string> {
-  const docRef = await addDoc(collection(db, 'events'), {
-    ...eventData,
-    createdAt: serverTimestamp(),
-  });
-  return docRef.id;
-}
-```
+### `adminRealtimeService`
 
-#### Ingressos
+- `subscribeToAdminEvents(onUpdate, onError)`
+- `subscribeToAllTickets(onUpdate, onError)`
 
-```typescript
-// Buscar ingressos do usuário (static - getDocs)
-export async function fetchTicketsByUserId(userId: string): Promise<Ticket[]> {
-  const q = query(
-    collection(db, 'tickets'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
+Usado por painel administrativo para visoes em tempo real.
 
-// Buscar ingressos por purchaseId (polling após compra)
-export async function fetchTicketsByPurchaseId(purchaseId: string): Promise<Ticket[]> {
-  const q = query(
-    collection(db, 'tickets'),
-    where('purchaseId', '==', purchaseId)
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-}
-```
+## `storage.ts`
 
-**Otimização**: 
-- `onSnapshot` apenas para eventos (muda frequentemente).
-- `getDocs` para tickets (estáticos após compra).
+Responsavel por upload/remocao de imagens no Firebase Storage. O backend tambem
+possui trigger `optimizeImage` para otimizacao.
 
----
+## `qrCodeService.ts`
 
-### `storage.ts`
+Helpers relacionados a QR Code no frontend. QR de producao deve carregar o
+token assinado emitido pelo backend; validacao real ocorre em `validateTicket`.
 
-**Responsabilidade**: Upload e download de imagens (Storage).
+## `logger.ts`
 
-```typescript
-// Upload de imagem de evento
-export async function uploadEventImage(file: File): Promise<string> {
-  const storageRef = ref(storage, `events/${Date.now()}_${file.name}`);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
-}
+Centraliza logs do frontend. Pode integrar com `logClientError`/Sentry conforme
+configuracao.
 
-// Deletar imagem
-export async function deleteEventImage(imageUrl: string): Promise<void> {
-  const imageRef = ref(storage, imageUrl);
-  await deleteObject(imageRef);
-}
-```
+## `testDataService.ts`
 
----
+Dados e validacoes offline apenas para desenvolvimento/testes. Nao deve ser
+tratado como fonte de verdade em producao.
 
-## 📁 payment/
+## Convencoes
 
-### `mercadopago.ts`
-
-**Responsabilidade**: Criar preferências de pagamento no MP.
-
-```typescript
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/lib/firebase';
-
-const createPreferenceFunction = httpsCallable(functions, 'createPreference');
-
-export async function createPreference(
-  eventId: string,
-  quantity: number,
-  buyerData: { name: string; email: string; cpf: string }
-) {
-  const result = await createPreferenceFunction({ eventId, quantity, buyerData });
-  const { preferenceId, initPoint } = result.data;
-  
-  // Redireciona para checkout MP
-  window.location.href = initPoint;
-}
-```
-
-**Fluxo**:
-1. Frontend chama `createPreference`
-2. Backend (Function) cria preferência no MP
-3. Retorna `initPoint` (URL do checkout)
-4. Usuário é redirecionado para MP
-
----
-
-## 📁 validation/
-
-### `ticket.ts`
-
-**Responsabilidade**: Validar ingressos na entrada do evento.
-
-```typescript
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '@/lib/firebase';
-
-const validateTicketFunction = httpsCallable(functions, 'validateTicket');
-
-export async function validateTicket(qrCodeData: string) {
-  const result = await validateTicketFunction({ qrCodeData });
-  return result.data; // { success: boolean, ticket?: Ticket, error?: string }
-}
-```
-
-**Segurança**:
-- QR Code contém: `ticket_${ticketId}_${hash}`
-- Backend valida hash com `TICKET_SECRET`
-- Marca `isValidated: true` no Firestore
-
----
-
-## Convenções
-
-### Error Handling
-
-Sempre propagar erros para o componente tratar:
-
-```typescript
-// ✅ Correto
-export async function signIn(email: string, password: string) {
-  try {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    return credential.user;
-  } catch (error) {
-    console.error('Sign in error:', error);
-    throw error; // Deixa componente exibir toast
-  }
-}
-
-// ❌ Evitar (engolir erro)
-export async function signIn(email: string, password: string) {
-  try {
-    // ...
-  } catch (error) {
-    console.error(error);
-    return null; // Componente não sabe o que aconteceu
-  }
-}
-```
-
-### Typing
-
-Sempre tipar retornos e parâmetros:
-
-```typescript
-// ✅ Correto
-export async function fetchTickets(userId: string): Promise<Ticket[]> { ... }
-
-// ❌ Evitar
-export async function fetchTickets(userId) { ... }
-```
-
-### Naming
-
-- **Funções de leitura**: `fetch*`, `get*`, `subscribe*`
-- **Funções de escrita**: `create*`, `update*`, `delete*`
-- **Funções de ação**: `validate*`, `process*`
-
----
-
-**Última atualização**: 2026-04-23
+- Services devem propagar erro para hooks/componentes exibirem feedback.
+- Retornos devem ser tipados com interfaces de `types/index.ts`.
+- Nao commitar secrets nem valores reais de ambiente.
+- Nao colocar regra visual em services.
+- Nao atualizar `tickets`/`purchases` diretamente no cliente para fluxos de
+  producao.
+- Preferir nomes de service por dominio (`eventService`, `ticketService`,
+  `userService`, `paymentService`).

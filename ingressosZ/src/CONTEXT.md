@@ -1,216 +1,104 @@
-# src/ - Código Fonte Frontend
+# src/ - Codigo Fonte Frontend
 
-Visão geral da estrutura do código React, organização e convenções.
+Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
 
-## Estrutura de Diretórios
+Frontend React/Vite do IngressosZ. A aplicacao cobre descoberta de eventos,
+compra por Checkout/Pix, area de ingressos, validacao presencial, painel admin
+e paginas legais.
 
-```
+## Estrutura
+
+```text
 src/
-├── assets/           # Imagens, ícones estáticos
-├── components/       # Componentes React organizados por domínio
-├── constants/        # Constantes globais (configs, enums)
-├── context/          # Context API (Auth, Theme)
-├── hooks/            # Custom hooks
-├── lib/              # Configurações de bibliotecas (Firebase, MP)
-├── pages/            # Componentes de página (rotas)
-├── routing/          # Configuração React Router v7
-├── services/         # Lógica de integração (Firebase, API)
-├── test/             # Helpers e mocks para testes
-├── types/            # TypeScript interfaces e types
-└── utils/            # Funções utilitárias (formatters, validators)
+|-- assets/
+|-- components/
+|-- constants/
+|-- context/
+|-- hooks/
+|-- lib/
+|-- pages/
+|-- routing/
+|-- services/
+|-- test/
+|-- types/
+`-- utils/
 ```
 
-## Convenções
+## Rotas Principais
 
-### Nomenclatura de Arquivos
+Definidas em `routing/AppRoutes.tsx`.
 
-- **Componentes**: PascalCase (`EventCard.tsx`, `QRScanner.tsx`)
-- **Hooks**: camelCase com prefixo `use` (`useAuth.ts`, `useEvents.ts`)
-- **Utils**: camelCase (`formatCurrency.ts`, `validateCPF.ts`)
-- **Types**: PascalCase (`Event.ts`, `Ticket.ts`)
+- `/`: home.
+- `/eventos`: lista de eventos.
+- `/evento/:eventId`: detalhe e compra.
+- `/login`: login.
+- `/cadastro`: cadastro.
+- `/perfil`: perfil autenticado.
+- `/meus-ingressos`: tickets do usuario autenticado.
+- `/validador`: validacao com roles `validator`, `organizer` ou `admin`.
+- `/admin`: painel com roles `organizer` ou `admin`.
+- `/pagamento/sucesso` e `/pagamento/sucesso/:sessionId`: retorno de compra.
+- `/pagamento/cancelado`: retorno cancelado.
+- `/termos` e `/privacidade`: paginas legais.
+- Rotas `/dev-auto`, `/debug/firebase`, `/doc` e `/teste-qr` existem apenas em
+  desenvolvimento.
 
-### Organização de Componentes
+## Contextos Globais
 
-Cada componente segue a estrutura:
+- `context/auth`: AuthProvider, perfil do usuario e role normalizada.
+- `context/theme`: tema light/dark.
+- `firebaseConfig.ts`: inicializacao Firebase, Functions, App Check e emuladores
+  quando configurados.
 
-```typescript
-// 1. Imports
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+## Dados e Integracoes
 
-// 2. Types/Interfaces
-interface EventCardProps {
-  event: Event;
-  onClick: () => void;
-}
+- Firestore fica encapsulado em `services/firestore.ts`.
+- Storage fica em `services/storage.ts`.
+- QR helpers ficam em `services/qrCodeService.ts`.
+- Logs do cliente ficam em `services/logger.ts`.
+- Dados locais/dev ficam em `services/testDataService.ts`.
+- Fluxo Mercado Pago no frontend fica no hook
+  `hooks/payment/useMercadoPagoCheckout.ts`.
 
-// 3. Component
-export function EventCard({ event, onClick }: EventCardProps) {
-  // 4. Hooks
-  const [isHovered, setIsHovered] = useState(false);
+## Padroes de Codigo
 
-  // 5. Handlers
-  const handleClick = () => {
-    onClick();
-  };
+- Componentes em PascalCase.
+- Hooks com prefixo `use`.
+- Tipos centrais em `types/index.ts`.
+- Constantes compartilhadas em `constants/`.
+- Rotas protegidas por `RequireAuth` e `RequireRole`.
+- Evitar `any`; preferir interfaces e unions.
+- Usar Tailwind v4 e componentes base de `components/ui`.
+- Propagar erros para UI exibir feedback com toast/estado visual.
 
-  // 6. Render
-  return (
-    <div className="glass-card" onClick={handleClick}>
-      {/* JSX */}
-    </div>
-  );
-}
+## Fluxo de Compra no Frontend
+
+1. `TicketPurchase` recebe evento, tipo e quantidade.
+2. `useMercadoPagoCheckout` calcula valores.
+3. Hook cria `paymentSessions` com `paymentMethod: "checkout"` ou `"pix"`.
+4. Hook chama callable `createPaymentPreference` ou `createPixPayment`.
+5. Se necessario, usa fallback HTTP `createPaymentPreferencePublic` ou
+   `createPixPaymentPublic`.
+6. Checkout exibe Wallet Mercado Pago ou QR Code Pix.
+7. Retorno vai para paginas de sucesso/cancelamento.
+
+## Qualidade
+
+Comandos principais:
+
+```bash
+npm --prefix ingressosZ run lint
+npm --prefix ingressosZ run typecheck
+npm --prefix ingressosZ run build
+npm --prefix ingressosZ run test
 ```
 
-### Regras de Importação
+`npm --prefix ingressosZ run test` roda Vitest com coverage.
 
-1. React/Third-party primeiro
-2. Absolute imports (`@/components/...`)
-3. Relative imports (`./utils`)
-4. Types/Interfaces por último
+## Atencoes
 
-```typescript
-// ✅ Correto
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { EventCard } from '@/components/event/EventCard';
-import { formatDate } from './utils';
-import type { Event } from '@/types/Event';
-
-// ❌ Incorreto (misturado)
-import type { Event } from '@/types/Event';
-import { useState } from 'react';
-import { formatDate } from './utils';
-```
-
-## Padrões de Código
-
-### Data Fetching
-
-Use **TanStack Query** para qualquer data fetching:
-
-```typescript
-// ✅ Correto
-const { data: events, isLoading } = useQuery({
-  queryKey: ['events'],
-  queryFn: fetchEvents,
-});
-
-// ❌ Evitar
-const [events, setEvents] = useState([]);
-useEffect(() => {
-  fetchEvents().then(setEvents);
-}, []);
-```
-
-### Firestore Queries
-
-- **`getDocs`**: Dados estáticos/pouco frequentes (Meus Ingressos)
-- **`onSnapshot`**: Dados em tempo real (Lista de Eventos, Admin Dashboard)
-
-```typescript
-// Static data - getDocs
-const tickets = await getDocs(
-  query(
-    collection(db, 'tickets'),
-    where('userId', '==', userId)
-  )
-);
-
-// Real-time data - onSnapshot
-const unsubscribe = onSnapshot(
-  collection(db, 'events'),
-  (snapshot) => {
-    const events = snapshot.docs.map(doc => doc.data());
-    setEvents(events);
-  }
-);
-```
-
-### Error Handling
-
-Sempre envolva em `try-catch` e exiba feedback ao usuário:
-
-```typescript
-try {
-  await createPreference(eventId, quantity);
-  toast.success('Compra iniciada!');
-} catch (error) {
-  console.error('Error creating preference:', error);
-  toast.error('Erro ao iniciar compra. Tente novamente.');
-}
-```
-
-### Styling
-
-Use apenas **Tailwind CSS v4**. Evite CSS inline ou styled-components.
-
-```typescript
-// ✅ Correto
-<div className="glass-card rounded-xl p-6 hover:scale-105 transition-transform">
-
-// ❌ Evitar
-<div style={{ backgroundColor: '#1e40af', padding: '24px' }}>
-```
-
-### TypeScript
-
-- **Sem `any`**: Use tipos explícitos sempre
-- **Interfaces > Types**: Para objetos complexos
-- **Enums**: Para valores fixos (status, roles)
-
-```typescript
-// ✅ Correto
-interface Ticket {
-  id: string;
-  eventId: string;
-  userId: string;
-}
-
-// ❌ Evitar
-const ticket: any = { ... };
-```
-
-## Performance
-
-### Lazy Loading
-
-Use `React.lazy()` para páginas pesadas:
-
-```typescript
-const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
-
-<Route path="/admin" element={
-  <Suspense fallback={<LoadingSpinner />}>
-    <AdminDashboard />
-  </Suspense>
-} />
-```
-
-### Memoization
-
-React Compiler cuida automaticamente, mas para casos específicos:
-
-```typescript
-// Computação pesada
-const sortedEvents = useMemo(
-  () => events.sort((a, b) => a.date - b.date),
-  [events]
-);
-
-// Callbacks passados como props
-const handleClick = useCallback(() => {
-  navigate(`/event/${eventId}`);
-}, [eventId, navigate]);
-```
-
-## Testes
-
-Localização: `src/components/__tests__/`, `src/test/`
-
-Executar: `npm test` (286 testes passando)
-
----
-
-**Última atualização**: 2026-04-23
+- `VITE_USE_EMULATORS` deve ser `false` em producao.
+- `VITE_APPCHECK_DEBUG_TOKEN` deve ser `false` em producao.
+- `VITE_MERCADOPAGO_PUBLIC_KEY` e obrigatorio para Checkout Pro.
+- Rotas dev nao devem aparecer em producao.
+- Manter textos e fluxos coerentes com `planning/CHECKLIST_FINALIZACAO.md`.
