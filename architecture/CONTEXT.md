@@ -100,15 +100,18 @@ functions/src/
 |   |-- inventory.ts
 |   `-- purchaseLimits.ts
 |-- endpoints/
+|   |-- checkout.ts
 |   |-- email.ts
 |   |-- maintenance.ts
 |   |-- payments.ts
+|   |-- pix.ts
 |   |-- refunds.ts
 |   |-- seed.ts
 |   |-- storage.ts
 |   |-- system.ts
 |   |-- tickets.ts
-|   `-- users.ts
+|   |-- users.ts
+|   `-- webhook.ts
 |-- utils/
 |   `-- rateLimit.ts
 |-- test/

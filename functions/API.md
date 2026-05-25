@@ -9,6 +9,9 @@ Firestore, Mercado Pago, Nodemailer, Sharp e Sentry.
 handlers vivem em `functions/src/endpoints/`:
 
 - `payments.ts`: Checkout Pro, Pix e webhook Mercado Pago.
+- `checkout.ts`: callables/endpoints HTTP de Checkout Pro.
+- `pix.ts`: callables/endpoints HTTP de Pix.
+- `webhook.ts`: webhook Mercado Pago, emissao de compra e tickets.
 - `tickets.ts`: validacao de ingressos.
 - `email.ts`: trigger de ticket e envio de e-mails.
 - `refunds.ts`: reembolso administrativo.

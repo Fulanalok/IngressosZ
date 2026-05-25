@@ -48,4 +48,31 @@ describe("Cloud Functions", () => {
       expect(myFunctions.refundPayment).to.exist;
     }
   });
+
+  it("should export all modular function entrypoints", () => {
+    if (!myFunctions) return;
+
+    const expectedExports = [
+      "createPaymentPreference",
+      "createPaymentPreferencePublic",
+      "createPixPayment",
+      "createPixPaymentPublic",
+      "expireStalePixSessions",
+      "health",
+      "logClientError",
+      "onTicketCreated",
+      "optimizeImage",
+      "receiveWebhook",
+      "refundPayment",
+      "seedDatabase",
+      "setAdminRole",
+      "setUserRole",
+      "validateTicket",
+      "verifyRecaptchaV2",
+    ];
+
+    for (const exportName of expectedExports) {
+      expect(myFunctions[exportName], exportName).to.exist;
+    }
+  });
 });
