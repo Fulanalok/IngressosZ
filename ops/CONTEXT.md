@@ -1,11 +1,12 @@
 # ops/ - Operacoes e Deploy
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 ## Ambiente Atual
 
 - Firebase project: `<your-firebase-project-id>`
-- Hosting principal: `https://ingressosz.web.app`
+- Hosting principal confirmado via Firebase CLI: `https://<your-project>.web.app`
+- Dominio proprio/curto ainda nao confirmado.
 - Functions region: `southamerica-east1`
 - Backend runtime: Node.js 24
 - Pagamentos: Mercado Pago Checkout Pro e Pix
@@ -76,7 +77,7 @@ Params em `functions/.env`:
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
-WEB_BASE_URL=https://ingressosz.web.app
+WEB_BASE_URL=https://<your-project>.web.app
 SENTRY_DSN=
 ```
 
@@ -160,7 +161,7 @@ Consoles:
 
 ## Checklist Pos-Deploy
 
-- [ ] Abrir `https://ingressosz.web.app`.
+- [ ] Abrir `https://<your-project>.web.app`.
 - [ ] Login/cadastro funcionam sem erro de reCAPTCHA por dominio.
 - [ ] Checkout cria `paymentSessions` com `paymentMethod: "checkout"`.
 - [ ] Pix cria `paymentSessions` com `paymentMethod: "pix"`.

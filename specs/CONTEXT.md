@@ -1,6 +1,6 @@
 # specs/ - Especificacoes Tecnicas IngressosZ
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 Este arquivo descreve comportamento esperado. Ele deve acompanhar
 `architecture/CONTEXT.md`, `functions/API.md` e

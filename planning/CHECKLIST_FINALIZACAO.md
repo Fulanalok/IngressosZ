@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-05-25.
+Atualizado em 2026-05-26.
 
 Este arquivo consolida o que falta para levar o IngressosZ a um estado pronto
 para uso publico controlado. Marque os itens conforme forem concluidos e deixe
@@ -32,12 +32,12 @@ validacao manual.
 
 - [x] Confirmar que `.firebaserc` aponta para `<your-firebase-project-id>`.
 - [x] Rodar `firebase use` e confirmar o projeto ativo antes do deploy.
-- [ ] Confirmar URL final do Hosting.
+- [x] Confirmar URL final do Hosting atual.
   - 2026-05-25: `firebase hosting:sites:list` mostrou o site
     `https://<your-project>.web.app`.
-  - Pendente: decidir se a URL final sera essa ou se deve existir
-    `https://ingressosz.web.app`; alinhar `WEB_BASE_URL`, Mercado Pago,
-    Firebase Auth, reCAPTCHA e App Check com a URL escolhida.
+  - 2026-05-26: defaults e documentacao foram alinhados para essa URL.
+    Dominio proprio/curto pode ser configurado depois, mas nao e requisito
+    para o primeiro deploy controlado.
 - [x] Confirmar que a regiao das Functions e `southamerica-east1`.
 - [ ] Confirmar que Auth, Firestore, Storage, Functions e Hosting estao ativos
   no projeto Firebase.
@@ -62,7 +62,8 @@ Configure secrets com `firebase functions:secrets:set`.
     Conferir valores sem versionar secrets.
 - [ ] `SMTP_HOST=smtp.gmail.com` confirmado ou ajustado para o provedor real.
 - [ ] `SMTP_PORT=465` confirmado ou ajustado para o provedor real.
-- [ ] `WEB_BASE_URL=https://ingressosz.web.app` confirmado.
+- [x] `WEB_BASE_URL=https://<your-project>.web.app` confirmado como
+  default do projeto.
 - [ ] `SENTRY_DSN` definido se o monitoramento backend for usado em producao.
 
 ## 3. Variaveis do Frontend
@@ -99,13 +100,14 @@ emuladores em producao.
 
 ## 4. Dominios, reCAPTCHA e App Check
 
-- [ ] Dominio `ingressosz.web.app` autorizado no Firebase Auth.
+- [ ] Dominio `<your-project>.web.app` autorizado no Firebase Auth.
 - [ ] Dominio final de producao autorizado no Firebase Auth, se houver dominio
   proprio.
-- [ ] Dominio `ingressosz.web.app` autorizado no reCAPTCHA v2.
+- [ ] Dominio `<your-project>.web.app` autorizado no reCAPTCHA v2.
 - [ ] Dominio final de producao autorizado no reCAPTCHA v2, se houver dominio
   proprio.
-- [ ] Dominio `ingressosz.web.app` autorizado no reCAPTCHA Enterprise/App Check.
+- [ ] Dominio `<your-project>.web.app` autorizado no reCAPTCHA
+  Enterprise/App Check.
 - [ ] App Check testado sem token de debug.
 - [ ] Login e cadastro testados sem erro de reCAPTCHA em producao.
 - [ ] Enforcement do App Check ativado no console Firebase para Firestore,
@@ -136,17 +138,19 @@ Instale dependencias antes da rodada de qualidade.
   `2026-05-25: frontend Vitest 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped. Backend Mocha 9 passing, 1 pending no E2E webhook sem emulador no teste normal. Cypress E2E smoke passou com 1 spec/1 teste. npm run test:emulator nao rodou nesta maquina porque Java nao esta instalado/no PATH.`
 - [x] Registrar rodada apos melhorias LGPD/App Check/rate limit:
   `2026-05-25: npm.cmd --prefix ingressosZ run lint/typecheck/build/test passaram. npm.cmd --prefix functions run lint/build/test passaram. Backend segue com 9 passing e 1 pending no E2E webhook sem emulador.`
+- [x] Registrar rodada apos alinhamento de URL/contextos:
+  `2026-05-26: npm.cmd --prefix functions run lint/build/test passaram. Backend segue com 9 passing e 1 pending no E2E webhook sem emulador.`
 - [x] Validar localmente os passos do GitHub Actions `Quality Check (Lint &
   Tests)` e `Build Verification`, incluindo Cypress E2E smoke test.
-- [ ] Confirmar no GitHub que o workflow mais recente passou.
-  - 2026-05-25: validacao local passou; `gh` nao esta instalado nesta
-    maquina para consultar Actions via terminal.
+- [x] Confirmar no GitHub que o workflow mais recente passou.
+  - 2026-05-26: usuario confirmou que o pipeline passou sem defeitos apos o
+    push do commit `de58e3f`.
 
 ## 6. Deploy
 
-- [ ] Confirmar que nao ha alteracoes locais inesperadas com `git status`.
-  - 2026-05-25: existem alteracoes esperadas desta rodada de seguranca/LGPD
-    ainda nao commitadas.
+- [x] Confirmar que nao ha alteracoes locais inesperadas com `git status`.
+  - 2026-05-26: branch local partiu de `1baef6c`; apos alinhar URL,
+    checklist e contextos, confirmar novamente antes do deploy final.
 - [ ] Fazer deploy das regras Firestore:
   `firebase deploy --only firestore:rules`.
 - [ ] Fazer deploy das regras Storage:

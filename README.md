@@ -141,7 +141,7 @@ Params em `functions/.env`:
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
-WEB_BASE_URL=https://ingressosz.web.app
+WEB_BASE_URL=https://<your-project>.web.app
 SENTRY_DSN=
 ```
 

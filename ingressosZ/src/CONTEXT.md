@@ -1,6 +1,6 @@
 # src/ - Codigo Fonte Frontend
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 Frontend React/Vite do IngressosZ. A aplicacao cobre descoberta de eventos,
 compra por Checkout/Pix, area de ingressos, validacao presencial, painel admin

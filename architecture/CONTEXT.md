@@ -1,6 +1,6 @@
 # architecture/ - Arquitetura do IngressosZ
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 ## Visao Geral
 

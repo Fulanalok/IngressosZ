@@ -1,6 +1,6 @@
 # hooks/ - Custom Hooks
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 Hooks concentram logica reutilizavel de auth, eventos, pagamentos, SEO, tema,
 analytics e validacao.

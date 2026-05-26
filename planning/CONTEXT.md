@@ -1,6 +1,6 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -22,8 +22,8 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] QR Codes usam JWT assinado com `JWT_SECRET`.
 - [x] Roles atuais: `user`, `validator`, `organizer`, `admin`.
 - [x] Rotas protegidas usam `RequireAuth` e `RequireRole`.
-- [ ] Rodada final de lint, typecheck, build e testes apos esta atualizacao de
-  documentacao.
+- [x] Rodada local de lint, typecheck, build e testes passou antes do ultimo
+  push confirmado no GitHub.
 
 ## Alta Prioridade Antes de Publico
 
@@ -60,7 +60,7 @@ Configure em `functions/.env` ou pelo prompt do Firebase deploy.
 | Param | Default recomendado | Finalidade |
 | --- | --- | --- |
 | `SENTRY_DSN` | vazio ou DSN Sentry | Monitoramento backend |
-| `WEB_BASE_URL` | `https://ingressosz.web.app` | URLs em e-mails/back URLs |
+| `WEB_BASE_URL` | `https://<your-project>.web.app` | URLs em e-mails/back URLs |
 | `SMTP_HOST` | `smtp.gmail.com` | Servidor SMTP |
 | `SMTP_PORT` | `465` | Porta SMTP TLS |
 

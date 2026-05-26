@@ -11,5 +11,5 @@ export const smtpHost = defineString("SMTP_HOST", {
 });
 export const smtpPort = defineString("SMTP_PORT", { default: "465" });
 export const webBaseUrl = defineString("WEB_BASE_URL", {
-  default: "https://ingressosz.web.app",
+  default: "https://<your-project>.web.app",
 });

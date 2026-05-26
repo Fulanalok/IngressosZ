@@ -136,6 +136,7 @@ const sendTicketEmail = async (
       )
       .join("");
     const baseURL = webBaseUrl.value();
+    const baseHost = baseURL.replace(/^https?:\/\//, "").replace(/\/+$/, "");
     const html = [
       "<!DOCTYPE html>",
       '<html lang="pt-BR">',
@@ -217,7 +218,7 @@ const sendTicketEmail = async (
       '<td style="background:#F1F5F9;padding:18px 36px;border-top:1px solid #E2E8F0;">',
       '<p style="margin:0;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7;">',
       `Dúvidas? Acesse <a href="${baseURL}" `,
-      'style="color:#2563eb;text-decoration:none;font-weight:600;">ingressosz.web.app</a>',
+      `style="color:#2563eb;text-decoration:none;font-weight:600;">${baseHost}</a>`,
       "<br>Este é um e-mail automático, não responda.",
       "</p>",
       "</td>",

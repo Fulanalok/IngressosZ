@@ -1,6 +1,6 @@
 # functions/ - Firebase Functions Backend
 
-Atualizado em 2026-05-25. Base Git: `341d924 Clean local tooling artifacts`.
+Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
 
 Backend serverless do IngressosZ em Firebase Cloud Functions v2, Node.js 24,
 TypeScript e ESM.
@@ -73,7 +73,7 @@ Params:
 - `SENTRY_DSN`
 - `SMTP_HOST`, default `smtp.gmail.com`
 - `SMTP_PORT`, default `465`
-- `WEB_BASE_URL`, default `https://ingressosz.web.app`
+- `WEB_BASE_URL`, default `https://<your-project>.web.app`
 
 Use `defineSecret` para secrets e `defineString` para params. Nao use runtime
 config legado para novos fluxos.
