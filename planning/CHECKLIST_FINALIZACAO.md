@@ -2,12 +2,445 @@
 
 Atualizado em 2026-05-26.
 
-Este arquivo consolida o que falta para levar o IngressosZ a um estado pronto
-para uso publico controlado. Marque os itens conforme forem concluidos e deixe
-observacoes curtas quando algum item depender de acesso externo, conta ou
-validacao manual.
+Este arquivo fica dividido em duas partes:
 
-## Leitura Rapida
+- **Plano de finalizacao**: o que ainda falta e como fazer.
+- **Historico do que ja foi feito**: itens tecnicos ja fechados, para consulta.
+
+## Status Atual
+
+- [x] Codigo, documentacao base e CI estao organizados no GitHub.
+- [x] Branch `main` esta alinhada com `origin/main`.
+- [x] URL Firebase Hosting atual adotada como default:
+  `https://<your-project>.web.app`.
+- [x] Lint, build e testes backend passaram em 2026-05-26.
+- [ ] Ambiente de producao ainda precisa ser conferido no console Firebase.
+- [ ] Secrets, envs reais, Mercado Pago, App Check e SMTP ainda precisam ser
+  configurados/validados.
+- [ ] Deploy completo e testes reais de compra/QR/e-mail/reembolso ainda faltam.
+
+## Plano de Finalizacao
+
+### 1. Conferir Firebase de Producao
+
+- [ ] Confirmar projeto ativo no Firebase CLI.
+
+Como fazer:
+
+```bash
+firebase use
+```
+
+Resultado esperado: projeto `<your-firebase-project-id>`.
+
+- [ ] Conferir no Firebase Console se estes produtos estao ativos:
+  Auth, Firestore, Storage, Functions e Hosting.
+
+Como fazer:
+
+1. Abrir `https://console.firebase.google.com/project/<your-firebase-project-id>`.
+2. Entrar em cada produto no menu lateral.
+3. Confirmar que nao ha tela de "comecar" ou setup pendente.
+
+- [ ] Conferir dominios autorizados no Firebase Auth.
+
+Como fazer:
+
+1. Firebase Console > Authentication > Settings > Authorized domains.
+2. Confirmar `<your-project>.web.app`.
+3. Adicionar dominio proprio depois, se existir.
+
+### 2. Configurar Secrets das Functions
+
+- [ ] Configurar secrets obrigatorios.
+
+Como fazer:
+
+```bash
+firebase functions:secrets:set MP_ACCESS_TOKEN
+firebase functions:secrets:set MP_WEBHOOK_SECRET
+firebase functions:secrets:set JWT_SECRET
+firebase functions:secrets:set SMTP_EMAIL
+firebase functions:secrets:set SMTP_PASSWORD
+firebase functions:secrets:set RECAPTCHA_V2_SECRET
+```
+
+O que preencher:
+
+- `MP_ACCESS_TOKEN`: token de producao do Mercado Pago.
+- `MP_WEBHOOK_SECRET`: segredo configurado no painel do Mercado Pago.
+- `JWT_SECRET`: valor longo, aleatorio e exclusivo de producao.
+- `SMTP_EMAIL`: e-mail remetente.
+- `SMTP_PASSWORD`: app password ou senha propria do provedor SMTP.
+- `RECAPTCHA_V2_SECRET`: secret key do reCAPTCHA v2.
+
+- [ ] Conferir params das Functions.
+
+Como fazer:
+
+Criar/conferir `functions/.env` local sem versionar secrets:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+WEB_BASE_URL=https://<your-project>.web.app
+SENTRY_DSN=
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0
+```
+
+Observacao: se outro provedor de e-mail for usado, ajustar `SMTP_HOST` e
+`SMTP_PORT`.
+
+### 3. Configurar Variaveis do Frontend
+
+- [ ] Criar/conferir `ingressosZ/.env.local`.
+
+Como fazer:
+
+1. Usar `ingressosZ/.env.example` como modelo.
+2. Preencher os valores reais do Firebase Web App.
+3. Preencher Mercado Pago, reCAPTCHA, App Check e dados legais.
+4. Garantir flags de producao:
+
+```env
+VITE_FUNCTIONS_REGION=southamerica-east1
+VITE_USE_EMULATORS=false
+VITE_APPCHECK_DEBUG_TOKEN=false
+VITE_SENTRY_TRACES_SAMPLE_RATE=0.1
+```
+
+Variaveis que precisam estar reais:
+
+- [ ] `VITE_FIREBASE_API_KEY`
+- [ ] `VITE_FIREBASE_AUTH_DOMAIN`
+- [ ] `VITE_FIREBASE_PROJECT_ID`
+- [ ] `VITE_FIREBASE_STORAGE_BUCKET`
+- [ ] `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- [ ] `VITE_FIREBASE_APP_ID`
+- [ ] `VITE_MERCADOPAGO_PUBLIC_KEY`
+- [ ] `VITE_RECAPTCHA_V2_SITE_KEY`
+- [ ] `VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY`
+- [ ] `VITE_LEGAL_BRAND_NAME`
+- [ ] `VITE_LEGAL_CONTROLLER_NAME`
+- [ ] `VITE_LEGAL_CONTROLLER_DOCUMENT`
+- [ ] `VITE_LEGAL_CONTROLLER_ADDRESS`
+- [ ] `VITE_LEGAL_SUPPORT_EMAIL`
+- [ ] `VITE_LEGAL_PRIVACY_EMAIL`
+
+### 4. Configurar reCAPTCHA e App Check
+
+- [ ] Autorizar dominio no reCAPTCHA v2.
+
+Como fazer:
+
+1. Abrir o painel do reCAPTCHA v2.
+2. Adicionar `<your-project>.web.app`.
+3. Copiar site key para `VITE_RECAPTCHA_V2_SITE_KEY`.
+4. Copiar secret key para `RECAPTCHA_V2_SECRET`.
+
+- [ ] Autorizar dominio no Firebase App Check.
+
+Como fazer:
+
+1. Firebase Console > App Check.
+2. Configurar reCAPTCHA Enterprise para o Web App.
+3. Autorizar `<your-project>.web.app`.
+4. Copiar a chave para `VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY`.
+
+- [ ] Ativar enforcement do App Check.
+
+Como fazer:
+
+1. Fazer deploy primeiro e testar sem enforcement agressivo.
+2. Confirmar que login, cadastro, checkout, Pix, QR e logs funcionam.
+3. Ativar enforcement para Firestore, Storage e Functions.
+4. Monitorar recusas 401/403 no console.
+
+### 5. Rodar Qualidade Local Final
+
+- [ ] Instalar dependencias.
+
+Como fazer:
+
+```bash
+npm run ci:install
+```
+
+- [ ] Rodar checagens frontend.
+
+Como fazer:
+
+```bash
+npm --prefix ingressosZ run lint
+npm --prefix ingressosZ run typecheck
+npm --prefix ingressosZ run build
+npm --prefix ingressosZ run test
+```
+
+- [ ] Rodar checagens backend.
+
+Como fazer:
+
+```bash
+npm --prefix functions run lint
+npm --prefix functions run build
+npm --prefix functions run test
+```
+
+- [ ] Rodar emulador quando Java estiver instalado.
+
+Como fazer:
+
+```bash
+java -version
+npm run test:emulator
+```
+
+Se `java -version` falhar, instalar JDK antes de rodar os emuladores Firebase.
+
+### 6. Fazer Deploy
+
+- [ ] Confirmar que nao ha alteracoes locais inesperadas.
+
+Como fazer:
+
+```bash
+git status -sb
+```
+
+- [ ] Fazer deploy completo.
+
+Como fazer:
+
+```bash
+firebase deploy --only firestore:rules,storage,functions,hosting
+```
+
+Alternativa por partes:
+
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only storage
+firebase deploy --only functions
+npm --prefix ingressosZ run build
+firebase deploy --only hosting
+```
+
+- [ ] Guardar URL publica da Function `receiveWebhook`.
+
+Como fazer:
+
+1. Conferir output do deploy.
+2. Copiar a URL HTTP da Function `receiveWebhook`.
+3. Registrar a URL neste arquivo e no painel Mercado Pago.
+
+URL do webhook Mercado Pago:
+
+```text
+PENDENTE
+```
+
+### 7. Configurar Mercado Pago
+
+- [ ] Confirmar credenciais de producao.
+
+Como fazer:
+
+1. Entrar no painel Mercado Pago.
+2. Conferir se `MP_ACCESS_TOKEN` e `VITE_MERCADOPAGO_PUBLIC_KEY` sao de
+   producao.
+3. Evitar misturar credenciais sandbox/teste com producao.
+
+- [ ] Cadastrar webhook.
+
+Como fazer:
+
+1. Mercado Pago > Webhooks.
+2. Cadastrar a URL publica de `receiveWebhook`.
+3. Habilitar evento `Payments`.
+4. Configurar o mesmo segredo usado em `MP_WEBHOOK_SECRET`.
+
+- [ ] Validar assinatura do webhook.
+
+Como fazer:
+
+1. Fazer pagamento real de baixo valor.
+2. Conferir logs:
+
+```bash
+firebase functions:log --only receiveWebhook
+```
+
+Resultado esperado: webhook processado sem erro de assinatura.
+
+### 8. Testar Compra Real Ponta a Ponta
+
+- [ ] Criar evento barato de teste.
+
+Como fazer:
+
+1. Entrar como admin/organizer.
+2. Criar evento com poucos ingressos.
+3. Definir preco baixo.
+
+- [ ] Comprar via Checkout/cartao.
+
+Como validar:
+
+1. Compra aprovada no Mercado Pago.
+2. `paymentSessions.status` atualizado.
+3. `purchases.status` atualizado.
+4. Ticket criado em `tickets`.
+5. Estoque decrementado.
+6. E-mail recebido.
+
+- [ ] Comprar via Pix.
+
+Como validar:
+
+1. Pix gerado corretamente.
+2. Pagamento aprovado.
+3. Webhook processado.
+4. Ticket criado uma unica vez.
+
+- [ ] Testar pagamento rejeitado/cancelado.
+
+Como validar:
+
+1. Pagamento recusado ou cancelado nao cria ticket.
+2. Compra fica com status correto.
+3. Estoque nao fica inconsistente.
+
+### 9. Testar Ticket, QR Code e Roles
+
+- [ ] Abrir "Meus ingressos" e conferir ticket emitido.
+
+Como fazer:
+
+1. Entrar com usuario comprador.
+2. Abrir pagina de ingressos.
+3. Conferir evento, QR Code e status.
+
+- [ ] Validar QR Code com roles permitidas.
+
+Como fazer:
+
+1. Criar/confirmar usuarios com role `validator`, `organizer` e `admin`.
+2. Validar o QR Code com cada role.
+3. Confirmar que a primeira validacao funciona.
+4. Confirmar que QR Code ja usado nao valida de novo.
+
+- [ ] Confirmar bloqueio de usuario comum.
+
+Como fazer:
+
+1. Entrar com usuario sem role elevada.
+2. Tentar acessar admin/validador.
+3. Confirmar bloqueio no frontend e nas Functions.
+
+### 10. Testar Reembolso/Admin
+
+- [ ] Reembolsar compra elegivel.
+
+Como fazer:
+
+1. Entrar como admin.
+2. Selecionar uma compra de teste.
+3. Executar reembolso.
+4. Conferir Mercado Pago, `purchases`, auditoria e logs.
+
+Logs uteis:
+
+```bash
+firebase functions:log --only refundPayment
+```
+
+### 11. Observabilidade e Alertas
+
+- [ ] Confirmar Sentry frontend, se usado.
+
+Como fazer:
+
+1. Preencher `VITE_SENTRY_DSN`.
+2. Gerar erro controlado no frontend.
+3. Verificar evento no Sentry.
+
+- [ ] Confirmar Sentry backend, se usado.
+
+Como fazer:
+
+1. Preencher `SENTRY_DSN`.
+2. Gerar erro controlado seguro em ambiente de teste.
+3. Verificar evento no Sentry.
+
+- [ ] Criar alertas de erro/custo/quota.
+
+Como fazer:
+
+1. Google Cloud Billing > Budgets & alerts.
+2. Criar alerta de custo.
+3. Cloud Logging/Monitoring > criar alertas para picos de 401, 403, 429 e 5xx.
+4. Monitorar Functions, Firestore, Auth, Storage e Hosting.
+
+### 12. Pendencias Tecnicas Monitoradas
+
+- [ ] Monitorar vulnerabilidades moderadas transitivas do backend ligadas a
+  `uuid`.
+
+Como fazer:
+
+```bash
+npm --prefix functions audit --omit=dev
+```
+
+Nao aplicar `npm audit fix --force` sem revisar, porque ele pode fazer downgrade
+quebravel de Mercado Pago/Firebase.
+
+- [ ] Avaliar token consumivel/replay protection para operacoes criticas.
+
+Como fazer:
+
+1. Validar primeiro o fluxo em producao com App Check.
+2. Se houver risco real de replay, desenhar token de uso unico por acao critica.
+3. Implementar com expiracao curta e registro transacional no Firestore.
+
+### 13. Legal e Conformidade Brasil
+
+- [ ] Revisar Termos de Uso com advogado antes do lancamento publico.
+- [ ] Revisar Politica de Privacidade com advogado antes do lancamento publico.
+- [ ] Confirmar CNPJ/CPF publico, razao/nome, endereco e canais de contato.
+- [ ] Confirmar se ha exigencia de nota fiscal, contrato com organizadores ou
+  tributacao especifica.
+- [ ] Definir regra publica de cancelamento, adiamento, reembolso e direito de
+  arrependimento.
+- [ ] Definir tratamento para meia-entrada quando aplicavel.
+- [ ] Criar procedimento de resposta a incidentes LGPD.
+- [ ] Definir rotina para direitos dos titulares: acesso, correcao, exclusao,
+  portabilidade, oposicao e revogacao de consentimento.
+- [ ] Confirmar contratos/termos de operador com Firebase/Google, Mercado Pago,
+  provedor de e-mail e Sentry.
+
+## Criterios de Pronto para Publico
+
+- [ ] Firebase Auth, Firestore, Storage, Functions e Hosting ativos.
+- [ ] Secrets e envs reais configurados.
+- [ ] Dominios autorizados no Firebase Auth, reCAPTCHA e App Check.
+- [ ] Deploy completo executado sem erro.
+- [ ] Mercado Pago webhook configurado e recebendo `Payments`.
+- [ ] Checkout/cartao e Pix reais testados.
+- [ ] Compra aprovada gera ticket uma unica vez.
+- [ ] Compra recusada/cancelada nao gera ticket.
+- [ ] E-mail de confirmacao chega corretamente.
+- [ ] QR Code valida com roles permitidas e bloqueia reuso.
+- [ ] Usuario comum nao acessa admin/validador.
+- [ ] Reembolso/admin funciona em compra elegivel.
+- [ ] Firestore/Storage Rules publicadas.
+- [ ] App Check enforcement ativo e testado.
+- [ ] Logs/Sentry/alertas confirmados.
+- [ ] Pendencias legais revisadas para lancamento publico.
+
+## Historico do Que Ja Foi Feito
 
 - [x] Repositorio limpo de artefatos locais e alinhado com `origin/main`.
 - [x] Frontend React/Vite organizado em paginas, componentes, hooks, services e
@@ -15,339 +448,47 @@ validacao manual.
 - [x] Backend Firebase Functions modularizado por dominio em
   `functions/src/endpoints/`.
 - [x] Checkout/Pix usam `paymentSessions`.
+- [x] `paymentSessions.paymentMethod` aceita `checkout` ou `pix`.
 - [x] Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
 - [x] Tickets usam QR Code JWT assinado com `JWT_SECRET`.
 - [x] Regras Firestore bloqueiam escrita direta em `tickets` e `purchases`.
-- [x] Paginas publicas de Termos e Privacidade foram reforcadas para LGPD,
+- [x] Regras Firestore confirmam `paymentSessions.userId` e `userEmail`.
+- [x] Role comum nao altera `users.role`.
+- [x] Paginas publicas de Termos e Privacidade reforcadas para LGPD,
   CDC/e-commerce, contato publico, incidentes e reembolso.
-- [x] Sentry e logs de erro foram reduzidos para evitar coleta excessiva de
-  dados pessoais.
-- [x] App Check e rate limits foram aplicados nas Functions sensiveis.
-- [x] `seedDatabase` fica bloqueada fora do emulador.
-- [ ] Ambiente de producao conferido ponta a ponta.
-- [ ] Deploy completo executado apos nova rodada de qualidade.
-- [ ] Fluxos reais de pagamento, ticket, e-mail, QR e reembolso validados.
-
-## 1. Ambiente Firebase
-
-- [x] Confirmar que `.firebaserc` aponta para `<your-firebase-project-id>`.
-- [x] Rodar `firebase use` e confirmar o projeto ativo antes do deploy.
-- [x] Confirmar URL final do Hosting atual.
-  - 2026-05-25: `firebase hosting:sites:list` mostrou o site
-    `https://<your-project>.web.app`.
-  - 2026-05-26: defaults e documentacao foram alinhados para essa URL.
-    Dominio proprio/curto pode ser configurado depois, mas nao e requisito
-    para o primeiro deploy controlado.
-- [x] Confirmar que a regiao das Functions e `southamerica-east1`.
-- [ ] Confirmar que Auth, Firestore, Storage, Functions e Hosting estao ativos
-  no projeto Firebase.
-  - 2026-05-25: Firestore, Functions, Hosting e Web Apps confirmados via CLI.
-    Storage/Auth e dominios autorizados ainda exigem conferencia no console.
-- [ ] Confirmar dominios autorizados no Firebase Auth.
-
-## 2. Secrets e Params das Functions
-
-Configure secrets com `firebase functions:secrets:set`.
-
-- [ ] `MP_ACCESS_TOKEN` configurado com token de producao do Mercado Pago.
-- [ ] `MP_WEBHOOK_SECRET` configurado e igual ao segredo usado no painel do
-  Mercado Pago.
-- [ ] `JWT_SECRET` configurado com valor forte e exclusivo de producao.
-- [ ] `SMTP_EMAIL` configurado.
-- [ ] `SMTP_PASSWORD` configurado com app password ou credencial apropriada.
-- [ ] `RECAPTCHA_V2_SECRET` configurado.
-- [ ] `functions/.env` criado localmente quando necessario.
-  - 2026-05-25: nao existe `functions/.env`; existe
-    `functions/.env.<your-firebase-project-id>` gerado pelo Firebase CLI.
-    Conferir valores sem versionar secrets.
-- [ ] `SMTP_HOST=smtp.gmail.com` confirmado ou ajustado para o provedor real.
-- [ ] `SMTP_PORT=465` confirmado ou ajustado para o provedor real.
-- [x] `WEB_BASE_URL=https://<your-project>.web.app` confirmado como
-  default do projeto.
-- [ ] `SENTRY_DSN` definido se o monitoramento backend for usado em producao.
-
-## 3. Variaveis do Frontend
-
-Use `ingressosZ/.env.example` como base para `ingressosZ/.env.local`.
-
-2026-05-25: existe `ingressosZ/.env`; nao existe `ingressosZ/.env.local`.
-Conferir se este arquivo local aponta para a URL final escolhida e se nao usa
-emuladores em producao.
-
-- [ ] `VITE_FIREBASE_API_KEY` configurado.
-- [ ] `VITE_FIREBASE_AUTH_DOMAIN` configurado.
-- [ ] `VITE_FIREBASE_PROJECT_ID` configurado.
-- [ ] `VITE_FIREBASE_STORAGE_BUCKET` configurado.
-- [ ] `VITE_FIREBASE_MESSAGING_SENDER_ID` configurado.
-- [ ] `VITE_FIREBASE_APP_ID` configurado.
-- [ ] `VITE_FIREBASE_MEASUREMENT_ID` configurado, se Analytics for usado.
-- [ ] `VITE_FUNCTIONS_REGION=southamerica-east1` confirmado.
-- [ ] `VITE_API_URL` conferido para o modo de chamada usado pelo frontend.
-- [ ] `VITE_MERCADOPAGO_PUBLIC_KEY` configurado com chave publica correta.
-- [ ] `VITE_RECAPTCHA_V2_SITE_KEY` configurado.
-- [ ] `VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY` configurado.
-- [ ] `VITE_APPCHECK_DEBUG_TOKEN=false` em producao.
-- [ ] `VITE_USE_EMULATORS=false` em producao.
-- [ ] `VITE_SENTRY_DSN` definido se o monitoramento frontend for usado.
-- [ ] `VITE_SENTRY_TRACES_SAMPLE_RATE=0.1` ou menor em producao.
-- [ ] `VITE_LEGAL_BRAND_NAME` configurado.
-- [ ] `VITE_LEGAL_CONTROLLER_NAME` configurado.
-- [ ] `VITE_LEGAL_CONTROLLER_DOCUMENT` configurado com CNPJ/CPF publico.
-- [ ] `VITE_LEGAL_CONTROLLER_ADDRESS` configurado.
-- [ ] `VITE_LEGAL_SUPPORT_EMAIL` configurado e funcionando.
-- [ ] `VITE_LEGAL_PRIVACY_EMAIL` configurado e funcionando.
-- [ ] `VITE_LEGAL_DPO_NAME` configurado, quando houver encarregado formal.
-
-## 4. Dominios, reCAPTCHA e App Check
-
-- [ ] Dominio `<your-project>.web.app` autorizado no Firebase Auth.
-- [ ] Dominio final de producao autorizado no Firebase Auth, se houver dominio
-  proprio.
-- [ ] Dominio `<your-project>.web.app` autorizado no reCAPTCHA v2.
-- [ ] Dominio final de producao autorizado no reCAPTCHA v2, se houver dominio
-  proprio.
-- [ ] Dominio `<your-project>.web.app` autorizado no reCAPTCHA
-  Enterprise/App Check.
-- [ ] App Check testado sem token de debug.
-- [ ] Login e cadastro testados sem erro de reCAPTCHA em producao.
-- [ ] Enforcement do App Check ativado no console Firebase para Firestore,
-  Storage e Functions depois de confirmar dominio final.
-- [ ] Conferir no console se App Check esta recebendo trafego valido apos o
-  deploy.
-
-## 5. Qualidade Local Antes do Deploy
-
-Instale dependencias antes da rodada de qualidade.
-
-- [x] Rodar `npm install`.
-- [x] Rodar `npm run install:all`.
-  - 2026-05-25: script ajustado para instalar frontend/backend em sequencia;
-    passou localmente.
-- [x] Rodar `npm --prefix ingressosZ run lint`.
-- [x] Rodar `npm --prefix ingressosZ run typecheck`.
-- [x] Rodar `npm --prefix ingressosZ run build`.
-- [x] Rodar `npm --prefix ingressosZ run test`.
-- [x] Rodar `npm --prefix functions run lint`.
-- [x] Rodar `npm --prefix functions run build`.
-- [x] Rodar `npm --prefix functions run test`.
-- [ ] Rodar teste com emulador quando possivel:
-  `npm run test:emulator`.
-  - [ ] Instalar Java/JDK e garantir `java -version` no PATH para rodar os
-    emuladores Firebase nesta maquina.
-- [x] Registrar aqui qualquer teste pendente ou pulado:
-  `2026-05-25: frontend Vitest 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped. Backend Mocha 9 passing, 1 pending no E2E webhook sem emulador no teste normal. Cypress E2E smoke passou com 1 spec/1 teste. npm run test:emulator nao rodou nesta maquina porque Java nao esta instalado/no PATH.`
-- [x] Registrar rodada apos melhorias LGPD/App Check/rate limit:
-  `2026-05-25: npm.cmd --prefix ingressosZ run lint/typecheck/build/test passaram. npm.cmd --prefix functions run lint/build/test passaram. Backend segue com 9 passing e 1 pending no E2E webhook sem emulador.`
-- [x] Registrar rodada apos alinhamento de URL/contextos:
-  `2026-05-26: npm.cmd --prefix functions run lint/build/test passaram. Backend segue com 9 passing e 1 pending no E2E webhook sem emulador.`
-- [x] Validar localmente os passos do GitHub Actions `Quality Check (Lint &
-  Tests)` e `Build Verification`, incluindo Cypress E2E smoke test.
-- [x] Confirmar no GitHub que o workflow mais recente passou.
-  - 2026-05-26: usuario confirmou que o pipeline passou sem defeitos apos o
-    push do commit `de58e3f`.
-
-## 6. Deploy
-
-- [x] Confirmar que nao ha alteracoes locais inesperadas com `git status`.
-  - 2026-05-26: branch local partiu de `1baef6c`; apos alinhar URL,
-    checklist e contextos, confirmar novamente antes do deploy final.
-- [ ] Fazer deploy das regras Firestore:
-  `firebase deploy --only firestore:rules`.
-- [ ] Fazer deploy das regras Storage:
-  `firebase deploy --only storage`.
-- [ ] Fazer deploy das Functions:
-  `firebase deploy --only functions`.
-- [ ] Fazer build do frontend:
-  `npm --prefix ingressosZ run build`.
-- [ ] Fazer deploy do Hosting:
-  `firebase deploy --only hosting`.
-- [ ] Alternativamente, executar deploy completo:
-  `firebase deploy --only firestore:rules,storage,functions,hosting`.
-- [ ] Guardar URL publica da Function `receiveWebhook`.
-- [ ] Conferir logs iniciais apos deploy.
-
-## 7. Mercado Pago
-
-- [ ] Confirmar que as credenciais usadas sao de producao.
-- [ ] Cadastrar a URL publica da Function `receiveWebhook` no painel Mercado
-  Pago.
-- [ ] Habilitar evento `Payments`.
-- [ ] Confirmar que o segredo do webhook no Mercado Pago bate com
-  `MP_WEBHOOK_SECRET`.
-- [ ] Fazer pagamento real de baixo valor via Checkout/cartao.
-- [ ] Fazer pagamento real de baixo valor via Pix.
-- [ ] Confirmar que webhooks chegam sem erro de assinatura.
-- [ ] Confirmar que pagamentos rejeitados/cancelados nao emitem tickets.
-- [ ] Confirmar que reprocessamento de webhook nao duplica tickets.
-
-## 8. Validacao Funcional Ponta a Ponta
-
-- [ ] Criar ou revisar evento barato de teste.
-- [ ] Comprar ingresso via Checkout.
-- [ ] Comprar ingresso via Pix.
-- [ ] Confirmar `paymentSessions.status`.
-- [ ] Confirmar `purchases.status`.
-- [ ] Confirmar decremento de estoque global.
-- [ ] Confirmar decremento de estoque por tipo de ingresso, quando aplicavel.
-- [ ] Confirmar criacao dos documentos em `tickets`.
-- [ ] Confirmar que e-mail transacional foi enviado.
-- [ ] Abrir pagina "Meus ingressos" e conferir ticket emitido.
-- [ ] Validar QR Code com usuario `validator`.
-- [ ] Validar QR Code com usuario `organizer`.
-- [ ] Validar QR Code com usuario `admin`.
-- [ ] Confirmar que usuario sem role nao acessa admin/validador.
-- [ ] Confirmar que QR Code ja usado nao valida novamente.
-- [ ] Testar reembolso/admin em compra elegivel.
-- [ ] Confirmar estado de auditoria apos reembolso.
-
-## 9. Seguranca e Regras
-
-- [x] Revisar `firestore.rules` antes do deploy final.
-- [x] Revisar `storage.rules` antes do deploy final.
-- [x] Rodar `npm --prefix ingressosZ audit --omit=dev` e confirmar 0
-  vulnerabilidades de producao no frontend.
-- [ ] Resolver vulnerabilidades moderadas transitivas de producao no backend
-  ligadas a `uuid` quando houver caminho sem `npm audit fix --force`
-  quebrando Mercado Pago/Firebase.
-  - 2026-05-25: `npm --prefix functions audit --omit=dev` ainda aponta
-    vulnerabilidades moderadas transitivas por `uuid`; `npm audit fix --force`
-    faria downgrade quebravel de `mercadopago`, entao ficou como pendencia
-    monitorada.
-- [x] Confirmar que cliente nao escreve diretamente em `tickets`.
-- [x] Confirmar que cliente nao escreve diretamente em `purchases`.
-- [x] Confirmar que `paymentSessions.userId` precisa bater com
-  `request.auth.uid`.
-- [x] Confirmar que `paymentSessions.userEmail` bate com o e-mail autenticado
-  quando presente.
-- [x] Confirmar que `paymentMethod` aceita apenas `checkout` ou `pix`.
-- [x] Confirmar que role comum nao altera `users.role`.
-- [ ] Confirmar custom claims reais do admin:
-  `admin: true` e `role: "admin"`.
-- [x] Sentry frontend inicializa somente com DSN configurado e sem PII padrao.
-- [x] Sentry backend inicializa somente com DSN configurado e amostragem menor.
-- [x] `logClientError` aplica rate limit e sanitiza campos sensiveis.
+- [x] Sentry frontend inicializa apenas com DSN configurado e sem PII padrao.
+- [x] Sentry backend inicializa apenas com DSN configurado e amostragem menor.
+- [x] `logClientError` aplica rate limit e sanitiza dados sensiveis.
 - [x] PWA nao faz cache automatico de respostas Firestore com dados pessoais.
 - [x] Callables sensiveis exigem App Check.
 - [x] Endpoints HTTP publicos de pagamento/validacao exigem App Check.
 - [x] `seedDatabase` fica desabilitada fora do emulador.
-- [x] Rate limiter falha fechado quando o controle nao consegue ser avaliado.
+- [x] Rate limiter falha fechado quando nao consegue avaliar o controle.
 - [x] `validateTicket` envia `X-Firebase-AppCheck` pelo frontend.
-- [ ] Avaliar token consumivel/replay protection para operacoes criticas apos
-  validar compatibilidade do frontend em producao.
-- [ ] Ativar enforcement do App Check no console para Firestore/Storage/
-  Functions quando o dominio final estiver validado.
-- [ ] Testar em producao que App Check nao bloqueia login, cadastro, checkout,
-  Pix, validacao de QR, logs e reembolso.
-
-## 10. Observabilidade e Operacao
-
-- [ ] Confirmar Sentry frontend, se usado.
-- [ ] Confirmar Sentry backend, se usado.
-- [ ] Gerar erro controlado no frontend e verificar captura.
-- [ ] Gerar erro controlado/backend seguro e verificar captura.
-- [ ] Conferir logs de `receiveWebhook`.
-- [ ] Conferir logs de `createPaymentPreference`.
-- [ ] Conferir logs de `createPixPayment`.
-- [ ] Conferir logs de `refundPayment`.
-- [ ] Definir rotina de acompanhamento apos primeiras compras reais.
-- [ ] Criar alertas de pico de erros 401/403/429 nas Functions.
-- [ ] Criar alertas de custo/quota para Functions, Firestore, Auth, Storage e
-  Hosting.
-
-## 11. Documentacao e Handoff
-
-- [x] Atualizar `planning/CONTEXT.md` com data e commit atuais.
-- [ ] Atualizar `ops/CONTEXT.md` apos deploy real.
-- [x] Revisar `specs/CONTEXT.md`, pois ha trechos antigos sobre QR Code com
-  hash/TICKET_SECRET que devem refletir o fluxo atual com JWT_SECRET.
-- [ ] Registrar URL final do webhook Mercado Pago.
-- [x] Registrar quais comandos de qualidade passaram e em qual data.
-- [x] Registrar qualquer limitacao que ainda ficou para depois do lancamento.
-
-## 12. Pos-Lancamento
-
-Itens desejaveis, mas nao bloqueiam o primeiro uso controlado.
-
-- [ ] Desenhar fluxo de validacao offline de QR Code, se for requisito real.
-- [ ] Melhorar dashboard operacional com metricas de venda e falhas.
-- [ ] Criar rotina de reconciliacao Mercado Pago x Firestore.
-- [ ] Criar playbook de incidentes para webhook/pagamentos.
-- [ ] Automatizar smoke tests pos-deploy.
-- [ ] Regenerar grafo local `.code-review-graph/` apenas quando for usar
-  ferramentas de analise; a pasta deve continuar ignorada pelo Git.
-
-## 13. Legal e Conformidade Brasil
-
-- [ ] Revisar Termos de Uso com advogado antes do lancamento publico.
-- [ ] Revisar Politica de Privacidade com advogado antes do lancamento publico.
-- [ ] Preencher CNPJ/CPF, razao/nome publico, endereco e canais de contato nos
-  envs `VITE_LEGAL_*`.
-- [ ] Confirmar se a operacao exige CNPJ, nota fiscal, contrato com
-  organizadores, tributacao especifica ou emissao de documentos fiscais.
-- [ ] Definir regra publica para cancelamento, adiamento, reembolso e direito
-  de arrependimento.
-- [ ] Definir como a plataforma tratara meia-entrada quando o evento estiver
-  sujeito a regras brasileiras de meia-entrada.
-- [ ] Publicar canal de atendimento ao consumidor e fluxo de acompanhamento de
-  reclamacoes.
-- [ ] Criar procedimento interno de resposta a incidentes LGPD, incluindo
-  registro por pelo menos 5 anos quando houver incidente com dados pessoais.
-- [ ] Definir rotina para atendimento de direitos dos titulares: acesso,
-  correcao, exclusao, portabilidade, oposicao e revogacao de consentimento.
-- [ ] Confirmar contratos ou termos de operador com Firebase/Google, Mercado
-  Pago, provedor de e-mail e Sentry.
-
-## 14. Rate Limit, DDoS e Banco
-
-Camada ja implementada no codigo:
-
-- [x] `createPaymentPreference`: App Check obrigatorio e limite de 10
-  requisicoes/minuto por usuario autenticado.
-- [x] `createPixPayment`: App Check obrigatorio e limite de 10
-  requisicoes/minuto por usuario autenticado.
-- [x] `createPaymentPreferencePublic`: `X-Firebase-AppCheck` obrigatorio e
-  limite de 10 requisicoes/minuto por IP.
-- [x] `createPixPaymentPublic`: `X-Firebase-AppCheck` obrigatorio e limite de
-  10 requisicoes/minuto por IP.
-- [x] `validateTicket`: `X-Firebase-AppCheck`, Firebase ID token, role
-  `validator`/`organizer`/`admin` e limite de 30 validacoes/minuto por
-  validador.
-- [x] `logClientError`: App Check obrigatorio, sanitizacao de payload e limite
-  de 30 logs/minuto por usuario/IP.
-- [x] `refundPayment`: App Check obrigatorio, admin e limite de 10
-  reembolsos/minuto por admin.
-- [x] `setAdminRole`: App Check obrigatorio, admin e limite de 10 alteracoes de
-  admin/minuto.
-- [x] `setUserRole`: App Check obrigatorio e limite de 20 alteracoes de
-  role/minuto.
-- [x] Firestore bloqueia escrita direta em `tickets`, `purchases` e qualquer
-  colecao nao mapeada.
-- [x] Storage limita upload a usuarios autenticados/organizadores e imagens de
-  ate 5 MB nos caminhos permitidos.
-
-Camada que depende do Firebase/GCP:
-
-- [ ] Ativar enforcement do App Check no console para Firestore, Storage e
-  Functions.
-- [ ] Confirmar metricas do App Check sem queda indevida de usuarios reais.
-- [ ] Definir quotas e alertas de custo no Google Cloud Billing.
-- [ ] Definir alertas para crescimento anormal de leitura/escrita no Firestore.
-- [ ] Avaliar Cloud Armor/load balancer ou arquitetura equivalente para DDoS
-  volumetrico antes de divulgacao publica grande.
-- [ ] Registrar procedimento de resposta: pausar campanha, reduzir quotas,
-  bloquear dominio/origem abusiva, rotacionar secrets e revisar logs.
-
-## Criterios de Pronto para Publico
-
-- [x] Lint, typecheck, build e testes passam em frontend e backend.
-- [ ] Deploy completo foi executado sem erro.
-- [ ] Webhook Mercado Pago recebeu pagamentos reais em Checkout e Pix.
-- [ ] Compra aprovada gerou tickets apenas uma vez.
-- [ ] E-mail de confirmacao chegou corretamente.
-- [ ] QR Code validou presencialmente com roles permitidas.
-- [ ] Reembolso/admin funcionou em compra elegivel.
-- [ ] Firestore/Storage Rules publicadas e revisadas.
-- [ ] App Check enforcement ativo e testado em producao.
-- [ ] Alertas de custo/quota/erros configurados.
-- [ ] Sentry/logs confirmados.
-- [ ] Pendencias criticas deste arquivo estao marcadas como concluidas.
+- [x] `createPaymentPreference`: App Check e limite de 10 requisicoes/minuto por
+  usuario autenticado.
+- [x] `createPixPayment`: App Check e limite de 10 requisicoes/minuto por
+  usuario autenticado.
+- [x] `createPaymentPreferencePublic`: App Check e limite de 10
+  requisicoes/minuto por IP.
+- [x] `createPixPaymentPublic`: App Check e limite de 10 requisicoes/minuto por
+  IP.
+- [x] `validateTicket`: Firebase ID token, role permitida e limite de 30
+  validacoes/minuto por validador.
+- [x] `refundPayment`: App Check, admin e limite de 10 reembolsos/minuto.
+- [x] `setAdminRole`: App Check, admin e limite de 10 alteracoes/minuto.
+- [x] `setUserRole`: App Check e limite de 20 alteracoes/minuto.
+- [x] Storage limita upload a usuarios autenticados/organizadores e imagens ate
+  5 MB nos caminhos permitidos.
+- [x] `.firebaserc` aponta para `<your-firebase-project-id>`.
+- [x] Region das Functions confirmada como `southamerica-east1`.
+- [x] Hosting atual confirmado:
+  `https://<your-project>.web.app`.
+- [x] `WEB_BASE_URL` default alinhado para o Hosting atual.
+- [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
+  `CONTEXT.md` atualizados.
+- [x] CI GitHub passou apos o push do commit `de58e3f`.
+- [x] Rodada 2026-05-25: frontend lint/typecheck/build/test passaram; backend
+  lint/build/test passaram; Cypress smoke passou.
+- [x] Rodada 2026-05-26: `npm.cmd --prefix functions run lint`, `build` e
+  `test` passaram. Backend: 9 passing, 1 pending no E2E webhook sem emulador.
