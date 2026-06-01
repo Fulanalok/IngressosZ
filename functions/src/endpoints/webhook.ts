@@ -9,7 +9,6 @@ import {
   jwtSecret,
   mercadopagoAccessToken,
   mpWebhookSecret,
-  smtpEmail,
   smtpPassword,
 } from "../config/params.js";
 import { planSaleInventoryUpdate } from "../domain/inventory.js";
@@ -53,7 +52,6 @@ export const receiveWebhook = onRequest(
   {
     secrets: [
       mercadopagoAccessToken,
-      smtpEmail,
       smtpPassword,
       mpWebhookSecret,
       jwtSecret,

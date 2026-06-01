@@ -60,7 +60,6 @@ Como fazer:
 firebase functions:secrets:set MP_ACCESS_TOKEN
 firebase functions:secrets:set MP_WEBHOOK_SECRET
 firebase functions:secrets:set JWT_SECRET
-firebase functions:secrets:set SMTP_EMAIL
 firebase functions:secrets:set SMTP_PASSWORD
 firebase functions:secrets:set RECAPTCHA_V2_SECRET
 ```
@@ -70,7 +69,6 @@ O que preencher:
 - `MP_ACCESS_TOKEN`: token de producao do Mercado Pago.
 - `MP_WEBHOOK_SECRET`: segredo configurado no painel do Mercado Pago.
 - `JWT_SECRET`: valor longo, aleatorio e exclusivo de producao.
-- `SMTP_EMAIL`: e-mail remetente.
 - `SMTP_PASSWORD`: app password ou senha propria do provedor SMTP.
 - `RECAPTCHA_V2_SECRET`: secret key do reCAPTCHA v2.
 
@@ -83,6 +81,7 @@ Criar/conferir `functions/.env` local sem versionar secrets:
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
+SMTP_EMAIL=seu-email@exemplo.com
 WEB_BASE_URL=https://<your-project>.web.app
 SENTRY_DSN=
 SENTRY_TRACES_SAMPLE_RATE=0.1
@@ -90,7 +89,10 @@ SENTRY_PROFILES_SAMPLE_RATE=0
 ```
 
 Observacao: se outro provedor de e-mail for usado, ajustar `SMTP_HOST` e
-`SMTP_PORT`.
+`SMTP_PORT`. `SMTP_EMAIL` e param/env comum, nao Secret Manager.
+
+- [ ] Depois do novo deploy das Functions, remover o secret antigo
+  `SMTP_EMAIL` do Secret Manager se ele existir.
 
 ### 3. Configurar Variaveis do Frontend
 
@@ -485,6 +487,10 @@ Como fazer:
 - [x] Hosting atual confirmado:
   `https://<your-project>.web.app`.
 - [x] `WEB_BASE_URL` default alinhado para o Hosting atual.
+- [x] Configuracao local de Data Connect/Cloud SQL removida do repo para evitar
+  recriacao acidental da instancia `ingressosz-main-fdc`.
+- [x] `SMTP_EMAIL` deixou de ser Secret Manager e passou a ser param/env comum
+  para reduzir superficie de custo.
 - [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
   `CONTEXT.md` atualizados.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.

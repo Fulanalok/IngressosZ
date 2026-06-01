@@ -131,7 +131,6 @@ Secrets obrigatorios:
 firebase functions:secrets:set MP_ACCESS_TOKEN
 firebase functions:secrets:set MP_WEBHOOK_SECRET
 firebase functions:secrets:set JWT_SECRET
-firebase functions:secrets:set SMTP_EMAIL
 firebase functions:secrets:set SMTP_PASSWORD
 firebase functions:secrets:set RECAPTCHA_V2_SECRET
 ```
@@ -141,6 +140,7 @@ Params em `functions/.env`:
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
+SMTP_EMAIL=seu-email@exemplo.com
 WEB_BASE_URL=https://<your-project>.web.app
 SENTRY_DSN=
 ```

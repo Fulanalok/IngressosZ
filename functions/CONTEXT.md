@@ -64,13 +64,13 @@ Secrets em `functions/src/config/params.ts`:
 - `MP_ACCESS_TOKEN`
 - `MP_WEBHOOK_SECRET`
 - `JWT_SECRET`
-- `SMTP_EMAIL`
 - `SMTP_PASSWORD`
 - `RECAPTCHA_V2_SECRET`
 
 Params:
 
 - `SENTRY_DSN`
+- `SMTP_EMAIL`
 - `SMTP_HOST`, default `smtp.gmail.com`
 - `SMTP_PORT`, default `465`
 - `WEB_BASE_URL`, default `https://<your-project>.web.app`

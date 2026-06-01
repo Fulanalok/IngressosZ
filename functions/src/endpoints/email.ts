@@ -11,7 +11,7 @@ import {
   webBaseUrl,
 } from "../config/params.js";
 export const onTicketCreated = onDocumentCreated(
-  { document: "tickets/{ticketId}", secrets: [smtpEmail, smtpPassword] },
+  { document: "tickets/{ticketId}", secrets: [smtpPassword] },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {

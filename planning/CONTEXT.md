@@ -49,7 +49,6 @@ Configure via `firebase functions:secrets:set`.
 | `MP_ACCESS_TOKEN` | Token de producao do Mercado Pago |
 | `MP_WEBHOOK_SECRET` | Assinatura HMAC do webhook Mercado Pago |
 | `JWT_SECRET` | Assinatura dos QR Codes JWT |
-| `SMTP_EMAIL` | Remetente dos e-mails |
 | `SMTP_PASSWORD` | Senha/app password do remetente |
 | `RECAPTCHA_V2_SECRET` | Validacao do reCAPTCHA v2 |
 
@@ -61,6 +60,7 @@ Configure em `functions/.env` ou pelo prompt do Firebase deploy.
 | --- | --- | --- |
 | `SENTRY_DSN` | vazio ou DSN Sentry | Monitoramento backend |
 | `WEB_BASE_URL` | `https://<your-project>.web.app` | URLs em e-mails/back URLs |
+| `SMTP_EMAIL` | vazio | Remetente dos e-mails |
 | `SMTP_HOST` | `smtp.gmail.com` | Servidor SMTP |
 | `SMTP_PORT` | `465` | Porta SMTP TLS |
 
@@ -83,10 +83,10 @@ Obrigatorias para producao:
 1. Marcar itens em `planning/CHECKLIST_FINALIZACAO.md`.
 2. Confirmar projeto Firebase ativo com `firebase use`.
 3. Configurar/confirmar secrets:
-   `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `JWT_SECRET`, `SMTP_EMAIL`,
-   `SMTP_PASSWORD`, `RECAPTCHA_V2_SECRET`.
+   `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `JWT_SECRET`, `SMTP_PASSWORD`,
+   `RECAPTCHA_V2_SECRET`.
 4. Confirmar `functions/.env`: `WEB_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`,
-   `SENTRY_DSN`.
+   `SMTP_EMAIL`, `SENTRY_DSN`.
 5. Confirmar `ingressosZ/.env.local`.
 6. Rodar qualidade local:
    `npm --prefix ingressosZ run lint`,
