@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-05-26.
+Atualizado em 2026-06-01.
 
 Este arquivo fica dividido em duas partes:
 
@@ -13,17 +13,20 @@ Este arquivo fica dividido em duas partes:
 - [x] Branch `main` esta alinhada com `origin/main`.
 - [x] URL Firebase Hosting atual adotada como default:
   `https://<your-project>.web.app`.
-- [x] Lint, build e testes backend passaram em 2026-05-26.
-- [ ] Ambiente de producao ainda precisa ser conferido no console Firebase.
-- [ ] Secrets, envs reais, Mercado Pago, App Check e SMTP ainda precisam ser
-  configurados/validados.
-- [ ] Deploy completo e testes reais de compra/QR/e-mail/reembolso ainda faltam.
+- [x] Functions implantadas em `southamerica-east1` em 2026-06-01.
+- [x] Lint, build e testes frontend/backend passaram em 2026-06-01.
+- [x] Cloud SQL/Data Connect removidos para reduzir custo.
+- [x] `SMTP_EMAIL` removido do Secret Manager e migrado para param/env.
+- [ ] `WEB_BASE_URL` local das Functions precisa ser realinhado para a URL
+  oficial do Hosting e redeployado.
+- [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
+  reembolso ainda faltam.
 
 ## Plano de Finalizacao
 
 ### 1. Conferir Firebase de Producao
 
-- [ ] Confirmar projeto ativo no Firebase CLI.
+- [x] Confirmar projeto ativo no Firebase CLI.
 
 Como fazer:
 
@@ -32,6 +35,8 @@ firebase use
 ```
 
 Resultado esperado: projeto `<your-firebase-project-id>`.
+
+Status 2026-06-01: projeto usado nos deploys e consultas via CLI.
 
 - [ ] Conferir no Firebase Console se estes produtos estao ativos:
   Auth, Firestore, Storage, Functions e Hosting.
@@ -52,7 +57,7 @@ Como fazer:
 
 ### 2. Configurar Secrets das Functions
 
-- [ ] Configurar secrets obrigatorios.
+- [x] Secrets obrigatorios configurados o suficiente para deploy das Functions.
 
 Como fazer:
 
@@ -72,7 +77,10 @@ O que preencher:
 - `SMTP_PASSWORD`: app password ou senha propria do provedor SMTP.
 - `RECAPTCHA_V2_SECRET`: secret key do reCAPTCHA v2.
 
-- [ ] Conferir params das Functions.
+- [ ] Conferir valores reais dos secrets no console/CLI antes do teste real de
+  pagamento e e-mail.
+
+- [ ] Corrigir params das Functions e redeployar.
 
 Como fazer:
 
@@ -91,8 +99,14 @@ SENTRY_PROFILES_SAMPLE_RATE=0
 Observacao: se outro provedor de e-mail for usado, ajustar `SMTP_HOST` e
 `SMTP_PORT`. `SMTP_EMAIL` e param/env comum, nao Secret Manager.
 
-- [ ] Depois do novo deploy das Functions, remover o secret antigo
-  `SMTP_EMAIL` do Secret Manager se ele existir.
+Status 2026-06-01: o deploy das Functions foi concluido, mas o dotenv local
+usado no deploy ainda estava com `WEB_BASE_URL=https://ingressosz.web.app`.
+Alinhar para `https://<your-project>.web.app` e redeployar
+Functions.
+
+- [x] Remover o secret antigo `SMTP_EMAIL` do Secret Manager.
+  - 2026-06-01: versoes `SMTP_EMAIL@1` a `SMTP_EMAIL@5` destruidas; consulta
+    posterior retornou 404.
 
 ### 3. Configurar Variaveis do Frontend
 
@@ -161,15 +175,11 @@ Como fazer:
 
 ### 5. Rodar Qualidade Local Final
 
-- [ ] Instalar dependencias.
+- [x] Instalar dependencias.
 
-Como fazer:
+Status 2026-06-01: dependencias ja estavam instaladas para as rodadas locais.
 
-```bash
-npm run ci:install
-```
-
-- [ ] Rodar checagens frontend.
+- [x] Rodar checagens frontend.
 
 Como fazer:
 
@@ -180,7 +190,7 @@ npm --prefix ingressosZ run build
 npm --prefix ingressosZ run test
 ```
 
-- [ ] Rodar checagens backend.
+- [x] Rodar checagens backend.
 
 Como fazer:
 
@@ -229,7 +239,15 @@ npm --prefix ingressosZ run build
 firebase deploy --only hosting
 ```
 
-- [ ] Guardar URL publica da Function `receiveWebhook`.
+Status 2026-06-01:
+
+- [x] Functions redeployadas com sucesso.
+- [ ] Firestore Rules, Storage Rules e Hosting ainda precisam de deploy final
+  ou confirmacao de que ja estao publicados na versao atual.
+- [ ] Redeploy das Functions ainda recomendado depois de corrigir
+  `WEB_BASE_URL` no dotenv local.
+
+- [x] Guardar URL publica da Function `receiveWebhook`.
 
 Como fazer:
 
@@ -240,7 +258,7 @@ Como fazer:
 URL do webhook Mercado Pago:
 
 ```text
-PENDENTE
+https://<your-webhook-url>
 ```
 
 ### 7. Configurar Mercado Pago
@@ -425,8 +443,9 @@ Como fazer:
 
 ## Criterios de Pronto para Publico
 
-- [ ] Firebase Auth, Firestore, Storage, Functions e Hosting ativos.
-- [ ] Secrets e envs reais configurados.
+- [ ] Firebase Auth, Firestore, Storage, Functions e Hosting ativos e
+  conferidos no console.
+- [ ] Secrets e envs reais configurados e validados com teste real.
 - [ ] Dominios autorizados no Firebase Auth, reCAPTCHA e App Check.
 - [ ] Deploy completo executado sem erro.
 - [ ] Mercado Pago webhook configurado e recebendo `Payments`.
@@ -491,6 +510,11 @@ Como fazer:
   recriacao acidental da instancia `ingressosz-main-fdc`.
 - [x] `SMTP_EMAIL` deixou de ser Secret Manager e passou a ser param/env comum
   para reduzir superficie de custo.
+- [x] Cloud SQL `ingressosz-main-fdc` removida no Google Cloud.
+- [x] Secret Manager `SMTP_EMAIL` removido apos novo deploy das Functions.
+- [x] Deploy de Functions concluido em 2026-06-01.
+- [x] URL publica de `receiveWebhook` registrada:
+  `https://<your-webhook-url>`.
 - [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
   `CONTEXT.md` atualizados.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.
@@ -498,3 +522,12 @@ Como fazer:
   lint/build/test passaram; Cypress smoke passou.
 - [x] Rodada 2026-05-26: `npm.cmd --prefix functions run lint`, `build` e
   `test` passaram. Backend: 9 passing, 1 pending no E2E webhook sem emulador.
+- [x] Rodada 2026-06-01: `npm.cmd --prefix functions run lint/build/test`
+  passaram. Backend: 9 passing, 1 pending no E2E webhook sem emulador.
+- [x] Rodada 2026-06-01: `npm.cmd --prefix ingressosZ run qa` passou.
+  Frontend: 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped.
+- [x] Rodada 2026-06-01: `npm.cmd --prefix ingressosZ audit --omit=dev`
+  retornou 0 vulnerabilidades.
+- [x] Rodada 2026-06-01: `npm.cmd --prefix functions audit --omit=dev`
+  manteve vulnerabilidades moderadas transitivas em `uuid`; sem fix seguro
+  automatico no momento.

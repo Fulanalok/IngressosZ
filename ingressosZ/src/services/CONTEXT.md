@@ -1,6 +1,6 @@
 # services/ - Servicos de Integracao
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
 
 Services encapsulam acesso a Firebase, Storage, QR helpers, logs e dados de
 desenvolvimento. Eles nao devem renderizar UI nem conhecer detalhes de rotas.

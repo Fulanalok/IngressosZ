@@ -1,6 +1,6 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -24,18 +24,23 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] Rotas protegidas usam `RequireAuth` e `RequireRole`.
 - [x] Rodada local de lint, typecheck, build e testes passou antes do ultimo
   push confirmado no GitHub.
+- [x] Cloud SQL/Data Connect removidos para reduzir custo.
+- [x] `SMTP_EMAIL` removido do Secret Manager e migrado para param/env comum.
+- [x] Functions implantadas em producao em 2026-06-01.
 
 ## Alta Prioridade Antes de Publico
 
 - [ ] Conferir ambiente Firebase de producao.
-- [ ] Configurar/confirmar secrets e params das Functions.
+- [ ] Realinhar `WEB_BASE_URL` do dotenv local das Functions para
+  `https://<your-project>.web.app` e redeployar Functions.
+- [ ] Confirmar valores reais dos secrets das Functions.
 - [ ] Configurar/confirmar `ingressosZ/.env.local`.
 - [ ] Confirmar dominios do Firebase Auth, reCAPTCHA v2 e App Check.
-- [ ] Rodar qualidade local completa.
-- [ ] Executar deploy completo: `firestore:rules`, `storage`, `functions` e
+- [x] Rodar qualidade local completa em 2026-06-01.
+- [ ] Executar ou confirmar deploy final de `firestore:rules`, `storage` e
   `hosting`.
 - [ ] Cadastrar URL real de `receiveWebhook` no Mercado Pago com evento
-  `Payments`.
+  `Payments`: `https://<your-webhook-url>`.
 - [ ] Testar compra real controlada via Checkout/cartao.
 - [ ] Testar compra real controlada via Pix.
 - [ ] Validar ticket, e-mail, QR Code e reembolso/admin em producao.
@@ -88,7 +93,8 @@ Obrigatorias para producao:
 4. Confirmar `functions/.env`: `WEB_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`,
    `SMTP_EMAIL`, `SENTRY_DSN`.
 5. Confirmar `ingressosZ/.env.local`.
-6. Rodar qualidade local:
+6. Corrigir `WEB_BASE_URL` no dotenv local das Functions, se necessario.
+7. Rodar qualidade local:
    `npm --prefix ingressosZ run lint`,
    `npm --prefix ingressosZ run typecheck`,
    `npm --prefix ingressosZ run build`,
@@ -96,11 +102,11 @@ Obrigatorias para producao:
    `npm --prefix functions run lint`,
    `npm --prefix functions run build`,
    `npm --prefix functions run test`.
-7. Fazer deploy:
+8. Fazer deploy:
    `firebase deploy --only firestore:rules,storage,functions,hosting`.
-8. Registrar URL de `receiveWebhook` no Mercado Pago.
-9. Fazer compra controlada de baixo valor com Checkout e Pix.
-10. Validar `paymentSessions`, `purchases`, `tickets`, e-mail, QR Code,
+9. Registrar URL de `receiveWebhook` no Mercado Pago.
+10. Fazer compra controlada de baixo valor com Checkout e Pix.
+11. Validar `paymentSessions`, `purchases`, `tickets`, e-mail, QR Code,
     reembolso/admin, logs e Sentry.
 
 ## Criterios de Aceite para Publicacao

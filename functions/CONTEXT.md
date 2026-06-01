@@ -1,6 +1,6 @@
 # functions/ - Firebase Functions Backend
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
 
 Backend serverless do IngressosZ em Firebase Cloud Functions v2, Node.js 24,
 TypeScript e ESM.
@@ -47,6 +47,9 @@ publicos.
 - Region: `southamerica-east1`.
 - Module system: ESM.
 - Build output: `functions/lib/` gerado localmente e ignorado pelo Git.
+- Ultimo deploy confirmado: 2026-06-01.
+- URL publica de `receiveWebhook`:
+  `https://<your-webhook-url>`.
 
 Comandos:
 
@@ -74,6 +77,9 @@ Params:
 - `SMTP_HOST`, default `smtp.gmail.com`
 - `SMTP_PORT`, default `465`
 - `WEB_BASE_URL`, default `https://<your-project>.web.app`
+
+Nota: `SMTP_EMAIL` nao deve voltar para Secret Manager. Em 2026-06-01 o secret
+antigo `SMTP_EMAIL` foi removido apos o redeploy das Functions.
 
 Use `defineSecret` para secrets e `defineString` para params. Nao use runtime
 config legado para novos fluxos.

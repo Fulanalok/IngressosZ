@@ -25,20 +25,25 @@ Total arredondado do periodo analisado: **R$ 49,49**.
   secret.
 - [x] Documentacao atualizada para configurar `SMTP_EMAIL` em `functions/.env`.
 
-## Corte Imediato Recomendado
+## Cortes Ja Executados
 
 1. **Cloud SQL/Data Connect**
-   - Confirmar no console se a instancia `ingressosz-main-fdc` nao esta sendo
-     usada.
-   - Se nao estiver em uso, excluir o servico Data Connect/SQL Connect e a
-     instancia Cloud SQL associada.
-   - Impacto esperado: remove a maior fonte de custo recorrente.
+   - [x] Instancia Cloud SQL `ingressosz-main-fdc` removida no Google Cloud.
+   - [x] Configuracao local `dataconnect/` removida do repositorio.
+   - Resultado esperado: a cobranca de Cloud SQL pode aparecer residual no dia
+     da exclusao, mas nao deve continuar crescendo apos 24-48h.
 
 2. **Secret Manager**
-   - Apos novo deploy das Functions, excluir ou destruir versoes antigas do
-     secret `SMTP_EMAIL`.
-   - Para os secrets que continuam necessarios, manter apenas a versao atual
-     ativa e destruir versoes antigas.
+   - [x] Functions redeployadas sem `SMTP_EMAIL` como secret.
+   - [x] Versoes `SMTP_EMAIL@1` a `SMTP_EMAIL@5` destruidas.
+   - [x] Consulta posterior retornou 404, confirmando que `SMTP_EMAIL` nao
+     existe mais como Secret Manager.
+
+## Proximos Cortes e Controles
+
+1. **Secret Manager**
+   - Para os secrets que continuam necessarios, manter apenas versoes ativas
+     realmente usadas e destruir versoes antigas quando houver rotacao.
    - Secrets que continuam necessarios:
      - `MP_ACCESS_TOKEN`
      - `MP_WEBHOOK_SECRET`
@@ -46,25 +51,19 @@ Total arredondado do periodo analisado: **R$ 49,49**.
      - `SMTP_PASSWORD`
      - `RECAPTCHA_V2_SECRET`
 
-3. **Billing e Quotas**
+2. **Billing e Quotas**
    - Criar budget mensal baixo com alerta em 50%, 80% e 100%.
-   - Criar alertas para crescimento anormal de Cloud SQL, Secret Manager,
-     Firestore reads/writes e Functions invocations.
+   - Criar alertas para crescimento anormal de Secret Manager, Firestore
+     reads/writes e Functions invocations.
+   - Conferir Billing 24-48h apos a remocao da Cloud SQL para garantir que o
+     custo parou de crescer.
 
 ## Comandos de Conferencia
 
 Use estes comandos apenas se `gcloud` estiver instalado e autenticado.
 
 ```powershell
-gcloud sql instances list --project <your-firebase-project-id>
 gcloud secrets list --project <your-firebase-project-id>
-gcloud secrets versions list SMTP_EMAIL --project <your-firebase-project-id>
-```
-
-Depois do deploy novo, se `SMTP_EMAIL` nao for mais usado como secret:
-
-```powershell
-gcloud secrets delete SMTP_EMAIL --project <your-firebase-project-id>
 ```
 
 Para secrets que ainda precisam existir, destruir versoes antigas em vez de

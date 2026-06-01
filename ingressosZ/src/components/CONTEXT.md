@@ -1,6 +1,6 @@
 # components/ - Componentes React
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
 
 Componentes estao organizados por dominio. Evite misturar regra de negocio
 pesada dentro de UI; use hooks e services quando a logica passar de interacao

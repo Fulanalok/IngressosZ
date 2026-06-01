@@ -1,6 +1,6 @@
 # hooks/ - Custom Hooks
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
 
 Hooks concentram logica reutilizavel de auth, eventos, pagamentos, SEO, tema,
 analytics e validacao.
