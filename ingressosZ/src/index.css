@@ -16,9 +16,9 @@
   --popover: 222 47% 8%;
   --popover-foreground: 210 40% 98%;
 
-  /* Paleta Azul Monocromática */
-  --primary: 199 84% 54%;
-  --primary-foreground: 222 47% 8%;
+  /* Paleta escura principal */
+  --primary: 204 76% 58%;
+  --primary-foreground: 222 47% 6%;
 
   --secondary: 36 48% 22%;
   --secondary-foreground: 38 77% 90%;
@@ -26,7 +26,7 @@
   --muted: 217 33% 17%;
   --muted-foreground: 215 20% 65%;
 
-  --accent: 162 58% 48%;
+  --accent: 204 76% 58%;
   --accent-foreground: 160 50% 98%;
 
   --destructive: 0 84% 60%;
@@ -51,9 +51,9 @@
   --popover: 222 47% 8%;
   --popover-foreground: 210 40% 98%;
 
-  /* Paleta Azul (Modo Escuro) */
-  --primary: 199 84% 54%;
-  --primary-foreground: 222 47% 8%;
+  /* Paleta escura principal */
+  --primary: 204 76% 58%;
+  --primary-foreground: 222 47% 6%;
 
   --secondary: 36 48% 22%;
   --secondary-foreground: 38 77% 90%;
@@ -61,7 +61,7 @@
   --muted: 217 33% 17%;
   --muted-foreground: 215 20% 65%;
 
-  --accent: 162 58% 48%;
+  --accent: 204 76% 58%;
   --accent-foreground: 160 50% 98%;
 
   --destructive: 0 63% 31%;
@@ -103,10 +103,10 @@
 
   --radius: var(--radius);
 
-  /* New Blue Custom Colors */
-  --color-navy: #0F172A;
-  --color-sky: #0EA5E9;
-  --color-ocean: #0369A1;
+  /* Cores auxiliares */
+  --color-navy: #0f172a;
+  --color-sky: #38a8e8;
+  --color-ocean: #075985;
 }
 
 @layer base {
@@ -154,9 +154,7 @@
     @apply bg-card/85 backdrop-blur-xl border border-border/70 rounded-lg shadow-xl;
   }
 
-  .gradient-bg {
-    @apply bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.48)_42%,hsl(var(--background))_100%)];
-  }
+  .gradient-bg { @apply bg-background; }
 
   .nav-bg {
     @apply bg-background/92 backdrop-blur-md sticky top-0 z-40 border-b border-border/70;

@@ -76,7 +76,7 @@ function EventCard({ event }: EventCardProps) {
   return (
     <div
       ref={rootRef}
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/60"
       onMouseEnter={prefetchDetails}
       onFocus={prefetchDetails}
     >
@@ -87,16 +87,16 @@ function EventCard({ event }: EventCardProps) {
             alt={event.title}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,hsl(var(--primary)/0.16),hsl(var(--accent)/0.14),hsl(var(--secondary)/0.55))]">
-            <Ticket className="h-12 w-12 text-primary/70" />
+          <div className="flex h-full w-full items-center justify-center bg-background">
+            <Ticket className="h-12 w-12 text-muted-foreground" />
           </div>
         )}
 
         <div className="absolute left-3 top-3">
-          <span className="rounded-md bg-background/90 px-2.5 py-1 text-xs font-bold text-foreground shadow-sm backdrop-blur">
+          <span className="rounded-md border border-border bg-background/95 px-2.5 py-1 text-xs font-semibold text-foreground">
             {event.category}
           </span>
         </div>
@@ -107,7 +107,7 @@ function EventCard({ event }: EventCardProps) {
               className={`rounded-md px-2.5 py-1 text-xs font-bold shadow-sm ${
                 isSoldOut
                   ? "bg-muted text-muted-foreground"
-                  : "bg-secondary text-secondary-foreground"
+                  : "bg-primary text-primary-foreground"
               }`}
             >
               {isSoldOut ? "Sem ingressos" : "Últimos ingressos!"}
@@ -117,19 +117,19 @@ function EventCard({ event }: EventCardProps) {
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="line-clamp-2 text-lg font-black leading-snug text-foreground transition-colors group-hover:text-primary">
+        <h3 className="line-clamp-2 text-lg font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
           {event.title}
         </h3>
 
         <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-primary" />
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
             <span>{formattedDate}</span>
-            <Clock className="ml-2 h-4 w-4 text-primary" />
+            <Clock className="ml-2 h-4 w-4 text-muted-foreground" />
             <span>{formattedTime}</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0 text-accent" />
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{event.location}</span>
           </div>
         </div>
@@ -139,13 +139,13 @@ function EventCard({ event }: EventCardProps) {
             <p className="text-xs font-semibold text-muted-foreground">
               A partir de
             </p>
-            <p className="text-2xl font-black text-foreground">
+            <p className="text-2xl font-bold text-foreground">
               R$ {(event.pricing?.standard ?? event.price ?? 0).toFixed(2)}
             </p>
           </div>
           <p
             className={`text-right text-xs font-bold ${
-              isLastCall ? "text-secondary-foreground" : "text-muted-foreground"
+              isLastCall ? "text-primary" : "text-muted-foreground"
             }`}
           >
             {availableTickets} disponíveis
@@ -153,10 +153,7 @@ function EventCard({ event }: EventCardProps) {
         </div>
 
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-accent transition-all duration-700"
-            style={{ width: `${soldPercent}%` }}
-          />
+          <div className="h-full bg-primary" style={{ width: `${soldPercent}%` }} />
         </div>
 
         <Button asChild className="mt-5 w-full" disabled={isSoldOut}>

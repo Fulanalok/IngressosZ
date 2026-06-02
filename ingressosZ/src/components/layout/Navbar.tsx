@@ -13,10 +13,10 @@ function Navbar() {
 
   const navClass = (path: string, exact = false) => {
     const active = exact ? location.pathname === path : isActive(path);
-    return `rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+    return `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
       active
-        ? "bg-primary text-primary-foreground"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        ? "bg-muted text-foreground"
+        : "text-muted-foreground hover:text-foreground"
     }`;
   };
 
@@ -36,20 +36,20 @@ function Navbar() {
             to="/"
             className="flex min-w-0 items-center gap-3 text-foreground transition-opacity hover:opacity-90"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
               <Ticket className="h-5 w-5" />
             </span>
             <span className="min-w-0 leading-none">
-              <span className="block text-xl font-black tracking-tight">
+              <span className="block text-xl font-bold tracking-tight">
                 IngressosZ
               </span>
-              <span className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:block">
-                eventos digitais
+              <span className="hidden text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground sm:block">
+                venda de ingressos
               </span>
             </span>
           </Link>
 
-          <div className="hidden items-center gap-1 rounded-lg border border-border/70 bg-card/75 p-1 shadow-sm md:flex">
+          <div className="hidden items-center gap-1 rounded-lg border border-border bg-card p-1 md:flex">
             <Link to="/" className={navClass("/", true)}>
               Início
             </Link>
