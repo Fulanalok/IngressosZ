@@ -3,7 +3,15 @@ import {
   type DocumentData,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { ArrowRight, ShieldCheck, Smartphone, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  MapPin,
+  ShieldCheck,
+  Smartphone,
+  TicketCheck,
+  Zap,
+} from "lucide-react";
 import { Link } from "react-router";
 import EventCard from "@/components/event/EventCard";
 import { EventCardSkeleton } from "@/components/event/EventCardSkeleton";
@@ -53,79 +61,124 @@ function HomePage() {
   return (
     <div className="min-h-screen gradient-bg">
       <main className="page-container">
-        <section className="relative py-16">
-          <div className="absolute inset-0 -z-10 opacity-40 blur-3xl bg-gradient-to-r from-primary/40 via-purple-400/30 to-accent/40" />
-          <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] items-center">
-            <div>
-              <h2 className="mt-4 text-6xl font-extrabold tracking-tighter leading-tight text-foreground">
-                Sua próxima{" "}
-                <span className="blue-gradient-text">experiência</span>{" "}
-                começa aqui
-              </h2>
-              <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed">
-                Compre ingressos com Pix ou cartão em segundos. Receba tudo
-                no celular e entre sem filas. Seguro, rápido e 100% digital.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button asChild>
-                  <Link
-                    to="/eventos"
-                    onMouseEnter={prefetchEvents}
-                    onFocus={prefetchEvents}
-                  >
-                    Explorar Eventos
-                  </Link>
-                </Button>
-                <Button variant="secondary" asChild>
-                  <Link to="/meus-ingressos">Meus Ingressos</Link>
-                </Button>
-              </div>
+        <section className="grid gap-10 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground shadow-sm">
+              <TicketCheck className="h-4 w-4 text-accent" />
+              Compra digital, QR Code e validação na entrada
             </div>
 
-            <div className="glass-card p-8 border-primary/10 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/20 transition-all" />
-              <div>
-                <p className="text-sm uppercase tracking-wide text-muted-foreground">
+            <h1 className="mt-6 max-w-3xl text-4xl font-black leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              Eventos organizados para quem compra, vende e valida ingressos.
+            </h1>
+
+            <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
+              Pix, cartão, tickets digitais e controle de portaria em um fluxo
+              simples para lançar eventos pequenos com mais segurança.
+            </p>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link
+                  to="/eventos"
+                  onMouseEnter={prefetchEvents}
+                  onFocus={prefetchEvents}
+                >
+                  Explorar eventos
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" asChild size="lg">
+                <Link to="/meus-ingressos">Meus ingressos</Link>
+              </Button>
+            </div>
+
+            <dl className="mt-10 grid max-w-xl grid-cols-3 gap-3">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <dt className="text-xs font-semibold text-muted-foreground">
+                  Eventos
+                </dt>
+                <dd className="mt-1 text-2xl font-black text-foreground">
+                  {isLoading && events.length === 0 ? (
+                    <Skeleton className="h-8 w-14" />
+                  ) : (
+                    events.length || 24
+                  )}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <dt className="text-xs font-semibold text-muted-foreground">
+                  Pix/cartão
+                </dt>
+                <dd className="mt-1 text-2xl font-black text-foreground">
+                  MP
+                </dd>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                <dt className="text-xs font-semibold text-muted-foreground">
+                  QR Code
+                </dt>
+                <dd className="mt-1 text-2xl font-black text-foreground">
+                  JWT
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+            <div className="relative aspect-[4/3] bg-muted">
+              {highlightedEvent?.image ? (
+                <img
+                  src={highlightedEvent.image}
+                  alt={highlightedEvent.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,hsl(var(--primary)/0.18),hsl(var(--accent)/0.18),hsl(var(--secondary)/0.55))]">
+                  <TicketCheck className="h-20 w-20 text-primary/70" />
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-5 text-white">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">
                   Próximo destaque
                 </p>
                 {isLoading && !highlightedEvent ? (
-                  <Skeleton className="mt-3 h-7 w-3/4" />
+                  <Skeleton className="mt-2 h-7 w-3/4 bg-white/30" />
                 ) : (
-                  <h3 className="mt-2 text-2xl font-bold text-foreground">
+                  <h2 className="mt-2 text-2xl font-black">
                     {highlightedEvent?.title ?? "Festival IngressosZ"}
-                  </h3>
+                  </h2>
                 )}
               </div>
-              <div className="mt-6 grid gap-3 text-sm text-muted-foreground">
-                <div className="flex items-center justify-between rounded-2xl bg-background px-4 py-3">
-                  <span>Ingressos disponíveis</span>
-                  <span className="font-semibold text-foreground">
-                    {isLoading && !highlightedEvent ? (
-                      <Skeleton className="h-5 w-10" />
-                    ) : (
-                      highlightedEvent?.availableTickets ?? 120
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-background px-4 py-3">
-                  <span>Preço a partir de</span>
-                  <span className="font-semibold text-foreground">
-                    {isLoading && !highlightedEvent ? (
-                      <Skeleton className="h-5 w-16" />
-                    ) : (
-                      `R$ ${highlightedEvent?.price ?? 80}`
-                    )}
-                  </span>
-                </div>
+            </div>
+
+            <div className="grid gap-0 border-t border-border bg-card sm:grid-cols-3">
+              <div className="border-b border-border p-4 sm:border-b-0 sm:border-r">
+                <CalendarDays className="mb-3 h-5 w-5 text-primary" />
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Data
+                </p>
+                <p className="mt-1 font-bold text-foreground">
+                  {highlightedEvent?.date ?? "Em breve"}
+                </p>
               </div>
-              <div className="mt-6">
-                {isLoading && !highlightedEvent ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Button asChild className="w-full">
-                    <Link to="/eventos">Ver detalhes</Link>
-                  </Button>
-                )}
+              <div className="border-b border-border p-4 sm:border-b-0 sm:border-r">
+                <MapPin className="mb-3 h-5 w-5 text-accent" />
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Local
+                </p>
+                <p className="mt-1 truncate font-bold text-foreground">
+                  {highlightedEvent?.location ?? "Brasil"}
+                </p>
+              </div>
+              <div className="p-4">
+                <Zap className="mb-3 h-5 w-5 text-secondary-foreground" />
+                <p className="text-xs font-semibold text-muted-foreground">
+                  A partir de
+                </p>
+                <p className="mt-1 font-bold text-foreground">
+                  R$ {highlightedEvent?.price ?? 80}
+                </p>
               </div>
             </div>
           </div>
@@ -133,35 +186,34 @@ function HomePage() {
 
         {showFeaturedSection && (
           <section className="mb-20">
-            <div className="flex justify-between items-end mb-10">
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h3 className="text-3xl font-extrabold text-foreground mb-2">
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-accent">
+                  curadoria
+                </p>
+                <h2 className="mt-2 text-3xl font-black text-foreground">
                   Eventos em Destaque
-                </h3>
-                <p className="text-muted-foreground">
-                  Os eventos mais aguardados da temporada.
+                </h2>
+                <p className="mt-2 text-muted-foreground">
+                  Experiências prontas para compra digital e entrada com QR.
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                asChild
-                className="group text-primary hover:text-primary font-bold"
-              >
+              <Button variant="ghost" asChild className="self-start sm:self-auto">
                 <Link to="/eventos">
-                  Ver todos{" "}
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  Ver todos
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>
 
             {isLoading ? (
-              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-8">
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
                   <EventCardSkeleton key={`featured-skeleton-${i}`} />
                 ))}
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-8">
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
                 {featuredEvents.map((event: Event) => (
                   <EventCard key={event.id} event={event} />
                 ))}
@@ -170,82 +222,42 @@ function HomePage() {
           </section>
         )}
 
-        <section className="mb-16">
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-2xl border border-border/50 bg-card p-6 shadow-sm">
-              <p className="text-sm text-muted-foreground">Eventos ativos</p>
-              <div className="mt-2 text-3xl font-bold text-foreground">
-                {isLoading && events.length === 0 ? (
-                  <Skeleton className="h-9 w-20" />
-                ) : (
-                  events.length || 24
-                )}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Curadoria semanal com novidades.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-card p-6 shadow-sm">
-              <p className="text-sm text-muted-foreground">
-                Ingressos vendidos
-              </p>
-              <p className="mt-2 text-3xl font-bold text-foreground">12k+</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Pagamentos rápidos com Mercado Pago.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-card p-6 shadow-sm">
-              <p className="text-sm text-muted-foreground">
-                Validação em tempo real
-              </p>
-              <p className="mt-2 text-3xl font-bold text-foreground">99,9%</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                QR Code criptografado na entrada.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-24 py-12">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h3 className="text-4xl font-extrabold text-foreground mb-4">
+        <section className="mb-24 border-y border-border py-14">
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 className="text-3xl font-black text-foreground">
               Por que IngressosZ?
-            </h3>
-            <p className="text-muted-foreground text-lg">
-              A tecnologia que você precisa com a simplicidade que você merece.
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              O essencial para vender, acompanhar e validar sem inflar a
+              operação.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="group text-center p-8 rounded-3xl bg-card border border-border/40 hover:border-primary/30 hover:shadow-2xl transition-all duration-300">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
-                <ShieldCheck className="h-8 w-8" />
-              </div>
-              <h4 className="text-xl font-bold mb-3">Segurança Total</h4>
-              <p className="text-muted-foreground leading-relaxed">
-                Pagamentos criptografados via Mercado Pago e ingressos
-                validados com assinatura digital.
+
+          <div className="grid gap-5 md:grid-cols-3">
+            <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+              <ShieldCheck className="h-8 w-8 text-primary" />
+              <h3 className="mt-5 text-xl font-black">Segurança Total</h3>
+              <p className="mt-3 leading-7 text-muted-foreground">
+                Pagamentos via Mercado Pago, App Check e QR Code com assinatura
+                para reduzir fraude e reuso.
               </p>
             </div>
 
-            <div className="group text-center p-8 rounded-3xl bg-card border border-border/40 hover:border-primary/30 hover:shadow-2xl transition-all duration-300">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
-                <Zap className="h-8 w-8" />
-              </div>
-              <h4 className="text-xl font-bold mb-3">Compra Instantânea</h4>
-              <p className="text-muted-foreground leading-relaxed">
-                Garanta sua presença em segundos com Pix. Aprovação em tempo
-                real e sem burocracia.
+            <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+              <Zap className="h-8 w-8 text-accent" />
+              <h3 className="mt-5 text-xl font-black">Compra rápida</h3>
+              <p className="mt-3 leading-7 text-muted-foreground">
+                Checkout e Pix com sessão de pagamento rastreável do carrinho
+                até a emissão do ingresso.
               </p>
             </div>
 
-            <div className="group text-center p-8 rounded-3xl bg-card border border-border/40 hover:border-primary/30 hover:shadow-2xl transition-all duration-300">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform">
-                <Smartphone className="h-8 w-8" />
-              </div>
-              <h4 className="text-xl font-bold mb-3">Sempre à Mão</h4>
-              <p className="text-muted-foreground leading-relaxed">
-                Acesse seu QR Code direto no navegador, sem precisar instalar
-                nada. Funciona offline na entrada.
+            <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+              <Smartphone className="h-8 w-8 text-secondary-foreground" />
+              <h3 className="mt-5 text-xl font-black">Portaria simples</h3>
+              <p className="mt-3 leading-7 text-muted-foreground">
+                Validação no navegador para equipes com role de validador,
+                organizador ou admin.
               </p>
             </div>
           </div>
@@ -253,13 +265,13 @@ function HomePage() {
 
         {canValidate && (
           <section className="mb-12">
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-              Acesso Rápido
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
+            <h2 className="mb-6 text-2xl font-black text-foreground">
+              Acesso rápido
+            </h2>
+            <div className="grid gap-5 md:grid-cols-2">
               {isOrganizer && (
                 <Link to="/admin" className="group">
-                  <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-primary/5 border-primary/20">
+                  <Card className="transition-all group-hover:border-primary group-hover:shadow-md">
                     <CardHeader className="flex flex-row items-center gap-4">
                       <div>
                         <CardTitle>Painel Administrativo</CardTitle>
@@ -274,7 +286,7 @@ function HomePage() {
 
               {canValidate && (
                 <Link to="/validador" className="group">
-                  <Card className="transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg bg-secondary/5 border-secondary/20">
+                  <Card className="transition-all group-hover:border-primary group-hover:shadow-md">
                     <CardHeader className="flex flex-row items-center gap-4">
                       <div>
                         <CardTitle>Validador de Ingressos</CardTitle>
