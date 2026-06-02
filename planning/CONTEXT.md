@@ -37,6 +37,9 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [ ] Confirmar valores reais dos secrets das Functions.
 - [ ] Configurar/confirmar `ingressosZ/.env.local`.
 - [ ] Confirmar dominios do Firebase Auth, reCAPTCHA v2 e App Check.
+- [x] Fazer limpeza leve de arquivos/configs frontend antes do lancamento:
+  substituir `/vite.svg`, remover `react.svg` sem uso e remover/alinhar
+  `ingressosZ/.firebaserc` + `ingressosZ/firebase.json`.
 - [x] Rodar qualidade local completa em 2026-06-01.
 - [x] Executar deploy final de `functions`, `firestore:rules`, `storage` e
   `hosting`.
@@ -87,7 +90,7 @@ Obrigatorias para producao:
 ## Ordem Recomendada
 
 1. Marcar itens em `planning/CHECKLIST_FINALIZACAO.md`.
-2. Confirmar projeto Firebase ativo com `firebase use`.
+2. Confirmar projeto Firebase ativo com `npx firebase-tools use`.
 3. Configurar/confirmar secrets:
    `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `JWT_SECRET`, `SMTP_PASSWORD`,
    `RECAPTCHA_V2_SECRET`.
@@ -103,8 +106,8 @@ Obrigatorias para producao:
    `npm --prefix functions run lint`,
    `npm --prefix functions run build`,
    `npm --prefix functions run test`.
-8. Fazer deploy quando houver nova alteracao:
-   `firebase deploy --only firestore:rules,storage,functions,hosting`.
+8. Fazer deploy quando houver nova alteracao, sempre pela raiz do repo:
+   `npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>`.
 9. Registrar URL de `receiveWebhook` no Mercado Pago.
 10. Fazer compra controlada de baixo valor com Checkout e Pix.
 11. Validar `paymentSessions`, `purchases`, `tickets`, e-mail, QR Code,
@@ -120,3 +123,13 @@ Obrigatorias para producao:
 - Sentry recebe erros de frontend/backend, se habilitado.
 - Regras Firestore impedem escrita direta em `tickets` e `purchases`.
 - Checklist final esta marcado nos itens criticos.
+
+## Limpeza Leve Monitorada
+
+- `ingressosZ/public/vite.svg` foi removido; favicon usa `/pwa-192.png` e
+  Open Graph/Twitter/SEO default usam `/pwa-512.png`.
+- `ingressosZ/src/assets/react.svg` foi removido por falta de uso.
+- `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos para
+  evitar deploy acidental fora da raiz.
+- Rotas/dev tools existem apenas em `import.meta.env.DEV`; manter ate o teste
+  real se ainda ajudarem, depois revisar para reduzir superficie de manutencao.

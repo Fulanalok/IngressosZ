@@ -93,33 +93,37 @@ Functions confirmou o carregamento desse arquivo.
 
 ## Deploy
 
-Deploy completo recomendado:
+Deploy completo recomendado pela raiz do repositorio:
 
 ```bash
-firebase deploy --only firestore:rules,storage,functions,hosting
+npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>
 ```
 
 Deploy separado:
 
 ```bash
-firebase deploy --only firestore:rules
-firebase deploy --only storage
+npx firebase-tools deploy --only firestore:rules --project <your-firebase-project-id>
+npx firebase-tools deploy --only storage --project <your-firebase-project-id>
 npm --prefix functions run lint
 npm --prefix functions run build
-firebase deploy --only functions
+npx firebase-tools deploy --only functions --project <your-firebase-project-id>
 npm --prefix ingressosZ run build
-firebase deploy --only hosting
+npx firebase-tools deploy --only hosting --project <your-firebase-project-id>
 ```
 
 Deploy seletivo de Functions:
 
 ```bash
-firebase deploy --only functions:receiveWebhook
-firebase deploy --only functions:createPaymentPreference
-firebase deploy --only functions:createPixPayment
-firebase deploy --only functions:refundPayment
-firebase deploy --only functions:validateTicket
+npx firebase-tools deploy --only functions:receiveWebhook --project <your-firebase-project-id>
+npx firebase-tools deploy --only functions:createPaymentPreference --project <your-firebase-project-id>
+npx firebase-tools deploy --only functions:createPixPayment --project <your-firebase-project-id>
+npx firebase-tools deploy --only functions:refundPayment --project <your-firebase-project-id>
+npx firebase-tools deploy --only functions:validateTicket --project <your-firebase-project-id>
 ```
+
+Observacao: executar Firebase CLI a partir da raiz. O par legado
+`ingressosZ/.firebaserc` + `ingressosZ/firebase.json` foi removido; o deploy
+oficial usa somente o `firebase.json` da raiz.
 
 ## Mercado Pago
 
@@ -161,8 +165,8 @@ Consoles:
 
 ## Checklist Pre-Deploy
 
-- [x] `firebase use` aponta para `<your-firebase-project-id>` ou deploy usa
-  `--project <your-firebase-project-id>`.
+- [x] `npx firebase-tools use` aponta para `<your-firebase-project-id>` ou
+  deploy usa `--project <your-firebase-project-id>`.
 - [ ] `ingressosZ/.env.local` contem Firebase, Mercado Pago, reCAPTCHA, App
   Check e Sentry quando usado.
 - [x] `functions/.env.<your-firebase-project-id>` contem SMTP,
@@ -192,5 +196,5 @@ Nao ha rollback automatico. Para voltar:
 git checkout <commit-anterior>
 npm --prefix ingressosZ run build
 npm --prefix functions run build
-firebase deploy --only hosting,functions,firestore:rules
+npx firebase-tools deploy --only hosting,functions,firestore:rules --project <your-firebase-project-id>
 ```

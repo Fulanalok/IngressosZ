@@ -1,6 +1,6 @@
 # src/ - Codigo Fonte Frontend
 
-Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
+Atualizado em 2026-06-02. Base Git: `7cd9bc8 docs: record production deploy update`.
 
 Frontend React/Vite do IngressosZ. A aplicacao cobre descoberta de eventos,
 compra por Checkout/Pix, area de ingressos, validacao presencial, painel admin
@@ -101,4 +101,9 @@ npm --prefix ingressosZ run test
 - `VITE_APPCHECK_DEBUG_TOKEN` deve ser `false` em producao.
 - `VITE_MERCADOPAGO_PUBLIC_KEY` e obrigatorio para Checkout Pro.
 - Rotas dev nao devem aparecer em producao.
+- `/vite.svg` foi removido; favicon usa `/pwa-192.png` e OG/Twitter/SEO default
+  usam `/pwa-512.png`.
+- `src/assets/react.svg` foi removido por falta de uso.
+- `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos; deploy
+  deve partir da raiz do repo.
 - Manter textos e fluxos coerentes com `planning/CHECKLIST_FINALIZACAO.md`.

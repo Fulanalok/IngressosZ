@@ -1,6 +1,6 @@
 # functions/ - Firebase Functions Backend
 
-Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
+Atualizado em 2026-06-02. Base Git: `7cd9bc8 docs: record production deploy update`.
 
 Backend serverless do IngressosZ em Firebase Cloud Functions v2, Node.js 24,
 TypeScript e ESM.
@@ -47,7 +47,8 @@ publicos.
 - Region: `southamerica-east1`.
 - Module system: ESM.
 - Build output: `functions/lib/` gerado localmente e ignorado pelo Git.
-- Ultimo deploy confirmado: 2026-06-01.
+- Ultimo deploy confirmado: 2026-06-02, com
+  `functions/.env.<your-firebase-project-id>` carregado pelo Firebase CLI.
 - URL publica de `receiveWebhook`:
   `https://<your-webhook-url>`.
 
@@ -57,7 +58,7 @@ Comandos:
 npm --prefix functions run lint
 npm --prefix functions run build
 npm --prefix functions run test
-firebase deploy --only functions
+npx firebase-tools deploy --only functions --project <your-firebase-project-id>
 ```
 
 ## Configuracao
@@ -79,7 +80,8 @@ Params:
 - `WEB_BASE_URL`, default `https://<your-project>.web.app`
 
 Nota: `SMTP_EMAIL` nao deve voltar para Secret Manager. Em 2026-06-01 o secret
-antigo `SMTP_EMAIL` foi removido apos o redeploy das Functions.
+antigo `SMTP_EMAIL` foi removido apos o redeploy das Functions. Em 2026-06-02,
+o deploy carregou `SMTP_EMAIL` e `WEB_BASE_URL` via dotenv local de projeto.
 
 Use `defineSecret` para secrets e `defineString` para params. Nao use runtime
 config legado para novos fluxos.

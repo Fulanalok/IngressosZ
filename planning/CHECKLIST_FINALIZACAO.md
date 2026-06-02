@@ -32,7 +32,7 @@ Este arquivo fica dividido em duas partes:
 Como fazer:
 
 ```bash
-firebase use
+npx firebase-tools use
 ```
 
 Resultado esperado: projeto `<your-firebase-project-id>`.
@@ -226,17 +226,17 @@ git status -sb
 Como fazer:
 
 ```bash
-firebase deploy --only firestore:rules,storage,functions,hosting
+npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>
 ```
 
 Alternativa por partes:
 
 ```bash
-firebase deploy --only firestore:rules
-firebase deploy --only storage
-firebase deploy --only functions
+npx firebase-tools deploy --only firestore:rules --project <your-firebase-project-id>
+npx firebase-tools deploy --only storage --project <your-firebase-project-id>
+npx firebase-tools deploy --only functions --project <your-firebase-project-id>
 npm --prefix ingressosZ run build
-firebase deploy --only hosting
+npx firebase-tools deploy --only hosting --project <your-firebase-project-id>
 ```
 
 Status 2026-06-02:
@@ -441,6 +441,22 @@ Como fazer:
 - [ ] Confirmar contratos/termos de operador com Firebase/Google, Mercado Pago,
   provedor de e-mail e Sentry.
 
+### 14. Limpeza Leve Pre-Lancamento
+
+- [x] Trocar favicon/OG/Twitter default de `/vite.svg` por asset proprio da
+  marca IngressosZ.
+- [x] Remover `ingressosZ/src/assets/react.svg` sem uso.
+- [x] Remover `ingressosZ/.firebaserc` e `ingressosZ/firebase.json`.
+
+Status 2026-06-02: deploy oficial deve ser executado a partir da raiz do repo,
+usando o `firebase.json` da raiz e `--project <your-firebase-project-id>`. O par
+`ingressosZ/.firebaserc` + `ingressosZ/firebase.json` foi removido para evitar
+deploy acidental a partir de `ingressosZ/`.
+
+- [ ] Revisar rotas e utilitarios dev (`/dev-auto`, `/debug/firebase`, `/doc`,
+  `/teste-qr`, `testDataService` e `seedData`) depois do teste real, mantendo
+  apenas o que ainda ajuda na operacao.
+
 ## Criterios de Pronto para Publico
 
 - [ ] Firebase Auth, Firestore, Storage, Functions e Hosting ativos e
@@ -519,6 +535,12 @@ Como fazer:
   realinhado com o Hosting oficial e Functions redeployadas com sucesso.
 - [x] Rodada 2026-06-02: `npm.cmd --prefix ingressosZ run build` passou, e
   Firestore Rules, Storage Rules e Hosting foram publicados com sucesso.
+- [x] Rodada 2026-06-02: fluxo documental revisado para preferir
+  `npx firebase-tools ... --project <your-firebase-project-id>` e registrar
+  limpeza leve pre-lancamento.
+- [x] Rodada 2026-06-02: `/vite.svg`, `src/assets/react.svg`,
+  `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` removidos; favicon e
+  imagens sociais/SEO passaram a usar os assets PWA do app.
 - [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
   `CONTEXT.md` atualizados.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.

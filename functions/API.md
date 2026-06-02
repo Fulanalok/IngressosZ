@@ -132,5 +132,5 @@ emuladores Firebase nao estao rodando.
 ## Deploy
 
 ```bash
-firebase deploy --only functions
+npx firebase-tools deploy --only functions --project <your-firebase-project-id> --config ../firebase.json
 ```

@@ -1,6 +1,6 @@
 # Plano de Reducao de Custos - IngressosZ
 
-Atualizado em 2026-06-01.
+Atualizado em 2026-06-02.
 
 Base analisada: `Pagamento do Firebase_Relatorios, 2025-06-01 - 2026-06-30.csv`.
 
@@ -24,6 +24,10 @@ Total arredondado do periodo analisado: **R$ 49,49**.
 - [x] `onTicketCreated` e `receiveWebhook` nao montam mais `SMTP_EMAIL` como
   secret.
 - [x] Documentacao atualizada para configurar `SMTP_EMAIL` em `functions/.env`.
+- [x] Functions redeployadas em 2026-06-02 com `WEB_BASE_URL` oficial e
+  `SMTP_EMAIL` como param/env comum.
+- [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02 sem
+  reintroduzir Data Connect/Cloud SQL.
 
 ## Cortes Ja Executados
 
@@ -57,6 +61,14 @@ Total arredondado do periodo analisado: **R$ 49,49**.
      reads/writes e Functions invocations.
    - Conferir Billing 24-48h apos a remocao da Cloud SQL para garantir que o
      custo parou de crescer.
+
+3. **Evitar recriacao acidental de custo**
+   - Executar deploy oficial sempre pela raiz do repo com
+     `--project <your-firebase-project-id>`.
+   - `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos em
+     2026-06-02; o deploy oficial usa o `firebase.json` da raiz.
+   - Nao recriar Data Connect/Cloud SQL enquanto o app continuar usando
+     Firestore como banco principal.
 
 ## Comandos de Conferencia
 

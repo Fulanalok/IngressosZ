@@ -12,7 +12,7 @@ interface SEOProps {
 export function SEO({
   title,
   description = "IngressosZ — Ingressos rápidos e seguros",
-  image = "/vite.svg",
+  image = "/pwa-512.png",
   url,
   type = "website",
   jsonLd,

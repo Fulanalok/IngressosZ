@@ -169,16 +169,21 @@ ativos. Sem emuladores, ele fica pendente.
 ## Deploy
 
 ```bash
-firebase use
-firebase deploy --only firestore:rules,storage,functions,hosting
+npx firebase-tools use
+npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>
 ```
+
+Execute deploy sempre a partir da raiz do repositorio. O `firebase.json` da
+raiz e a fonte operacional oficial para Hosting, Functions, Firestore Rules,
+Storage Rules e emuladores.
 
 Apos o deploy, cadastre a URL publica da Function `receiveWebhook` no painel do
 Mercado Pago e habilite o evento `Payments`.
 
 ## Checklist de Producao
 
-- [ ] `firebase use` aponta para o projeto correto.
+- [ ] `npx firebase-tools use` aponta para o projeto correto ou o deploy usa
+  `--project <your-firebase-project-id>`.
 - [ ] Frontend `.env.local` contem Firebase, Mercado Pago, reCAPTCHA e App
   Check.
 - [ ] Functions secrets configurados.

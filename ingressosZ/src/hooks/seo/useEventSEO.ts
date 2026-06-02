@@ -31,7 +31,7 @@ export function useEventSEO(event: Event | null, eventId: string | undefined) {
     upsertMeta("name", "description", description);
     upsertMeta("property", "og:title", title);
     upsertMeta("property", "og:description", description);
-    upsertMeta("property", "og:image", event.image || "/vite.svg");
+    upsertMeta("property", "og:image", event.image || "/pwa-512.png");
 
     const canonical = document.querySelector(
       "link[rel='canonical']"
