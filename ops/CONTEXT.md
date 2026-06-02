@@ -1,6 +1,6 @@
 # ops/ - Operacoes e Deploy
 
-Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
+Atualizado em 2026-06-02. Base Git: `31a2d6a docs: refresh release checklist and cost status`.
 
 ## Ambiente Atual
 
@@ -10,7 +10,9 @@ Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface
 - Functions region: `southamerica-east1`
 - Backend runtime: Node.js 24
 - Pagamentos: Mercado Pago Checkout Pro e Pix
-- Functions implantadas em producao em 2026-06-01.
+- Functions implantadas em producao em 2026-06-01 e redeployadas em
+  2026-06-02 com `WEB_BASE_URL` oficial.
+- Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
 - Cloud SQL/Data Connect removidos para reduzir custo.
 - Secret Manager `SMTP_EMAIL` removido; `SMTP_EMAIL` agora e param/env comum.
 - Checklist operacional: `planning/CHECKLIST_FINALIZACAO.md`
@@ -84,10 +86,10 @@ WEB_BASE_URL=https://<your-project>.web.app
 SENTRY_DSN=
 ```
 
-Nota operacional: em 2026-06-01 o deploy das Functions foi concluido, mas o
-dotenv local usado no deploy ainda continha `WEB_BASE_URL=https://ingressosz.web.app`.
-Antes do proximo teste real, alinhar para
-`https://<your-project>.web.app` e redeployar Functions.
+Nota operacional: em 2026-06-02 o dotenv local de projeto
+`functions/.env.<your-firebase-project-id>` foi realinhado para
+`WEB_BASE_URL=https://<your-project>.web.app`, e o redeploy das
+Functions confirmou o carregamento desse arquivo.
 
 ## Deploy
 
@@ -163,10 +165,11 @@ Consoles:
   `--project <your-firebase-project-id>`.
 - [ ] `ingressosZ/.env.local` contem Firebase, Mercado Pago, reCAPTCHA, App
   Check e Sentry quando usado.
-- [ ] `functions/.env` contem SMTP, `WEB_BASE_URL` oficial e `SENTRY_DSN`.
+- [x] `functions/.env.<your-firebase-project-id>` contem SMTP,
+  `WEB_BASE_URL` oficial e `SENTRY_DSN`.
 - [x] Secrets obrigatorios configurados para deploy das Functions.
 - [x] Lint, typecheck, build e testes passaram em 2026-06-01.
-- [ ] Firestore Rules e Storage Rules revisadas.
+- [x] Firestore Rules e Storage Rules publicadas em 2026-06-02.
 - [x] URL atual do webhook Mercado Pago registrada.
 
 ## Checklist Pos-Deploy

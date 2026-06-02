@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-06-01.
+Atualizado em 2026-06-02.
 
 Este arquivo fica dividido em duas partes:
 
@@ -17,8 +17,9 @@ Este arquivo fica dividido em duas partes:
 - [x] Lint, build e testes frontend/backend passaram em 2026-06-01.
 - [x] Cloud SQL/Data Connect removidos para reduzir custo.
 - [x] `SMTP_EMAIL` removido do Secret Manager e migrado para param/env.
-- [ ] `WEB_BASE_URL` local das Functions precisa ser realinhado para a URL
-  oficial do Hosting e redeployado.
+- [x] `WEB_BASE_URL` local das Functions realinhado para a URL oficial do
+  Hosting e Functions redeployadas em 2026-06-02.
+- [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
 - [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
   reembolso ainda faltam.
 
@@ -80,7 +81,7 @@ O que preencher:
 - [ ] Conferir valores reais dos secrets no console/CLI antes do teste real de
   pagamento e e-mail.
 
-- [ ] Corrigir params das Functions e redeployar.
+- [x] Corrigir params das Functions e redeployar.
 
 Como fazer:
 
@@ -99,10 +100,9 @@ SENTRY_PROFILES_SAMPLE_RATE=0
 Observacao: se outro provedor de e-mail for usado, ajustar `SMTP_HOST` e
 `SMTP_PORT`. `SMTP_EMAIL` e param/env comum, nao Secret Manager.
 
-Status 2026-06-01: o deploy das Functions foi concluido, mas o dotenv local
-usado no deploy ainda estava com `WEB_BASE_URL=https://ingressosz.web.app`.
-Alinhar para `https://<your-project>.web.app` e redeployar
-Functions.
+Status 2026-06-02: `functions/.env.<your-firebase-project-id>` criado e
+realinhado com `WEB_BASE_URL=https://<your-project>.web.app`.
+Firebase CLI confirmou carregamento desse dotenv no redeploy das Functions.
 
 - [x] Remover o secret antigo `SMTP_EMAIL` do Secret Manager.
   - 2026-06-01: versoes `SMTP_EMAIL@1` a `SMTP_EMAIL@5` destruidas; consulta
@@ -213,7 +213,7 @@ Se `java -version` falhar, instalar JDK antes de rodar os emuladores Firebase.
 
 ### 6. Fazer Deploy
 
-- [ ] Confirmar que nao ha alteracoes locais inesperadas.
+- [x] Confirmar que nao ha alteracoes locais inesperadas.
 
 Como fazer:
 
@@ -221,7 +221,7 @@ Como fazer:
 git status -sb
 ```
 
-- [ ] Fazer deploy completo.
+- [x] Fazer deploy completo.
 
 Como fazer:
 
@@ -239,13 +239,13 @@ npm --prefix ingressosZ run build
 firebase deploy --only hosting
 ```
 
-Status 2026-06-01:
+Status 2026-06-02:
 
-- [x] Functions redeployadas com sucesso.
-- [ ] Firestore Rules, Storage Rules e Hosting ainda precisam de deploy final
-  ou confirmacao de que ja estao publicados na versao atual.
-- [ ] Redeploy das Functions ainda recomendado depois de corrigir
-  `WEB_BASE_URL` no dotenv local.
+- [x] Functions redeployadas com sucesso depois do realinhamento de
+  `WEB_BASE_URL`.
+- [x] `npm.cmd --prefix ingressosZ run build` passou antes do deploy de
+  Hosting.
+- [x] Firestore Rules, Storage Rules e Hosting publicados com sucesso.
 
 - [x] Guardar URL publica da Function `receiveWebhook`.
 
@@ -447,7 +447,7 @@ Como fazer:
   conferidos no console.
 - [ ] Secrets e envs reais configurados e validados com teste real.
 - [ ] Dominios autorizados no Firebase Auth, reCAPTCHA e App Check.
-- [ ] Deploy completo executado sem erro.
+- [x] Deploy completo executado sem erro.
 - [ ] Mercado Pago webhook configurado e recebendo `Payments`.
 - [ ] Checkout/cartao e Pix reais testados.
 - [ ] Compra aprovada gera ticket uma unica vez.
@@ -456,7 +456,7 @@ Como fazer:
 - [ ] QR Code valida com roles permitidas e bloqueia reuso.
 - [ ] Usuario comum nao acessa admin/validador.
 - [ ] Reembolso/admin funciona em compra elegivel.
-- [ ] Firestore/Storage Rules publicadas.
+- [x] Firestore/Storage Rules publicadas.
 - [ ] App Check enforcement ativo e testado.
 - [ ] Logs/Sentry/alertas confirmados.
 - [ ] Pendencias legais revisadas para lancamento publico.
@@ -515,6 +515,10 @@ Como fazer:
 - [x] Deploy de Functions concluido em 2026-06-01.
 - [x] URL publica de `receiveWebhook` registrada:
   `https://<your-webhook-url>`.
+- [x] Rodada 2026-06-02: `functions/.env.<your-firebase-project-id>`
+  realinhado com o Hosting oficial e Functions redeployadas com sucesso.
+- [x] Rodada 2026-06-02: `npm.cmd --prefix ingressosZ run build` passou, e
+  Firestore Rules, Storage Rules e Hosting foram publicados com sucesso.
 - [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
   `CONTEXT.md` atualizados.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.

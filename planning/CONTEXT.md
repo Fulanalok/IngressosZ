@@ -1,6 +1,6 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
+Atualizado em 2026-06-02. Base Git: `31a2d6a docs: refresh release checklist and cost status`.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -27,17 +27,18 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] Cloud SQL/Data Connect removidos para reduzir custo.
 - [x] `SMTP_EMAIL` removido do Secret Manager e migrado para param/env comum.
 - [x] Functions implantadas em producao em 2026-06-01.
+- [x] `WEB_BASE_URL` realinhado no dotenv local das Functions e Functions
+  redeployadas em 2026-06-02.
+- [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
 
 ## Alta Prioridade Antes de Publico
 
 - [ ] Conferir ambiente Firebase de producao.
-- [ ] Realinhar `WEB_BASE_URL` do dotenv local das Functions para
-  `https://<your-project>.web.app` e redeployar Functions.
 - [ ] Confirmar valores reais dos secrets das Functions.
 - [ ] Configurar/confirmar `ingressosZ/.env.local`.
 - [ ] Confirmar dominios do Firebase Auth, reCAPTCHA v2 e App Check.
 - [x] Rodar qualidade local completa em 2026-06-01.
-- [ ] Executar ou confirmar deploy final de `firestore:rules`, `storage` e
+- [x] Executar deploy final de `functions`, `firestore:rules`, `storage` e
   `hosting`.
 - [ ] Cadastrar URL real de `receiveWebhook` no Mercado Pago com evento
   `Payments`: `https://<your-webhook-url>`.
@@ -93,7 +94,7 @@ Obrigatorias para producao:
 4. Confirmar `functions/.env`: `WEB_BASE_URL`, `SMTP_HOST`, `SMTP_PORT`,
    `SMTP_EMAIL`, `SENTRY_DSN`.
 5. Confirmar `ingressosZ/.env.local`.
-6. Corrigir `WEB_BASE_URL` no dotenv local das Functions, se necessario.
+6. Conferir que `WEB_BASE_URL` segue apontando para o Hosting oficial.
 7. Rodar qualidade local:
    `npm --prefix ingressosZ run lint`,
    `npm --prefix ingressosZ run typecheck`,
@@ -102,7 +103,7 @@ Obrigatorias para producao:
    `npm --prefix functions run lint`,
    `npm --prefix functions run build`,
    `npm --prefix functions run test`.
-8. Fazer deploy:
+8. Fazer deploy quando houver nova alteracao:
    `firebase deploy --only firestore:rules,storage,functions,hosting`.
 9. Registrar URL de `receiveWebhook` no Mercado Pago.
 10. Fazer compra controlada de baixo valor com Checkout e Pix.
