@@ -7,34 +7,34 @@
 */
 
 :root {
-  --background: 210 29% 97%;
-  --foreground: 222 38% 10%;
+  --background: 222 47% 5%;
+  --foreground: 210 40% 98%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 98%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
 
   /* Paleta Azul Monocromática */
-  --primary: 199 89% 34%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 199 84% 54%;
+  --primary-foreground: 222 47% 8%;
 
-  --secondary: 38 77% 86%;
-  --secondary-foreground: 25 51% 18%;
+  --secondary: 36 48% 22%;
+  --secondary-foreground: 38 77% 90%;
 
-  --muted: 210 20% 91%;
-  --muted-foreground: 215 18% 39%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
 
-  --accent: 162 64% 39%;
+  --accent: 162 58% 48%;
   --accent-foreground: 160 50% 98%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 214 22% 84%;
-  --input: 214 22% 84%;
-  --ring: 199 89% 34%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 199 84% 54%;
 
   --radius: 0.5rem;
 
@@ -151,7 +151,7 @@
   }
 
   .glass-card {
-    @apply bg-white/85 dark:bg-navy/70 backdrop-blur-xl border border-border/70 rounded-lg shadow-xl;
+    @apply bg-card/85 backdrop-blur-xl border border-border/70 rounded-lg shadow-xl;
   }
 
   .gradient-bg {
