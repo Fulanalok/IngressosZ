@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { Download, QrCode, ChevronUp } from "lucide-react";
 import type { Ticket as TicketType } from "@/types";
 import QRCodeDisplay from "@/components/qr/QRCodeDisplay";
+import { formatDisplayDate } from "@/lib/date";
 import { printTicket } from "@/lib/pdfPrint";
 
 interface TicketProps {
@@ -76,7 +77,8 @@ function Ticket({ ticket }: TicketProps) {
               Data
             </span>
             <span className="font-bold text-foreground">
-              {ticket.eventDate || "—"}{ticket.eventTime ? ` · ${ticket.eventTime}` : ""}
+              {ticket.eventDate ? formatDisplayDate(ticket.eventDate) : "—"}
+              {ticket.eventTime ? ` · ${ticket.eventTime}` : ""}
             </span>
           </div>
           <div className="flex items-center gap-3">

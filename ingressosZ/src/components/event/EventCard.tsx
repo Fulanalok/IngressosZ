@@ -3,6 +3,7 @@ import { CalendarDays, Clock, MapPin, Ticket } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
+import { formatDisplayDate } from "@/lib/date";
 import { eventService } from "@/services/firestore";
 import type { Event } from "@/types";
 
@@ -52,12 +53,7 @@ function EventCard({ event }: EventCardProps) {
   }, [prefetchDetails]);
 
   const formattedDate = useMemo(() => {
-    const date = new Date(event.date);
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    return formatDisplayDate(event.date);
   }, [event.date]);
 
   const formattedTime = useMemo(() => {

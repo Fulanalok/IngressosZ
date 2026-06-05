@@ -1,4 +1,5 @@
 import { Button } from "../ui/button";
+import { formatDisplayDate } from "@/lib/date";
 
 interface TicketData {
   eventTitle: string;
@@ -103,7 +104,7 @@ export function ValidationResult({
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Data:</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">
-                {ticketData.eventDate}
+                {formatDisplayDate(ticketData.eventDate)}
               </span>
             </div>
             <div className="flex justify-between">

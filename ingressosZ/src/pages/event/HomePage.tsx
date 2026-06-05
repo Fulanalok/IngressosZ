@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { USER_ROLES } from "@/constants/roles";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useEvents } from "@/hooks/event/useEvents";
+import { formatDisplayDate } from "@/lib/date";
 import { eventService } from "@/services/firestore";
 import type { Event } from "@/types";
 
@@ -136,7 +137,9 @@ function HomePage() {
                   Data
                 </p>
                 <p className="mt-1 font-semibold text-foreground">
-                  {highlightedEvent?.date ?? "Em breve"}
+                  {highlightedEvent?.date
+                    ? formatDisplayDate(highlightedEvent.date)
+                    : "Em breve"}
                 </p>
               </div>
               <div className="border-b border-border p-4 sm:border-b-0 sm:border-r">

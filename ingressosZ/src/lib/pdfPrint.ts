@@ -1,5 +1,6 @@
 import type { Ticket } from "../types";
 import QRCode from "qrcode";
+import { formatDisplayDate } from "./date";
 
 /**
  * Opens a print-ready ticket in a new tab using a Blob URL (avoids popup blockers).
@@ -45,8 +46,7 @@ export async function printTicket(ticket: Ticket): Promise<void> {
   const statusColor = STATUS_COLORS[ticket.status] ?? "#6b7280";
 
   // ── Date ───────────────────────────────────────────────────────────────────
-  // eventDate may already be a formatted "DD/MM/YYYY" string from the query layer
-  const dateText = ticket.eventDate || "—";
+  const dateText = ticket.eventDate ? formatDisplayDate(ticket.eventDate) : "—";
 
   // ── Purchase date ──────────────────────────────────────────────────────────
   const purchasedAt = (() => {
