@@ -3,8 +3,6 @@ import { legalInfo } from "@/config/legal";
 
 function Footer() {
   const currentYear = new Date().getFullYear();
-  const supportEmailConfigured = legalInfo.supportEmail.includes("@");
-  const privacyEmailConfigured = legalInfo.privacyEmail.includes("@");
 
   return (
     <footer className="border-t border-border bg-background">
@@ -14,35 +12,6 @@ function Footer() {
             <p className="font-semibold text-foreground">
               © {currentYear} {legalInfo.brandName}. Todos os direitos
               reservados.
-            </p>
-            <p>
-              Pagamentos processados pelo Mercado Pago. A plataforma usa
-              Firebase Auth, App Check/reCAPTCHA e QR Code assinado para
-              proteger acesso, compra e validação de ingressos.
-            </p>
-            <p>
-              Suporte:{" "}
-              {supportEmailConfigured ? (
-                <a
-                  href={`mailto:${legalInfo.supportEmail}`}
-                  className="text-primary hover:underline"
-                >
-                  {legalInfo.supportEmail}
-                </a>
-              ) : (
-                legalInfo.supportEmail
-              )}{" "}
-              · Privacidade:{" "}
-              {privacyEmailConfigured ? (
-                <a
-                  href={`mailto:${legalInfo.privacyEmail}`}
-                  className="text-primary hover:underline"
-                >
-                  {legalInfo.privacyEmail}
-                </a>
-              ) : (
-                legalInfo.privacyEmail
-              )}
             </p>
           </div>
 

@@ -73,8 +73,7 @@ evitar formato `YYYY-MM-DD` na UI.
 
 Responsabilidade: estrutura global.
 
-- `Footer.tsx`: copyright, links legais, canais de suporte/privacidade e nota
-  objetiva de seguranca operacional.
+- `Footer.tsx`: copyright e links legais.
 - `Navbar.tsx`: navegacao, status de auth e links por permissao.
 - `ThemeToggle.tsx`: alternancia light/dark.
 
