@@ -502,14 +502,14 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="bg-background hover:bg-muted text-foreground text-xs font-semibold px-3 py-1.5 rounded-md border border-border transition-colors"
+              className="bg-background hover:bg-muted text-foreground text-xs font-semibold px-3 py-1.5 rounded-none border border-border transition-colors"
             >
               Trocar imagem
             </button>
             <button
               type="button"
               onClick={removeImage}
-              className="bg-red-500/80 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1"
+              className="bg-red-500/80 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-none transition-colors flex items-center gap-1"
             >
               <X className="h-3 w-3" />
               Remover

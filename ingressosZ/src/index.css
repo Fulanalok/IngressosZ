@@ -116,19 +116,19 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-primary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-primary text-primary-foreground font-semibold px-5 py-2.5 rounded-none shadow-sm hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:bg-secondary/80 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-secondary text-secondary-foreground font-semibold px-5 py-2.5 rounded-none shadow-sm hover:bg-secondary/80 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-success {
-    @apply bg-accent text-accent-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-accent text-accent-foreground font-semibold px-6 py-2.5 rounded-none shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-danger {
-    @apply bg-destructive text-destructive-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-destructive text-destructive-foreground font-semibold px-6 py-2.5 rounded-none shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .card {

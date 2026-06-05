@@ -73,7 +73,7 @@ function CameraTest() {
           <button
             onClick={startCamera}
             disabled={isActive}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-none font-medium transition-colors ${
               isActive
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700 text-white"
@@ -84,7 +84,7 @@ function CameraTest() {
           <button
             onClick={stopCamera}
             disabled={!isActive}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-none font-medium transition-colors ${
               !isActive
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-red-600 hover:bg-red-700 text-white"

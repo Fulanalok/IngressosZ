@@ -267,7 +267,7 @@ function SignUp() {
             </div>
 
             <div className="mt-6 w-full">
-              <Button variant="secondary" asChild className="w-full rounded-xl border-border/50">
+              <Button variant="secondary" asChild className="w-full rounded-none border-border/50">
                 <Link to="/login">Fazer login</Link>
               </Button>
             </div>

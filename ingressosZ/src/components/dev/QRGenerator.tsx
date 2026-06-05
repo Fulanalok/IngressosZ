@@ -54,13 +54,13 @@ function QRGenerator({ onGenerate }: QRGeneratorProps) {
         <div className="flex space-x-2">
           <button
             onClick={handleGenerate}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition-colors"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-none font-medium transition-colors"
           >
             Gerar QR Code
           </button>
           <button
             onClick={generateRandomData}
-            className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md font-medium transition-colors"
+            className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-none font-medium transition-colors"
           >
             Aleatório
           </button>
@@ -69,7 +69,7 @@ function QRGenerator({ onGenerate }: QRGeneratorProps) {
         <div>
           <button
             onClick={() => QRCodeService.downloadQRCode(qrImage)}
-            className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium transition-colors"
+            className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-none font-medium transition-colors"
           >
             Baixar QR Code
           </button>

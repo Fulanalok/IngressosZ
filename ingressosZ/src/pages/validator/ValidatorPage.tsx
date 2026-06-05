@@ -265,7 +265,7 @@ function ValidatorPage() {
             </div>
             <div className="mt-6 flex justify-center">
               <button
-                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg transition-colors"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-none transition-colors"
                 onClick={() => setScannerActive((s) => !s)}
                 disabled={!VALIDATOR_ROLES.includes(userRole)}
               >

@@ -123,7 +123,7 @@ function Ticket({ ticket }: TicketProps) {
             {ticket.qrCode && (
               <button
                 onClick={() => setShowQR((v) => !v)}
-                className="w-full flex items-center justify-center gap-2 border border-border hover:bg-muted py-2 rounded-lg text-sm font-medium text-foreground transition-colors"
+                className="w-full flex items-center justify-center gap-2 border border-border hover:bg-muted py-2 rounded-none text-sm font-medium text-foreground transition-colors"
               >
                 {showQR ? (
                   <>
