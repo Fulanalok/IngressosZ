@@ -8,7 +8,12 @@ A prioridade e manter um fluxo simples, seguro e barato de operar.
 
 ## Status Atual
 
-- UI Premium Blue para Home, Eventos, Ingressos e fluxo de compra.
+- UI publica em base preta, visual simples e sem gradientes, vidro-morfismo ou
+  animacoes de scroll.
+- Botoes principais com cantos retos.
+- Home sem texto introdutorio, sem cards de metricas e com titulo sem ponto
+  final.
+- Datas exibidas em formato brasileiro (`DD/MM/YYYY`), sem hifens.
 - Checkout Mercado Pago com `paymentSessions`.
 - `paymentSessions.paymentMethod` identifica `checkout` ou `pix`.
 - Webhook Mercado Pago com assinatura HMAC via `MP_WEBHOOK_SECRET`.

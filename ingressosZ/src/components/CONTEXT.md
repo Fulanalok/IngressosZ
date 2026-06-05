@@ -1,6 +1,6 @@
 # components/ - Componentes React
 
-Atualizado em 2026-06-01. Base Git: `9fb60de chore: reduce firebase cost surface`.
+Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
 
 Componentes estao organizados por dominio. Evite misturar regra de negocio
 pesada dentro de UI; use hooks e services quando a logica passar de interacao
@@ -66,6 +66,9 @@ Responsabilidade: descoberta, detalhe e compra de eventos.
 `TicketPurchase` integra `useMercadoPagoCheckout`, alterna entre Checkout e Pix,
 cria `paymentSessions` e exibe Wallet/QR Pix.
 
+Datas de eventos exibidas em `EventCard` devem usar `formatDisplayDate` para
+evitar formato `YYYY-MM-DD` na UI.
+
 ## `layout/`
 
 Responsabilidade: estrutura global.
@@ -91,6 +94,8 @@ Responsabilidade: exibicao de ingresso emitido.
 - `TicketSkeleton.tsx`: estado de carregamento.
 
 Usado principalmente em "Meus ingressos".
+
+Datas de ingresso exibidas no card devem usar `formatDisplayDate`.
 
 ## `ui/`
 
@@ -120,6 +125,8 @@ Fluxo:
 
 Permissao esperada: `validator`, `organizer` ou `admin`.
 
+Datas mostradas no resultado de validacao devem usar `formatDisplayDate`.
+
 ## Convencoes
 
 - Props sempre tipadas com interface.
@@ -129,3 +136,5 @@ Permissao esperada: `validator`, `organizer` ou `admin`.
 - Preferir composicao a props muito grandes.
 - Estados de loading/empty/error devem ser explicitos.
 - Testes ficam ao lado do componente ou em `__tests__`.
+- Manter o visual publico sem gradientes/degrades, sem vidro-morfismo e sem
+  animacoes de scroll. Botoes principais devem continuar com cantos retos.

@@ -1,5 +1,15 @@
 # IngressosZ - Frontend
 
+## Estado Visual Atual
+
+- Interface publica em base preta, sem gradientes/degrades, vidro-morfismo ou
+  animacoes de scroll.
+- Botoes principais com cantos retos.
+- Home simplificada: sem texto introdutorio longo, sem cards de metricas e sem
+  ponto final no titulo principal.
+- Datas exibidas ao usuario devem usar `src/lib/date.ts` (`formatDisplayDate`)
+  para aparecer como `DD/MM/YYYY`, sem hifens.
+
 Este é o frontend da plataforma IngressosZ, uma Single Page Application (SPA) moderna construída para oferecer uma experiência de usuário fluida na compra, gestão e validação de ingressos.
 
 ## 🛠️ Tech Stack

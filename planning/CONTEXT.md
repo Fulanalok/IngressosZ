@@ -1,6 +1,6 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-06-02. Base Git: `31a2d6a docs: refresh release checklist and cost status`.
+Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -30,6 +30,9 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] `WEB_BASE_URL` realinhado no dotenv local das Functions e Functions
   redeployadas em 2026-06-02.
 - [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
+- [x] UI publica simplificada em junho/2026: fundo preto, sem gradientes,
+  sem vidro-morfismo, sem animacoes de scroll, botoes com cantos retos, home
+  sem intro copy/cards de metricas e datas exibidas como `DD/MM/YYYY`.
 
 ## Alta Prioridade Antes de Publico
 
@@ -131,5 +134,10 @@ Obrigatorias para producao:
 - `ingressosZ/src/assets/react.svg` foi removido por falta de uso.
 - `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos para
   evitar deploy acidental fora da raiz.
+- Home/listagem agora seguem visual direto e escuro: sem gradientes/degrades,
+  sem vidro-morfismo, sem animacoes de scroll, sem cards de metricas na dobra
+  inicial e sem copy introdutoria longa.
+- Datas devem usar `formatDisplayDate` de `ingressosZ/src/lib/date.ts` para
+  evitar exibicao crua com hifens.
 - Rotas/dev tools existem apenas em `import.meta.env.DEV`; manter ate o teste
   real se ainda ajudarem, depois revisar para reduzir superficie de manutencao.

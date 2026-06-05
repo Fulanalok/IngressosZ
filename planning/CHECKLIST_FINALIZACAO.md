@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-06-02.
+Atualizado em 2026-06-05.
 
 Este arquivo fica dividido em duas partes:
 
@@ -20,6 +20,8 @@ Este arquivo fica dividido em duas partes:
 - [x] `WEB_BASE_URL` local das Functions realinhado para a URL oficial do
   Hosting e Functions redeployadas em 2026-06-02.
 - [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
+- [x] Hosting republicado em 2026-06-05 com ajustes visuais e datas exibidas
+  como `DD/MM/YYYY`, sem hifens.
 - [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
   reembolso ainda faltam.
 
@@ -246,6 +248,16 @@ Status 2026-06-02:
 - [x] `npm.cmd --prefix ingressosZ run build` passou antes do deploy de
   Hosting.
 - [x] Firestore Rules, Storage Rules e Hosting publicados com sucesso.
+
+Status 2026-06-05:
+
+- [x] `npm.cmd --prefix ingressosZ run build` passou antes do deploy de
+  Hosting.
+- [x] `npm.cmd --prefix ingressosZ run lint` passou.
+- [x] `npm.cmd --prefix ingressosZ run test -- HomePage EventCard ValidationResult Ticket`
+  passou com 9 arquivos e 66 testes.
+- [x] Hosting publicado com as mudancas visuais e URL oficial respondeu HTTP
+  200.
 
 - [x] Guardar URL publica da Function `receiveWebhook`.
 
@@ -543,6 +555,16 @@ deploy acidental a partir de `ingressosZ/`.
   imagens sociais/SEO passaram a usar os assets PWA do app.
 - [x] `README.md`, `ops/CONTEXT.md`, `planning/CONTEXT.md` e demais
   `CONTEXT.md` atualizados.
+- [x] Rodada 2026-06-05: visual publico simplificado para fundo preto, sem
+  gradientes/degrades, sem vidro-morfismo, sem animacoes de scroll e com
+  botoes de cantos retos.
+- [x] Rodada 2026-06-05: Home simplificada, removendo copy introdutoria longa,
+  cards de metricas e ponto final do titulo principal.
+- [x] Rodada 2026-06-05: datas exibidas no frontend/PDF passaram a usar
+  formato `DD/MM/YYYY` via `ingressosZ/src/lib/date.ts`.
+- [x] Rodada 2026-06-05: `npm.cmd --prefix ingressosZ run build`, `lint` e
+  testes focados `HomePage EventCard ValidationResult Ticket` passaram; Hosting
+  publicado e URL oficial respondeu HTTP 200.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.
 - [x] Rodada 2026-05-25: frontend lint/typecheck/build/test passaram; backend
   lint/build/test passaram; Cypress smoke passou.
