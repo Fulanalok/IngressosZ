@@ -71,7 +71,7 @@ function HomePage() {
             </div>
 
             <h1 className="mt-5 max-w-2xl text-3xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">
-              Encontre eventos e compre seu ingresso com QR Code.
+              Encontre eventos e compre seu ingresso com QR Code
             </h1>
 
             <div className="mt-6 rounded-lg border border-border bg-card p-3">
