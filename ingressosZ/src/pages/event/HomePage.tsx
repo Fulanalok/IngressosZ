@@ -7,10 +7,7 @@ import {
   ArrowRight,
   CalendarDays,
   MapPin,
-  QrCode,
   Search,
-  ShieldCheck,
-  Smartphone,
   TicketCheck,
   WalletCards,
 } from "lucide-react";
@@ -198,46 +195,6 @@ function HomePage() {
             )}
           </section>
         )}
-
-        <section className="mb-24 border-y border-border py-10">
-          <div className="mb-8 max-w-2xl">
-            <h2 className="text-2xl font-bold text-foreground">
-              Por que IngressosZ?
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              O essencial para vender, acompanhar e validar ingressos.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-border bg-card p-5">
-              <ShieldCheck className="h-6 w-6 text-primary" />
-              <h3 className="mt-4 text-lg font-bold">Segurança Total</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">
-                Pagamentos via Mercado Pago, App Check e QR Code com assinatura
-                para reduzir fraude e reuso.
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-card p-5">
-              <QrCode className="h-6 w-6 text-primary" />
-              <h3 className="mt-4 text-lg font-bold">Compra rápida</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">
-                Checkout e Pix com sessão de pagamento rastreável do carrinho
-                até a emissão do ingresso.
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-card p-5">
-              <Smartphone className="h-6 w-6 text-primary" />
-              <h3 className="mt-4 text-lg font-bold">Portaria simples</h3>
-              <p className="mt-2 leading-7 text-muted-foreground">
-                Validação no navegador para equipes com role de validador,
-                organizador ou admin.
-              </p>
-            </div>
-          </div>
-        </section>
 
         {canValidate && (
           <section className="mb-12">

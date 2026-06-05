@@ -73,9 +73,9 @@ describe("HomePage", () => {
     expect(screen.getByText("Evento Extra")).toBeInTheDocument();
   });
 
-  it("renderiza seção 'Por que usar o IngressosZ'", () => {
+  it("nao renderiza a secao promocional da home", () => {
     renderWithAuth(mockUser);
-    expect(screen.getByText(/Por que IngressosZ/)).toBeInTheDocument();
-    expect(screen.getByText("Segurança Total")).toBeInTheDocument();
+    expect(screen.queryByText(/Por que IngressosZ/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Segurança Total")).not.toBeInTheDocument();
   });
 });
