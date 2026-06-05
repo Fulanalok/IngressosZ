@@ -1,4 +1,5 @@
 import { AppErrorBoundary } from "@/components/common/AppErrorBoundary";
+import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
 import { ThemeProvider } from "@/context/theme/ThemeContext";
 import { AppRoutes } from "@/routing/AppRoutes";
@@ -41,6 +42,8 @@ function App() {
             </QueryErrorResetBoundary>
           </Suspense>
         </main>
+
+        <Footer />
 
         {import.meta.env.DEV && DevPanel && <DevPanel />}
 
