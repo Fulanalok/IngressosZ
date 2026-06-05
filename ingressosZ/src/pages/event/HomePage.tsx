@@ -74,13 +74,7 @@ function HomePage() {
               Encontre eventos e compre seu ingresso com QR Code.
             </h1>
 
-            <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">
-              A IngressosZ organiza a venda, a emissão e a validação dos
-              ingressos para eventos pequenos e médios, sem camadas
-              desnecessárias no caminho.
-            </p>
-
-            <div className="mt-7 rounded-lg border border-border bg-card p-3">
+            <div className="mt-6 rounded-lg border border-border bg-card p-3">
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="flex min-h-11 flex-1 items-center gap-2 rounded-md border border-input bg-background px-3 text-muted-foreground">
                   <Search className="h-4 w-4" />
