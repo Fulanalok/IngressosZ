@@ -94,33 +94,6 @@ function HomePage() {
                 </Button>
               </div>
             </div>
-
-            <dl className="mt-6 grid max-w-xl grid-cols-3 gap-2">
-              <div className="rounded-md border border-border bg-card p-3">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  Disponíveis
-                </dt>
-                <dd className="mt-1 text-xl font-bold text-foreground">
-                  {isLoading && events.length === 0 ? (
-                    <Skeleton className="h-7 w-12" />
-                  ) : (
-                    events.length || 24
-                  )}
-                </dd>
-              </div>
-              <div className="rounded-md border border-border bg-card p-3">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  Pagamento
-                </dt>
-                <dd className="mt-1 text-xl font-bold text-foreground">MP</dd>
-              </div>
-              <div className="rounded-md border border-border bg-card p-3">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  QR Code
-                </dt>
-                <dd className="mt-1 text-xl font-bold text-foreground">JWT</dd>
-              </div>
-            </dl>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border bg-card">
