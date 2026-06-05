@@ -156,7 +156,7 @@ function EventCard({ event }: EventCardProps) {
           <div className="h-full bg-primary" style={{ width: `${soldPercent}%` }} />
         </div>
 
-        <Button asChild className="mt-5 w-full" disabled={isSoldOut}>
+        <Button asChild className="mt-5 w-full !rounded-none" disabled={isSoldOut}>
           <Link
             to={`/evento/${event.id}`}
             onMouseEnter={prefetchDetails}
