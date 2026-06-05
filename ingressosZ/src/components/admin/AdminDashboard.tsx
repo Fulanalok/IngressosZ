@@ -61,7 +61,7 @@ function CheckinProgress({ tickets }: { tickets: Ticket[] }) {
         </span>
       </div>
       <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-        <div className="h-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-[10px] text-muted-foreground">{pct}% validado</span>
     </div>
@@ -307,12 +307,6 @@ export default function AdminDashboard({
               </div>
               <ResponsiveContainer width="100%" height={180}>
                 <AreaChart data={revenueByDay} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis
                     dataKey="date"
@@ -334,7 +328,7 @@ export default function AdminDashboard({
                     dataKey="revenue"
                     stroke="#2563eb"
                     strokeWidth={2}
-                    fill="url(#colorRevenue)"
+                    fill="transparent"
                     dot={false}
                     activeDot={{ r: 4, fill: "#2563eb" }}
                   />
@@ -394,12 +388,6 @@ export default function AdminDashboard({
               <h3 className="text-sm font-semibold mb-4">Ingressos vendidos — últimos 30 dias</h3>
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={ticketsByDay} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="colorTickets" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis
                     dataKey="date"
@@ -421,7 +409,7 @@ export default function AdminDashboard({
                     dataKey="tickets"
                     stroke="#3b82f6"
                     strokeWidth={2}
-                    fill="url(#colorTickets)"
+                    fill="transparent"
                     dot={false}
                     activeDot={{ r: 4, fill: "#3b82f6" }}
                   />
@@ -479,7 +467,7 @@ export default function AdminDashboard({
               const pct = Math.min(100, Math.round((sold / capacity) * 100));
 
               return (
-                <div key={event.id} className="px-6 py-4 hover:bg-muted/20 transition-colors">
+                <div key={event.id} className="px-6 py-4 hover:bg-muted/20">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-sm truncate">{event.title}</div>
@@ -506,7 +494,7 @@ export default function AdminDashboard({
                         </div>
                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full ${pct === 100 ? "bg-red-500" : "bg-primary"} transition-all`}
+                            className={`h-full ${pct === 100 ? "bg-red-500" : "bg-primary"}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>

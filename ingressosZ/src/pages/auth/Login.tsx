@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/auth/useAuth";
+﻿import { useAuth } from "@/hooks/auth/useAuth";
 import { FirebaseError } from "firebase/app";
 import {
   sendPasswordResetEmail,
@@ -141,7 +141,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen page-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">

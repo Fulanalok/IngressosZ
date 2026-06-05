@@ -61,7 +61,7 @@ function HomePage() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
       <main className="page-container">
         <section className="grid gap-8 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:py-12">
           <div className="max-w-xl">
@@ -277,7 +277,7 @@ function HomePage() {
             <div className="grid gap-5 md:grid-cols-2">
               {isOrganizer && (
                 <Link to="/admin" className="group">
-                  <Card className="transition-all group-hover:border-primary group-hover:shadow-md">
+                  <Card className="group-hover:border-primary group-hover:shadow-md">
                     <CardHeader className="flex flex-row items-center gap-4">
                       <div>
                         <CardTitle>Painel Administrativo</CardTitle>
@@ -292,7 +292,7 @@ function HomePage() {
 
               {canValidate && (
                 <Link to="/validador" className="group">
-                  <Card className="transition-all group-hover:border-primary group-hover:shadow-md">
+                  <Card className="group-hover:border-primary group-hover:shadow-md">
                     <CardHeader className="flex flex-row items-center gap-4">
                       <div>
                         <CardTitle>Validador de Ingressos</CardTitle>

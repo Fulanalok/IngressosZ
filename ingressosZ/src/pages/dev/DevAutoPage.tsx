@@ -38,7 +38,7 @@ function DevAutoPage() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center">
+    <div className="min-h-screen page-bg flex items-center justify-center">
       <div className="card p-6 text-center">
         <h1 className="text-2xl font-bold text-foreground mb-2">
           Dev Auto Setup

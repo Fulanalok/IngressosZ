@@ -139,7 +139,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                 return (
                   <label
                     key={type}
-                    className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                       isSoldOut
                         ? "opacity-50 cursor-not-allowed border-border bg-muted/50"
                         : selectedTicketType === type

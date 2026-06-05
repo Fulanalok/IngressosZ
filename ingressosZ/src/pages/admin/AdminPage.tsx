@@ -48,18 +48,18 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop */}
+      {/* Overlay */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={handleClose}
       />
 
       {/* Drawer panel */}
-      <div className="relative z-10 h-full w-full max-w-xl bg-background border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="relative z-10 h-full w-full max-w-xl bg-background border-l border-border shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b shrink-0 bg-primary/5">
           <div>
-            <h2 className="text-xl font-bold blue-gradient-text">
+            <h2 className="text-xl font-bold text-primary">
               {currentEvent ? "Editar Evento" : "Novo Evento"}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -232,7 +232,7 @@ export default function AdminPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight blue-gradient-text">
+              <h1 className="text-4xl font-extrabold tracking-tight text-primary">
                 Painel do Organizador
               </h1>
               <div className="flex items-center gap-3 mt-1">

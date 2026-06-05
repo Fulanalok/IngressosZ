@@ -98,18 +98,10 @@ export async function printTicket(ticket: Ticket): Promise<void> {
 
     /* ── Header ── */
     .ticket-header {
-      background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+      background: #1d4ed8;
       padding: 28px 32px 24px;
       position: relative;
       overflow: hidden;
-    }
-    .ticket-header::after {
-      content: '';
-      position: absolute;
-      top: -40px; right: -40px;
-      width: 140px; height: 140px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.07);
     }
     .brand {
       font-size: 10px;

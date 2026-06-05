@@ -23,7 +23,7 @@ function Section({
 }
 export default function TermsPage() {
   return (
-    <div className="min-h-screen gradient-bg pt-20 pb-16 px-4">
+    <div className="min-h-screen page-bg pt-20 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
         <Link
           to="/"
@@ -33,13 +33,13 @@ export default function TermsPage() {
           Voltar ao início
         </Link>
 
-        <div className="glass-card p-8 md:p-10 mb-6">
+        <div className="surface-card p-8 md:p-10 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-primary/10 p-3 rounded-xl">
               <FileText className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-extrabold blue-gradient-text">
+              <h1 className="text-3xl font-extrabold text-primary">
                 Termos de Uso
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -54,7 +54,7 @@ export default function TermsPage() {
           </p>
         </div>
 
-        <div className="glass-card p-8 md:p-10 space-y-2">
+        <div className="surface-card p-8 md:p-10 space-y-2">
           <Section title="1. Identificação">
             <p>
               <strong className="text-foreground">Responsável:</strong>{" "}

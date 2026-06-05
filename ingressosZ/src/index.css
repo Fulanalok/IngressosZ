@@ -1,9 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 /*
   Base de estilização compatível com shadcn/ui em Tailwind v4.
-  - Estética Monocromática Azul Premium.
 */
 
 :root {
@@ -117,27 +116,27 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-primary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:shadow-md hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-primary text-primary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:bg-secondary/80 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-secondary text-secondary-foreground font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:bg-secondary/80 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-success {
-    @apply bg-accent text-accent-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-accent text-accent-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .btn-danger {
-    @apply bg-destructive text-destructive-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply bg-destructive text-destructive-foreground font-semibold px-6 py-2.5 rounded-xl shadow-md hover:opacity-95 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
   }
 
   .card {
-    @apply bg-card text-card-foreground rounded-lg shadow-sm border-border border p-5 transition-all hover:shadow-md hover:border-primary/30;
+    @apply bg-card text-card-foreground rounded-lg shadow-sm border-border border p-5 hover:border-primary/30;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-background text-foreground border border-border rounded-xl ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all;
+    @apply w-full px-4 py-3 bg-background text-foreground border border-border rounded-xl ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-colors;
   }
 
   .nav-link {
@@ -147,20 +146,16 @@
   .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
 
   .dark-toggle {
-    @apply fixed top-6 right-6 z-50 bg-card text-foreground hover:bg-muted p-2.5 rounded-full shadow-xl border border-border/50 backdrop-blur-md transition-all active:scale-90;
+    @apply fixed top-6 right-6 z-50 bg-card text-foreground hover:bg-muted p-2.5 rounded-full shadow-xl border border-border/50 transition-colors;
   }
 
-  .glass-card {
-    @apply bg-card/85 backdrop-blur-xl border border-border/70 rounded-lg shadow-xl;
+  .surface-card {
+    @apply bg-card border border-border rounded-lg shadow-sm;
   }
 
-  .gradient-bg { @apply bg-background; }
+  .page-bg { @apply bg-background; }
 
   .nav-bg {
-    @apply bg-background/92 backdrop-blur-md sticky top-0 z-40 border-b border-border/70;
-  }
-
-  .blue-gradient-text {
-    @apply text-primary;
+    @apply bg-background sticky top-0 z-40 border-b border-border/70;
   }
 }

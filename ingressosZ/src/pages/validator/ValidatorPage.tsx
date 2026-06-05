@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Card,
@@ -104,7 +104,7 @@ function ValidatorPage() {
   const userRole = normalizeUserRole(userProfile?.role);
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">

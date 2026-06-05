@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,7 @@ function DocView() {
   }, []);
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Documentação do Sistema (DocView)</h1>

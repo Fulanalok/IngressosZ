@@ -112,7 +112,7 @@ export default function AttendeeList({
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-background/95 z-50 flex items-center justify-center p-4">
       <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="p-6 border-b flex justify-between items-center bg-muted/50">
           <div>

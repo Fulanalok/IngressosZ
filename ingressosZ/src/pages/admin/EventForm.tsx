@@ -502,7 +502,7 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-md border border-white/30 transition-colors"
+              className="bg-background hover:bg-muted text-foreground text-xs font-semibold px-3 py-1.5 rounded-md border border-border transition-colors"
             >
               Trocar imagem
             </button>
@@ -532,10 +532,10 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full h-40 rounded-lg border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-3 select-none
+          className={`w-full h-40 rounded-lg border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 select-none
             ${
               isDragging
-                ? "border-primary bg-primary/5 scale-[1.01]"
+                ? "border-primary bg-primary/5"
                 : "border-border bg-muted/20 hover:border-primary/50 hover:bg-muted/40"
             }`}
         >

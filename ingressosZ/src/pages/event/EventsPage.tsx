@@ -85,7 +85,7 @@ function EventsPage() {
 
   if (status === "pending" && events.length === 0) {
     return (
-      <div className="min-h-screen gradient-bg">
+      <div className="min-h-screen page-bg">
         <header className="nav-bg py-6">
           <div className="page-container">
             <Skeleton className="h-10 w-64 mb-4" />
@@ -106,7 +106,7 @@ function EventsPage() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-12 glass-card max-w-md mx-auto">
+        <div className="text-center p-12 surface-card max-w-md mx-auto">
           <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <RefreshCcw className="h-8 w-8" />
           </div>
@@ -121,11 +121,11 @@ function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <header className="py-12 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-navy/30">
+    <div className="min-h-screen page-bg">
+      <header className="border-b border-border py-10">
         <div className="page-container">
-          <h1 className="text-5xl font-black tracking-tighter text-foreground mb-3 leading-tight">
-            Descubra <span className="blue-gradient-text">Experiências</span>
+          <h1 className="mb-3 text-4xl font-bold leading-tight text-foreground">
+            Descubra <span className="text-primary">Experiências</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl font-medium">
             Explore os melhores eventos curados para você.
@@ -133,25 +133,25 @@ function EventsPage() {
         </div>
       </header>
 
-      <div className="sticky top-20 z-30 bg-background/80 backdrop-blur-xl border-y border-border/50 py-6 transition-all shadow-sm">
+      <div className="sticky top-20 z-30 border-b border-border bg-background py-6 shadow-sm">
         <div className="page-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="relative group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <Input
               type="text"
               placeholder="Buscar por nome..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12 bg-card/50 border-border/50 rounded-xl focus:ring-primary/20 transition-all font-medium"
+              className="pl-10 h-12 bg-card border-border/50 rounded-xl focus:ring-primary/20 font-medium"
             />
           </div>
 
           <div className="relative group">
-            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="w-full h-12 rounded-xl border border-border/50 bg-card/50 pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-foreground cursor-pointer"
+              className="w-full h-12 rounded-xl border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
             >
               {locations.map((loc) => (
                 <option key={loc as string} value={loc as string}>
@@ -163,11 +163,11 @@ function EventsPage() {
           </div>
 
           <div className="relative group">
-            <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full h-12 rounded-xl border border-border/50 bg-card/50 pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-foreground cursor-pointer"
+              className="w-full h-12 rounded-xl border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
             >
               {categories.map((cat) => (
                 <option key={cat as string} value={cat as string}>
@@ -179,7 +179,7 @@ function EventsPage() {
           </div>
 
           <div className="relative group">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-muted-foreground group-focus-within:text-primary transition-colors">R$</span>
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-muted-foreground group-focus-within:text-primary">R$</span>
             <Input
               type="number"
               placeholder="Preço máximo"
@@ -187,7 +187,7 @@ function EventsPage() {
               onChange={(e) =>
                 setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
               }
-              className="pl-10 h-12 bg-card/50 border-border/50 rounded-xl focus:ring-primary/20 transition-all font-medium"
+              className="pl-10 h-12 bg-card border-border/50 rounded-xl focus:ring-primary/20 font-medium"
               min="0"
             />
           </div>
@@ -202,7 +202,7 @@ function EventsPage() {
           </div>
         )}
         <div
-          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 transition-opacity duration-300 ${
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 ${
             isFiltering ? "opacity-60" : "opacity-100"
           }`}
         >

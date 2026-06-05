@@ -59,7 +59,7 @@ function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
       <div className="page-container py-12">
         <div className="max-w-2xl mx-auto bg-card border border-border rounded-xl shadow-sm p-8">
           {/* Avatar e nome */}

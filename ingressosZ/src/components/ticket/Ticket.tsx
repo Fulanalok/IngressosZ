@@ -45,8 +45,8 @@ function Ticket({ ticket }: TicketProps) {
   return (
     <div
       data-testid="ticket-card"
-      className={`bg-card text-card-foreground rounded-2xl border border-border/50 shadow-xl hover:shadow-2xl transition-all duration-500 overflow-hidden group ${
-        !isValid ? "opacity-60 grayscale-[0.5]" : ""
+      className={`bg-card text-card-foreground rounded-2xl border border-border/50 shadow-sm overflow-hidden group ${
+        !isValid ? "opacity-60" : ""
       }`}
     >
       {/* Colored top strip */}
@@ -59,7 +59,7 @@ function Ticket({ ticket }: TicketProps) {
       <div className="p-5">
         {/* Header row */}
         <div className="flex items-start justify-between gap-4 mb-5">
-          <h2 className="text-lg font-extrabold blue-gradient-text leading-tight line-clamp-2 flex-1 group-hover:tracking-tight transition-all">
+          <h2 className="text-lg font-extrabold text-primary leading-tight line-clamp-2 flex-1">
             {ticket.eventTitle || "Evento"}
           </h2>
           <span
@@ -141,8 +141,8 @@ function Ticket({ ticket }: TicketProps) {
 
             {/* QR Code panel */}
             {showQR && ticket.qrCode && (
-              <div className="animate-in slide-in-from-top-4 fade-in duration-300 text-center pt-4">
-                <div className="inline-block bg-white p-4 rounded-2xl shadow-2xl border border-primary/10 group-hover:scale-[1.02] transition-transform">
+              <div className="text-center pt-4">
+                <div className="inline-block bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
                   <QRCodeDisplay qrCode={ticket.qrCode} size={160} />
                   <div className="mt-3 pt-3 border-t border-dashed border-gray-100">
                     <p className="text-[9px] text-muted-foreground font-mono break-all opacity-50 uppercase tracking-tighter">

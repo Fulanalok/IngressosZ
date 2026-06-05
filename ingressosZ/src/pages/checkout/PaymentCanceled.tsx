@@ -1,10 +1,10 @@
-import { Link } from "react-router";
+﻿import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 
 function PaymentCanceled() {
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
 
       <main className="page-container py-10">
         <Card className="text-center">

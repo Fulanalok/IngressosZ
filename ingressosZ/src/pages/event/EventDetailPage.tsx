@@ -68,17 +68,17 @@ export function EventDetailPage() {
       <div className="page-container max-w-4xl">
         <button 
             onClick={() => navigate(-1)} 
-            className="flex items-center text-primary hover:opacity-80 mb-6 font-bold transition-all group"
+            className="flex items-center text-primary hover:opacity-80 mb-6 font-bold group"
         >
-            <ChevronLeft className="mr-1 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+            <ChevronLeft className="mr-1 h-5 w-5" />
             Voltar
         </button>
 
-        <div className="card !p-0 overflow-hidden border-none shadow-2xl">
+        <div className="card !p-0 overflow-hidden shadow-sm">
           {event.image && (
             <div className="relative h-80 overflow-hidden">
                <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+               <div className="absolute inset-0 bg-black/45"></div>
                <div className="absolute bottom-6 left-8">
                  <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
                    {event.category}
@@ -137,7 +137,7 @@ export function EventDetailPage() {
                  </div>
                  <div>
                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Disponibilidade</p>
-                   <p className={`font-bold transition-all duration-500 ${
+                   <p className={`font-bold ${
                      event.availableTickets <= 10 ? "text-red-600" : "text-foreground"
                    }`}>
                      {event.availableTickets} ingressos disponíveis
@@ -157,11 +157,11 @@ export function EventDetailPage() {
                 <div className="flex flex-col items-center">
                   <div className="mb-4 text-center">
                     <p className="text-sm text-muted-foreground font-medium mb-1">Acesso garantido</p>
-                    <p className="text-3xl font-extrabold blue-gradient-text">R$ {(event.price || 0).toFixed(2)}</p>
+                    <p className="text-3xl font-extrabold text-primary">R$ {(event.price || 0).toFixed(2)}</p>
                   </div>
                   <button 
                     onClick={() => setShowPurchase(true)} 
-                    className="btn-primary w-full py-5 text-lg shadow-blue-500/25 shadow-xl hover:scale-[1.02] transition-transform"
+                    className="btn-primary w-full py-5 text-lg shadow-sm"
                   >
                     🚀 Comprar Agora
                   </button>

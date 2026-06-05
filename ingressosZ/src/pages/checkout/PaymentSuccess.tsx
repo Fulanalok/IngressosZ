@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router";
+﻿import { Link, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
@@ -6,7 +6,7 @@ function PaymentSuccess() {
   const { sessionId } = useParams<{ sessionId: string }>();
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
 
       <main className="page-container py-10">
         <Card className="text-center">

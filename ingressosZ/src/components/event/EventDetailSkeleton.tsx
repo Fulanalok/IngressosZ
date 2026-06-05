@@ -1,8 +1,8 @@
-import { Skeleton } from '@/components/ui/skeleton';
+﻿import { Skeleton } from '@/components/ui/skeleton';
 
 export function EventDetailSkeleton() {
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen page-bg">
       <div className="h-[400px] w-full bg-muted animate-pulse" />
       <div className="max-w-4xl mx-auto -mt-32 relative z-10 p-4">
         <div className="bg-card rounded-xl shadow-xl overflow-hidden p-8 space-y-6">

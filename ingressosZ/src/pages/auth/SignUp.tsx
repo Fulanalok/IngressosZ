@@ -118,7 +118,7 @@ function SignUp() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen page-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -126,7 +126,7 @@ function SignUp() {
             Crie sua conta
           </h2>
           <p className="text-muted-foreground">
-            Junte-se ao <span className="blue-gradient-text font-bold">IngressosZ</span> e descubra eventos incríveis
+            Junte-se ao <span className="text-primary font-bold">IngressosZ</span> e descubra eventos incríveis
           </p>
         </div>
 
@@ -275,9 +275,9 @@ function SignUp() {
         </Card>
 
         {/* Benefits */}
-        <div className="glass-card p-8 border border-border/50">
+        <div className="surface-card p-8 border border-border/50">
           <h3 className="text-xl font-extrabold text-foreground mb-6">
-            Por que escolher o <span className="blue-gradient-text">IngressosZ</span>?
+            Por que escolher o <span className="text-primary">IngressosZ</span>?
           </h3>
           <div className="grid grid-cols-1 gap-4">
             {[

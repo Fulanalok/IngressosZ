@@ -37,7 +37,7 @@ const DocViewPage = import.meta.env.DEV
 
 function NotFound() {
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center">
+    <div className="min-h-screen page-bg flex items-center justify-center">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">
           Pagina nao encontrada

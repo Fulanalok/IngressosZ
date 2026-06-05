@@ -19,7 +19,7 @@ function MyTicketsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen gradient-bg transition-colors">
+      <div className="min-h-screen page-bg">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center mb-8 space-y-4">
             <Skeleton className="h-16 w-16 rounded-full mx-auto" />
@@ -36,12 +36,12 @@ function MyTicketsPage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg transition-colors">
+    <div className="min-h-screen page-bg">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-5xl font-black tracking-tighter text-foreground mb-3 leading-tight">
-            Meus <span className="blue-gradient-text">Ingressos</span>
+          <h1 className="mb-3 text-4xl font-bold leading-tight text-foreground">
+            Meus <span className="text-primary">Ingressos</span>
           </h1>
           <p className="text-lg text-muted-foreground font-medium">
             Gerencie seus acessos e prepare-se para a diversão.
@@ -50,7 +50,7 @@ function MyTicketsPage() {
 
         {/* Error State */}
         {error && (
-          <div className="glass-card max-w-md mx-auto text-center p-10 mb-12 border-red-100/20">
+          <div className="surface-card max-w-md mx-auto text-center p-10 mb-12 border-red-100/20">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <RefreshCcw className="h-8 w-8" />
             </div>
@@ -67,8 +67,8 @@ function MyTicketsPage() {
           <>
             {tickets.length === 0 ? (
               /* Empty State */
-              <div className="glass-card max-w-lg mx-auto text-center p-12">
-                <div className="w-20 h-20 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform">
+              <div className="surface-card max-w-lg mx-auto text-center p-12">
+                <div className="w-20 h-20 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mx-auto mb-8">
                   <TicketIcon className="h-10 w-10" />
                 </div>
                 <h2 className="text-3xl font-extrabold text-foreground mb-4">
@@ -86,7 +86,7 @@ function MyTicketsPage() {
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-card/60 backdrop-blur-sm p-6 rounded-3xl border border-border/50 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-card p-6 rounded-3xl border border-border/50 shadow-sm">
                   <h2 className="text-2xl font-extrabold text-foreground">
                     Seus Ingressos <span className="text-primary/60 ml-2">({tickets.length})</span>
                   </h2>
@@ -111,30 +111,29 @@ function MyTicketsPage() {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="p-8 rounded-3xl bg-gradient-to-br from-primary to-accent relative overflow-hidden shadow-2xl shadow-blue-500/20 mt-16 group">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl transition-transform group-hover:scale-110"></div>
+                <div className="p-8 rounded-3xl bg-card border border-border relative overflow-hidden shadow-sm mt-16">
                   <div className="relative z-10">
-                    <h3 className="text-2xl font-extrabold text-white mb-6">Ações Rápidas</h3>
+                    <h3 className="text-2xl font-extrabold text-foreground mb-6">Ações Rápidas</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       <Link
                         to="/eventos"
-                        className="flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl p-6 transition-all group/action"
+                        className="flex items-center justify-between bg-background hover:bg-muted rounded-2xl p-6"
                       >
                         <div className="text-left">
-                          <div className="font-bold text-white text-lg">Explorar Eventos</div>
-                          <div className="text-white/70 text-sm">Encontre sua próxima diversão</div>
+                          <div className="font-bold text-foreground text-lg">Explorar Eventos</div>
+                          <div className="text-muted-foreground text-sm">Encontre sua próxima diversão</div>
                         </div>
-                        <Compass className="h-6 w-6 text-white group-hover/action:rotate-12 transition-transform" />
+                        <Compass className="h-6 w-6 text-primary" />
                       </Link>
                       <Link
                         to="/perfil"
-                        className="flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-2xl p-6 transition-all group/action"
+                        className="flex items-center justify-between bg-background hover:bg-muted rounded-2xl p-6"
                       >
                         <div className="text-left">
-                          <div className="font-bold text-white text-lg">Meu Perfil</div>
-                          <div className="text-white/70 text-sm">Gerenciar sua conta</div>
+                          <div className="font-bold text-foreground text-lg">Meu Perfil</div>
+                          <div className="text-muted-foreground text-sm">Gerenciar sua conta</div>
                         </div>
-                        <User className="h-6 w-6 text-white group-hover/action:scale-110 transition-transform" />
+                        <User className="h-6 w-6 text-primary" />
                       </Link>
                     </div>
                   </div>
