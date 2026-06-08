@@ -104,14 +104,14 @@ describe("EventDetailPage", () => {
     eventState.data = mockEvent;
     authState.user = null;
     render(<EventDetailPage />);
-    expect(screen.getByText(/Comprar Agora/)).toBeInTheDocument();
+    expect(screen.getByText(/Comprar ingresso/)).toBeInTheDocument();
   });
 
   it("shows purchase modal when user clicks buy", () => {
     eventState.data = mockEvent;
     authState.user = null;
     render(<EventDetailPage />);
-    fireEvent.click(screen.getByText(/Comprar Agora/));
+    fireEvent.click(screen.getByText(/Comprar ingresso/));
     expect(screen.getByTestId("ticket-purchase")).toBeInTheDocument();
   });
 });

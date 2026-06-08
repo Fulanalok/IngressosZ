@@ -94,8 +94,8 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
 
   if (paymentStatus === "succeeded") {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-background rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+        <div className="w-full max-w-md border border-border bg-background p-8 text-center shadow-xl">
           <StatusScreen
             initialization={{ paymentId: "" }}
             onReady={() => {}}
@@ -110,23 +110,28 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col border border-border bg-background shadow-xl">
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-border">
-          <h2 className="text-xl font-bold text-foreground">
-            Comprar Ingressos
-          </h2>
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Checkout
+            </p>
+            <h2 className="mt-1 text-2xl font-bold text-foreground">
+              Comprar Ingressos
+            </h2>
+          </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto">
+        <div className="space-y-6 overflow-y-auto p-6">
           {/* Seletor de Tipo de Ingresso */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-3">
+            <label className="mb-3 block text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground">
               Tipo de Ingresso
             </label>
             <div className="space-y-3">
@@ -139,7 +144,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                 return (
                   <label
                     key={type}
-                    className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex cursor-pointer items-center border-2 p-4 transition-colors ${
                       isSoldOut
                         ? "opacity-50 cursor-not-allowed border-border bg-muted/50"
                         : selectedTicketType === type
@@ -201,7 +206,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
           <div>
             <label
               htmlFor="quantity-select"
-              className="block text-sm font-medium text-foreground mb-2"
+              className="mb-2 block text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground"
             >
               Quantidade
             </label>
@@ -210,7 +215,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value))}
               disabled={maxQuantity === 0}
-              className="w-full px-4 py-3 border border-input rounded-md bg-background"
+              className="w-full border border-input bg-background px-4 py-3"
             >
               {maxQuantity > 0 ? (
                 Array.from(
@@ -239,8 +244,8 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 mt-auto border-t border-border bg-muted/50 rounded-b-2xl">
-          <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="mt-auto border-t border-border bg-card p-6">
+          <div className="mb-4 grid grid-cols-2 gap-2">
             <Button
               variant={paymentMethod === "checkout" ? "default" : "outline"}
               onClick={() => setPaymentMethod("checkout")}
@@ -270,7 +275,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                   <QRCodeDisplay qrCode={pixData.qrCode} size={170} />
                 )}
               </div>
-              <div className="text-xs text-muted-foreground font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">
+              <div className="break-all border border-border bg-background p-3 font-mono text-xs text-muted-foreground">
                 {pixData.qrCode}
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -304,8 +309,8 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                   Configure a chave pública do Mercado Pago para continuar.
                 </p>
               )}
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-lg font-medium text-foreground">
+              <div className="mb-4 flex items-end justify-between">
+                <span className="text-sm font-bold uppercase tracking-[0.08em] text-muted-foreground">
                   Total:
                 </span>
                 <span className="text-3xl font-bold text-primary">
@@ -323,7 +328,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
                   (paymentMethod === "checkout" && !hasPublicKey) ||
                   !user
                 }
-                className="w-full h-12 text-lg"
+                className="h-12 w-full text-base"
               >
                 {checkoutLoading || paymentStatus === "processing"
                   ? "Processando..."

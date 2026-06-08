@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router";
 import { Helmet } from "@dr.pogodin/react-helmet";
+import { Calendar, ChevronLeft, Clock, Info, MapPin } from "lucide-react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { ShareButtons, TicketPurchase } from "@/components/event";
 import { EventDetailSkeleton } from "@/components/event/EventDetailSkeleton";
-import { useEvent } from "@/hooks/event/useEvents";
 import { useAuth } from "@/hooks/auth/useAuth";
-import { TicketPurchase, ShareButtons } from "@/components/event";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Calendar, Clock, MapPin, ChevronLeft, Info } from "lucide-react";
+import { useEvent } from "@/hooks/event/useEvents";
+import { formatDisplayDate } from "@/lib/date";
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -22,7 +22,7 @@ export function EventDetailPage() {
 
   if (status === "error") {
     return (
-      <div className="text-center py-10 text-red-500">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center text-red-400">
         Erro ao carregar o evento: {error?.message}
       </div>
     );
@@ -30,27 +30,30 @@ export function EventDetailPage() {
 
   if (!event) {
     return (
-      <div className="text-center py-20 bg-background">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-500 mb-6">
-          <Info className="h-8 w-8" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-center">
+        <div className="max-w-md">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center border border-border text-primary">
+            <Info className="h-8 w-8" />
+          </div>
+          <h2 className="mb-4 text-3xl font-bold text-foreground">
+            Evento não encontrado
+          </h2>
+          <p className="mb-8 text-muted-foreground">
+            O evento que você está procurando não existe ou foi movido.
+          </p>
+          <button onClick={() => navigate("/")} className="btn-primary">
+            Voltar para Home
+          </button>
         </div>
-        <h2 className="text-3xl font-extrabold mb-4 text-foreground">Evento não encontrado</h2>
-        <p className="mb-8 text-muted-foreground max-w-md mx-auto">O evento que você está procurando não existe ou foi movido. Verifique o link ou retorne à página inicial.</p>
-        <button 
-          onClick={() => navigate("/")} 
-          className="btn-primary"
-        >
-          Voltar para Home
-        </button>
       </div>
     );
   }
 
-  const eventDate = new Date(event.date);
-  const formattedDate = format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const formattedDate = formatDisplayDate(event.date);
   const pageTitle = `${event.title} - IngressosZ`;
   const pageDescription = event.description.substring(0, 160);
   const pageUrl = window.location.href;
+  const isLowStock = event.availableTickets > 0 && event.availableTickets <= 10;
 
   return (
     <>
@@ -65,126 +68,158 @@ export function EventDetailPage() {
         <meta name="twitter:card" content="summary_large_image" />
       </Helmet>
 
-      <div className="page-container max-w-4xl">
-        <button 
-            onClick={() => navigate(-1)} 
-            className="flex items-center text-primary hover:opacity-80 mb-6 font-bold group"
+      <div className="page-container max-w-6xl">
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 flex items-center text-sm font-bold text-primary hover:opacity-80"
         >
-            <ChevronLeft className="mr-1 h-5 w-5" />
-            Voltar
+          <ChevronLeft className="mr-1 h-5 w-5" />
+          Voltar
         </button>
 
-        <div className="card !p-0 overflow-hidden shadow-sm">
-          {event.image && (
-            <div className="relative h-80 overflow-hidden">
-               <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
-               <div className="absolute inset-0 bg-black/45"></div>
-               <div className="absolute bottom-6 left-8">
-                 <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
-                   {event.category}
-                 </span>
-               </div>
-            </div>
-          )}
-          <div className="p-8 md:p-10">
-            <h1 className="text-4xl md:text-5xl font-extrabold text-foreground mb-6 leading-tight">
-              {event.title}
-            </h1>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-               <div className="flex items-center p-4 rounded-2xl bg-secondary/30 border border-primary/5">
-                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mr-4 text-primary">
-                   <Calendar className="h-5 w-5" />
-                 </div>
-                 <div>
-                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Data</p>
-                   <p className="font-bold text-foreground capitalize">{formattedDate}</p>
-                 </div>
-               </div>
-
-               <div className="flex items-center p-4 rounded-2xl bg-secondary/30 border border-primary/5">
-                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mr-4 text-primary">
-                   <Clock className="h-5 w-5" />
-                 </div>
-                 <div>
-                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Horário</p>
-                   <p className="font-bold text-foreground">{event.time}</p>
-                 </div>
-               </div>
-
-               <div className="flex items-center p-4 rounded-2xl bg-secondary/30 border border-primary/5">
-                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mr-4 text-primary">
-                   <MapPin className="h-5 w-5" />
-                 </div>
-                 <div>
-                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Local</p>
-                   <a 
-                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`} 
-                     target="_blank" 
-                     rel="noopener noreferrer" 
-                     className="font-bold text-foreground hover:text-primary transition-colors line-clamp-1"
-                   >
-                     {event.location}
-                   </a>
-                 </div>
-               </div>
-
-               <div className="flex items-center p-4 rounded-2xl bg-secondary/30 border border-primary/5">
-                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 ${
-                   event.availableTickets <= 10 ? "bg-red-100 text-red-600 animate-pulse" : "bg-primary/10 text-primary"
-                 }`}>
-                   <span className="font-black text-xs">#</span>
-                 </div>
-                 <div>
-                   <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Disponibilidade</p>
-                   <p className={`font-bold ${
-                     event.availableTickets <= 10 ? "text-red-600" : "text-foreground"
-                   }`}>
-                     {event.availableTickets} ingressos disponíveis
-                   </p>
-                 </div>
-               </div>
-            </div>
-
-            <div className="prose prose-lg max-w-none text-muted-foreground mb-10 leading-relaxed border-l-4 border-primary/10 pl-6 py-2 italic font-medium">
-               {event.description}
-            </div>
-
-            <ShareButtons url={pageUrl} title={event.title} />
-
-            <div className="mt-4 pt-10 border-t border-border/50">
-              {event.availableTickets > 0 ? (
-                <div className="flex flex-col items-center">
-                  <div className="mb-4 text-center">
-                    <p className="text-sm text-muted-foreground font-medium mb-1">Acesso garantido</p>
-                    <p className="text-3xl font-extrabold text-primary">R$ {(event.price || 0).toFixed(2)}</p>
+        <div className="overflow-hidden border border-border bg-card">
+          <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
+            <section>
+              {event.image && (
+                <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                  <img
+                    src={event.image}
+                    alt={event.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute left-5 top-5 border border-border bg-background/95 px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-foreground">
+                    {event.category}
                   </div>
-                  <button 
-                    onClick={() => setShowPurchase(true)} 
-                    className="btn-primary w-full py-5 text-lg shadow-sm"
-                  >
-                    🚀 Comprar Agora
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center bg-red-50 p-6 rounded-2xl border border-red-100">
-                  <p className="font-extrabold text-red-600 text-xl mb-1">⚡ Ingressos Esgotados!</p>
-                  <p className="text-red-500 text-sm">Fique atento para novas edições deste evento.</p>
                 </div>
               )}
-            </div>
+
+              <div className="p-6 md:p-8">
+                <h1 className="mb-5 text-4xl font-bold leading-tight text-foreground md:text-5xl">
+                  {event.title}
+                </h1>
+
+                <div className="mb-8 border-l-2 border-primary pl-5 text-base leading-8 text-muted-foreground">
+                  {event.description}
+                </div>
+
+                <ShareButtons url={pageUrl} title={event.title} />
+              </div>
+            </section>
+
+            <aside className="border-t border-border bg-background/40 p-6 md:p-8 lg:border-l lg:border-t-0">
+              <div className="mb-6">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Compra online
+                </p>
+                <p className="mt-2 text-3xl font-bold text-foreground">
+                  R$ {(event.price || 0).toFixed(2)}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Valor inicial por ingresso.
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                <InfoRow
+                  icon={<Calendar className="h-5 w-5" />}
+                  label="Data"
+                  value={formattedDate}
+                />
+                <InfoRow
+                  icon={<Clock className="h-5 w-5" />}
+                  label="Horário"
+                  value={event.time}
+                />
+                <InfoRow
+                  icon={<MapPin className="h-5 w-5" />}
+                  label="Local"
+                  value={event.location}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    event.address
+                  )}`}
+                />
+                <InfoRow
+                  icon={<span className="text-xs font-black">#</span>}
+                  label="Disponibilidade"
+                  value={`${event.availableTickets} ingressos disponíveis`}
+                  danger={isLowStock}
+                />
+              </div>
+
+              <div className="mt-6 border-t border-border pt-6">
+                {event.availableTickets > 0 ? (
+                  <button
+                    onClick={() => setShowPurchase(true)}
+                    className="btn-primary w-full py-4 text-base"
+                  >
+                    Comprar ingresso
+                  </button>
+                ) : (
+                  <div className="border border-red-900/50 bg-red-950/30 p-6 text-center">
+                    <p className="mb-1 text-xl font-bold text-red-300">
+                      Ingressos esgotados
+                    </p>
+                    <p className="text-sm text-red-200">
+                      Fique atento para novas edições deste evento.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </aside>
           </div>
         </div>
 
         {showPurchase && (
-          <TicketPurchase 
-            event={event} 
-            user={user} 
-            onClose={() => setShowPurchase(false)} 
+          <TicketPurchase
+            event={event}
+            user={user}
+            onClose={() => setShowPurchase(false)}
           />
         )}
       </div>
     </>
+  );
+}
+
+interface InfoRowProps {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  href?: string;
+  danger?: boolean;
+}
+
+function InfoRow({ icon, label, value, href, danger = false }: InfoRowProps) {
+  const valueClass = danger ? "text-red-300" : "text-foreground";
+  const content = href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`font-bold transition-colors hover:text-primary ${valueClass}`}
+    >
+      {value}
+    </a>
+  ) : (
+    <p className={`font-bold ${valueClass}`}>{value}</p>
+  );
+
+  return (
+    <div className="flex items-center border border-border bg-card p-4">
+      <div
+        className={`mr-4 flex h-10 w-10 items-center justify-center border border-border ${
+          danger ? "text-red-300" : "text-primary"
+        }`}
+      >
+        {icon}
+      </div>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          {label}
+        </p>
+        {content}
+      </div>
+    </div>
   );
 }
 
