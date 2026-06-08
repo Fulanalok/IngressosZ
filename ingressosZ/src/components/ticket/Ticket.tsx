@@ -16,9 +16,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  standard: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800",
-  vip: "bg-primary/10 text-primary dark:text-blue-200 border border-primary/20",
-  premium: "bg-primary text-white dark:bg-primary dark:text-navy border border-primary shadow-sm shadow-primary/20",
+  standard: "border border-border bg-background text-foreground",
+  vip: "border border-primary/40 bg-primary/10 text-primary",
+  premium: "border border-primary bg-primary text-primary-foreground",
 };
 
 function Ticket({ ticket }: TicketProps) {
@@ -46,7 +46,7 @@ function Ticket({ ticket }: TicketProps) {
   return (
     <div
       data-testid="ticket-card"
-      className={`bg-card text-card-foreground rounded-2xl border border-border/50 shadow-sm overflow-hidden group ${
+      className={`group overflow-hidden border border-border bg-card text-card-foreground shadow-sm ${
         !isValid ? "opacity-60" : ""
       }`}
     >
@@ -64,7 +64,7 @@ function Ticket({ ticket }: TicketProps) {
             {ticket.eventTitle || "Evento"}
           </h2>
           <span
-            className={`text-[10px] font-black px-3 py-1 rounded-full shrink-0 text-white shadow-sm ${statusClass}`}
+            className={`shrink-0 px-3 py-1 text-[10px] font-black text-white ${statusClass}`}
           >
             {statusLabel}
           </span>
@@ -94,7 +94,7 @@ function Ticket({ ticket }: TicketProps) {
         {/* Ticket type + price row */}
         <div className="flex items-center justify-between mb-5">
           <span
-            className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+            className={`px-2.5 py-1 text-xs font-semibold ${
               TYPE_COLORS[ticket.ticketType] ?? TYPE_COLORS.standard
             }`}
           >
@@ -106,7 +106,7 @@ function Ticket({ ticket }: TicketProps) {
         </div>
 
         {/* Dashed divider */}
-        <div className="border-t border-dashed border-gray-200 dark:border-gray-600 mb-4" />
+        <div className="mb-4 border-t border-dashed border-border" />
 
         {/* Actions */}
         {isValid ? (
@@ -115,7 +115,7 @@ function Ticket({ ticket }: TicketProps) {
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60 py-3 text-sm shadow-blue-500/20"
+              className="btn-primary flex w-full items-center justify-center gap-2 py-3 text-sm disabled:opacity-60"
             >
               <Download className="h-4 w-4" />
               {downloading ? "Gerando PDF..." : "Baixar Ingresso (PDF)"}
@@ -125,7 +125,7 @@ function Ticket({ ticket }: TicketProps) {
             {ticket.qrCode && (
               <button
                 onClick={() => setShowQR((v) => !v)}
-                className="w-full flex items-center justify-center gap-2 border border-border hover:bg-muted py-2 rounded-none text-sm font-medium text-foreground transition-colors"
+                className="flex w-full items-center justify-center gap-2 border border-border py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
               >
                 {showQR ? (
                   <>
@@ -143,10 +143,10 @@ function Ticket({ ticket }: TicketProps) {
 
             {/* QR Code panel */}
             {showQR && ticket.qrCode && (
-              <div className="text-center pt-4">
-                <div className="inline-block bg-white p-4 rounded-2xl shadow-sm border border-primary/10">
+              <div className="pt-4 text-center">
+                <div className="inline-block border border-border bg-white p-4 shadow-sm">
                   <QRCodeDisplay qrCode={ticket.qrCode} size={160} />
-                  <div className="mt-3 pt-3 border-t border-dashed border-gray-100">
+                  <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
                     <p className="text-[9px] text-muted-foreground font-mono break-all opacity-50 uppercase tracking-tighter">
                       ID: {ticket.id.slice(0, 8)}...{ticket.id.slice(-8)}
                     </p>

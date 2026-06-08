@@ -19,7 +19,7 @@ import { logger } from "@/services/logger";
 import { TestDataService } from "@/services/testDataService";
 
 function ValidatorPage() {
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const [ticketCode, setTicketCode] = useState("");
   const [backendStatus, setBackendStatus] = useState<string | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
@@ -105,21 +105,17 @@ function ValidatorPage() {
 
   return (
     <div className="min-h-screen page-bg">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+        <div className="mb-8 border-b border-border pb-8">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Operação de entrada
+          </p>
+          <h1 className="mb-3 text-4xl font-bold text-foreground">
             Validador de Ingressos
           </h1>
-          <p className="text-xl text-muted-foreground">
-            Olá,{" "}
-            <span className="font-semibold text-green-600 dark:text-green-400">
-              {user?.email}
-            </span>
-            !
-          </p>
-          <p className="text-muted-foreground mt-2">
-            Valide ingressos de forma rápida e segura
+          <p className="max-w-2xl text-lg text-muted-foreground">
+            Escaneie ou digite o código do ingresso para liberar a entrada.
           </p>
           {backendStatus && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -141,10 +137,10 @@ function ValidatorPage() {
           }}
         />
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid gap-8 lg:grid-cols-2">
           {/* Validation Form */}
-          <Card>
-            <CardHeader className="text-center">
+          <Card className="rounded-none">
+            <CardHeader>
               <CardTitle className="text-2xl">Validar Ingresso</CardTitle>
               <p className="text-muted-foreground">
                 Digite o código do ingresso para validar
@@ -167,8 +163,8 @@ function ValidatorPage() {
           </Card>
 
           {/* Validation Result */}
-          <Card>
-            <CardHeader className="text-center">
+          <Card className="rounded-none">
+            <CardHeader>
               <CardTitle className="text-2xl">Resultado da Validação</CardTitle>
             </CardHeader>
             <CardContent>
@@ -190,7 +186,7 @@ function ValidatorPage() {
 
         {/* Recent Scans */}
         {recentScans.length > 0 && (
-          <Card className="mt-8">
+          <Card className="mt-8 rounded-none">
             <CardHeader>
               <CardTitle className="text-xl">Histórico Recente</CardTitle>
             </CardHeader>
@@ -199,7 +195,7 @@ function ValidatorPage() {
                 {recentScans.map((scan, index) => (
                   <div
                     key={index}
-                    className={`p-3 rounded border flex justify-between items-center ${
+                    className={`flex items-center justify-between border p-3 ${
                       scan.status === "success"
                         ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
                         : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800"
@@ -235,28 +231,28 @@ function ValidatorPage() {
         )}
 
         {/* Instructions */}
-        <Card className="mt-12">
-          <CardHeader className="text-center">
+        <Card className="mt-12 rounded-none">
+          <CardHeader>
             <CardTitle className="text-xl">Como Validar Ingressos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl mb-2">1️⃣</div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="border border-border p-5">
+                <div className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-primary">01</div>
                 <div className="font-semibold mb-1">Digite o Código</div>
                 <div className="text-sm text-muted-foreground">
                   Insira o código alfanumérico do ingresso
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl mb-2">2️⃣</div>
+              <div className="border border-border p-5">
+                <div className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-primary">02</div>
                 <div className="font-semibold mb-1">Valide</div>
                 <div className="text-sm text-muted-foreground">
                   Clique em validar para verificar autenticidade
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl mb-2">3️⃣</div>
+              <div className="border border-border p-5">
+                <div className="mb-3 text-xs font-bold uppercase tracking-[0.12em] text-primary">03</div>
                 <div className="font-semibold mb-1">Confirme</div>
                 <div className="text-sm text-muted-foreground">
                   Libere a entrada se o ingresso for válido

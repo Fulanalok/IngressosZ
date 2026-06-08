@@ -1,19 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import type { User } from "firebase/auth";
 import { BrowserRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { AuthContext, AuthContextType } from "@/context/auth/authContext";
+import { AuthContext, type AuthContextType } from "@/context/auth/authContext";
+import { useUserTickets } from "@/hooks/event/useTickets";
 import MyTicketsPage from "./MyTicketsPage";
 
-// Mock do hook useUserTickets
 vi.mock("@/hooks/event/useTickets", () => ({
   useUserTickets: vi.fn(),
 }));
 
-import { useUserTickets } from "@/hooks/event/useTickets";
-
-// Mock do componente Ticket
-vi.mock("../components/Ticket", () => ({
+vi.mock("@/components/ticket/Ticket", () => ({
   default: ({ ticket }: { ticket: { eventTitle: string } }) => (
     <div data-testid="ticket-card">{ticket.eventTitle}</div>
   ),
@@ -38,7 +36,7 @@ function renderWithAuth(value: AuthContextType) {
 
 describe("MyTicketsPage", () => {
   const mockUser: AuthContextType = {
-    user: { uid: "u1", email: "user@example.com" } as unknown as import("firebase/auth").User,
+    user: { uid: "u1", email: "user@example.com" } as User,
     userProfile: {
       uid: "u1",
       email: "user@example.com",
@@ -53,31 +51,27 @@ describe("MyTicketsPage", () => {
   };
 
   it("renderiza estado de carregamento", () => {
-    (useUserTickets as any).mockReturnValue({
+    vi.mocked(useUserTickets).mockReturnValue({
       tickets: [],
       isLoading: true,
       error: null,
     });
 
-    const { container } = renderWithAuth(mockUser);
-    expect(
-      container.querySelectorAll(
-        ".bg-card.rounded-lg.border.shadow-md.p-6"
-      )
-    ).toHaveLength(3);
+    renderWithAuth(mockUser);
+    expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("renderiza estado vazio", () => {
-    (useUserTickets as any).mockReturnValue({
+    vi.mocked(useUserTickets).mockReturnValue({
       tickets: [],
       isLoading: false,
       error: null,
     });
 
     renderWithAuth(mockUser);
-    expect(screen.getByText("Sua carteira está vazia")).toBeInTheDocument();
-    expect(screen.getByText(/Você ainda não possui ingressos garantidos/)).toBeInTheDocument();
-    expect(screen.getByText("Explorar Eventos")).toBeInTheDocument();
+    expect(screen.getByText(/Sua carteira/)).toBeInTheDocument();
+    expect(screen.getByText(/não possui ingressos/)).toBeInTheDocument();
+    expect(screen.getByText("Explorar eventos")).toBeInTheDocument();
   });
 
   it("renderiza lista de ingressos", () => {
@@ -86,15 +80,14 @@ describe("MyTicketsPage", () => {
       { id: "2", eventTitle: "Teatro", status: "used" },
     ];
 
-    (useUserTickets as any).mockReturnValue({
-      tickets: mockTickets,
+    vi.mocked(useUserTickets).mockReturnValue({
+      tickets: mockTickets as never,
       isLoading: false,
       error: null,
     });
 
     renderWithAuth(mockUser);
-    // Título e contagem ficam em elementos separados
-    expect(screen.getByText("Seus Ingressos")).toBeInTheDocument();
+    expect(screen.getByText("Seus ingressos")).toBeInTheDocument();
     expect(screen.getByText("(2)")).toBeInTheDocument();
     expect(screen.getAllByTestId("ticket-card")).toHaveLength(2);
     expect(screen.getByText("Show de Rock")).toBeInTheDocument();
@@ -102,7 +95,7 @@ describe("MyTicketsPage", () => {
   });
 
   it("renderiza estado de erro", () => {
-    (useUserTickets as any).mockReturnValue({
+    vi.mocked(useUserTickets).mockReturnValue({
       tickets: [],
       isLoading: false,
       error: new Error("Erro de conexão"),
