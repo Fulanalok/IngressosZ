@@ -87,12 +87,12 @@ function EventsPage() {
     return (
       <div className="min-h-screen page-bg">
         <header className="nav-bg py-6">
-          <div className="page-container">
+          <div className="showcase-container">
             <Skeleton className="h-10 w-64 mb-4" />
             <Skeleton className="h-4 w-48 mb-6" />
           </div>
         </header>
-        <main className="page-container py-8">
+        <main className="showcase-container py-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {[...Array(8)].map((_, i) => (
               <EventCardSkeleton key={i} />
@@ -123,7 +123,7 @@ function EventsPage() {
   return (
     <div className="min-h-screen page-bg">
       <header className="border-b border-border">
-        <div className="page-container py-10">
+        <div className="showcase-container py-10">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Eventos disponíveis
           </p>
@@ -138,8 +138,8 @@ function EventsPage() {
       </header>
 
       <div className="border-b border-border bg-background">
-        <div className="page-container grid grid-cols-1 gap-4 py-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="relative group">
+        <div className="showcase-container grid min-w-0 grid-cols-1 gap-4 py-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="group relative min-w-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <Input
               type="text"
@@ -150,7 +150,7 @@ function EventsPage() {
             />
           </div>
 
-          <div className="relative group">
+          <div className="group relative min-w-0">
             <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <select
               value={locationFilter}
@@ -166,7 +166,7 @@ function EventsPage() {
             <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
 
-          <div className="relative group">
+          <div className="group relative min-w-0">
             <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <select
               value={selectedCategory}
@@ -182,7 +182,7 @@ function EventsPage() {
             <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
 
-          <div className="relative group">
+          <div className="group relative min-w-0">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-xs text-muted-foreground group-focus-within:text-primary">R$</span>
             <Input
               type="number"
@@ -198,7 +198,7 @@ function EventsPage() {
         </div>
       </div>
 
-      <main className="page-container py-8">
+      <main className="showcase-container py-8">
         {isFiltering && (
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
             <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
@@ -206,7 +206,7 @@ function EventsPage() {
           </div>
         )}
         <div
-          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 ${
+          className={`grid min-w-0 grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 ${
             isFiltering ? "opacity-60" : "opacity-100"
           }`}
         >

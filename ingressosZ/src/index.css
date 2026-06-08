@@ -109,9 +109,15 @@
 }
 
 @layer base {
-  html { font-family: var(--font-family-sans); }
+  html {
+    font-family: var(--font-family-sans);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   * { @apply border-border selection:bg-primary/20 selection:text-primary; }
-  body { @apply bg-background text-foreground min-h-screen antialiased; }
+  body { @apply bg-background text-foreground min-h-screen antialiased; width: 100%; max-width: 100%; overflow-x: hidden; }
+  #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 }
 
 @layer components {
@@ -143,7 +149,9 @@
     @apply text-muted-foreground hover:text-primary font-semibold transition-colors;
   }
 
-  .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
+  .page-container { @apply box-border w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
+
+  .showcase-container { @apply box-border w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
 
   .dark-toggle {
     @apply inline-flex h-9 w-9 items-center justify-center border border-border bg-card text-foreground hover:bg-muted transition-colors;

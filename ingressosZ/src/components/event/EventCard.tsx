@@ -72,7 +72,7 @@ function EventCard({ event }: EventCardProps) {
   return (
     <div
       ref={rootRef}
-      className="group flex h-full flex-col overflow-hidden border border-border bg-card transition-colors hover:border-primary/60"
+      className="group flex h-full min-w-0 flex-col overflow-hidden border border-border bg-card transition-colors hover:border-primary/60"
       onMouseEnter={prefetchDetails}
       onFocus={prefetchDetails}
     >

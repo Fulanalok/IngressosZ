@@ -59,9 +59,9 @@ function HomePage() {
 
   return (
     <div className="min-h-screen page-bg">
-      <main className="page-container">
-        <section className="grid gap-8 py-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:py-14">
-          <div className="max-w-2xl">
+      <main className="showcase-container">
+        <section className="grid min-w-0 gap-8 py-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:py-14">
+          <div className="min-w-0 max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground">
               <TicketCheck className="h-4 w-4 text-primary" />
               Ingressos, pagamento e portaria
@@ -98,7 +98,7 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="overflow-hidden border border-border bg-card">
+          <div className="min-w-0 overflow-hidden border border-border bg-card">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
               <p className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Destaque
@@ -200,13 +200,13 @@ function HomePage() {
             </div>
 
             {isLoading ? (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid min-w-0 gap-5 md:grid-cols-2 2xl:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
                   <EventCardSkeleton key={`featured-skeleton-${i}`} />
                 ))}
               </div>
             ) : (
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid min-w-0 gap-5 md:grid-cols-2 2xl:grid-cols-4">
                 {featuredEvents.map((event: Event) => (
                   <EventCard key={event.id} event={event} />
                 ))}
