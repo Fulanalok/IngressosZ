@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-06-05.
+Atualizado em 2026-06-08.
 
 Este arquivo fica dividido em duas partes:
 
@@ -22,8 +22,26 @@ Este arquivo fica dividido em duas partes:
 - [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
 - [x] Hosting republicado em 2026-06-05 com ajustes visuais e datas exibidas
   como `DD/MM/YYYY`, sem hifens.
+- [x] Projeto pronto para apresentacao no LinkedIn como portfolio em
+  2026-06-08.
 - [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
   reembolso ainda faltam.
+
+## Pronto para LinkedIn
+
+- [x] Site publicado e acessivel:
+  `https://<your-project>.web.app`.
+- [x] Repositorio com README raiz explicando stack, fluxo de pagamento,
+  seguranca, setup, testes e deploy.
+- [x] Visual publico simplificado para apresentacao: fundo preto, sem
+  gradientes/degrades, sem vidro-morfismo, sem animacoes de scroll e sem blocos
+  promocionais desnecessarios.
+- [x] Footer publico enxuto com copyright e links legais.
+- [x] Datas exibidas sem hifens, em formato brasileiro.
+- [x] Hosting publicado apos os ultimos ajustes visuais.
+- [x] Escopo comercial real separado deste status: os testes reais de
+  pagamento, webhook, e-mail, QR Code, reembolso, App Check e revisao legal
+  continuam pendentes antes de vender ao publico.
 
 ## Plano de Finalizacao
 

@@ -6,6 +6,21 @@ ingressos digitais, emissao de QR Codes e validacao presencial.
 O projeto usa Firebase como base operacional e Mercado Pago para Checkout/Pix.
 A prioridade e manter um fluxo simples, seguro e barato de operar.
 
+## Demo
+
+- Site publicado: `https://<your-project>.web.app`
+- Repositorio: `https://github.com/Fulanalok/IngressosZ`
+
+## Status para Portfolio
+
+Pronto para apresentacao no LinkedIn como projeto de portfolio: frontend
+publicado, README atualizado, fluxo tecnico documentado, deploy em Firebase
+Hosting e arquitetura de pagamentos/ingressos descrita.
+
+O uso comercial em producao ainda depende das validacoes reais listadas no
+checklist de producao, principalmente Mercado Pago, webhook, Pix/cartao, e-mail,
+QR Code, reembolso, App Check e revisao legal.
+
 ## Status Atual
 
 - UI publica em base preta, visual simples e sem gradientes, vidro-morfismo ou
