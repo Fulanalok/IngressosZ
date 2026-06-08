@@ -92,9 +92,9 @@ describe("EventCard Component", () => {
     expect(screen.getByText("Esgotado")).toBeInTheDocument();
   });
 
-  it("exibe 'Ver Detalhes & Comprar' quando há ingressos disponíveis", () => {
+  it("exibe 'Comprar ingresso' quando há ingressos disponíveis", () => {
     renderCard(baseEvent);
-    expect(screen.getByText("Ver Detalhes & Comprar")).toBeInTheDocument();
+    expect(screen.getByText("Comprar ingresso")).toBeInTheDocument();
   });
 
   it("não exibe imagem quando event.image não está definido", () => {

@@ -7,7 +7,6 @@ import {
   ArrowRight,
   CalendarDays,
   MapPin,
-  Search,
   TicketCheck,
   WalletCards,
 } from "lucide-react";
@@ -61,50 +60,55 @@ function HomePage() {
   return (
     <div className="min-h-screen page-bg">
       <main className="page-container">
-        <section className="grid gap-8 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start lg:py-12">
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground">
+        <section className="grid gap-8 py-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:py-14">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground">
               <TicketCheck className="h-4 w-4 text-primary" />
               Ingressos, pagamento e portaria
             </div>
 
-            <h1 className="mt-5 max-w-2xl text-3xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">
+            <h1 className="mt-5 max-w-2xl text-4xl font-bold leading-[1.03] text-foreground sm:text-5xl lg:text-6xl">
               Encontre eventos e compre seu ingresso com QR Code
             </h1>
 
-            <div className="mt-6 rounded-lg border border-border bg-card p-3">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="flex min-h-11 flex-1 items-center gap-2 rounded-md border border-input bg-background px-3 text-muted-foreground">
-                  <Search className="h-4 w-4" />
-                  <span className="truncate text-sm">
-                    Buscar por evento, cidade ou categoria
-                  </span>
-                </div>
-                <Button asChild>
-                  <Link
-                    to="/eventos"
-                    onMouseEnter={prefetchEvents}
-                    onFocus={prefetchEvents}
-                  >
-                    Ver eventos
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+            <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
+              Venda, compra e validação reunidas em um fluxo direto para eventos
+              pequenos e médios.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg" className="h-12 px-6">
+                <Link
+                  to="/eventos"
+                  onMouseEnter={prefetchEvents}
+                  onFocus={prefetchEvents}
+                >
+                  Ver eventos
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="secondary"
+                className="h-12 px-6"
+              >
+                <Link to="/login">Acessar conta</Link>
+              </Button>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div className="border-b border-border px-5 py-4">
-              <p className="text-sm font-semibold text-foreground">
-                Próximo evento em destaque
+          <div className="overflow-hidden border border-border bg-card">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+              <p className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Destaque
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Informações principais antes da compra
+              <p className="text-right text-sm text-muted-foreground">
+                {highlightedEvent?.category ?? "Evento"}
               </p>
             </div>
 
-            <div className="relative aspect-[16/9] bg-muted">
+            <div className="relative aspect-[16/10] bg-muted">
               {highlightedEvent?.image ? (
                 <img
                   src={highlightedEvent.image}
@@ -116,11 +120,11 @@ function HomePage() {
                   <TicketCheck className="h-16 w-16 text-muted-foreground" />
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 bg-black/85 p-5 text-white">
+              <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-black/90 p-5 text-white">
                 {isLoading && !highlightedEvent ? (
                   <Skeleton className="h-7 w-3/4 bg-white/30" />
                 ) : (
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-2xl font-bold sm:text-3xl">
                     {highlightedEvent?.title ?? "Festival IngressosZ"}
                   </h2>
                 )}
@@ -157,6 +161,21 @@ function HomePage() {
                   R$ {highlightedEvent?.price ?? 80}
                 </p>
               </div>
+            </div>
+
+            <div className="border-t border-border p-5">
+              <Button asChild className="w-full">
+                <Link
+                  to={
+                    highlightedEvent ? `/evento/${highlightedEvent.id}` : "/eventos"
+                  }
+                  onMouseEnter={prefetchEvents}
+                  onFocus={prefetchEvents}
+                >
+                  Comprar ingresso
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </div>
         </section>
