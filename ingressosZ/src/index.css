@@ -138,11 +138,11 @@
   }
 
   .card {
-    @apply bg-card text-card-foreground rounded-lg shadow-sm border-border border p-5 hover:border-primary/30;
+    @apply bg-card text-card-foreground rounded-none shadow-sm border-border border p-5 hover:border-primary/30;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-background text-foreground border border-border rounded-xl ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-colors;
+    @apply w-full px-4 py-3 bg-background text-foreground border border-border rounded-none ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-colors;
   }
 
   .nav-link {
@@ -158,7 +158,7 @@
   }
 
   .surface-card {
-    @apply bg-card border border-border rounded-lg shadow-sm;
+    @apply bg-card border border-border rounded-none shadow-sm;
   }
 
   .page-bg { @apply bg-background; }

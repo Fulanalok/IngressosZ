@@ -13,7 +13,7 @@ function Navbar() {
 
   const navClass = (path: string, exact = false) => {
     const active = exact ? location.pathname === path : isActive(path);
-    return `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+    return `px-3 py-2 text-sm font-medium transition-colors ${
       active
         ? "bg-muted text-foreground"
         : "text-muted-foreground hover:text-foreground"
@@ -36,7 +36,7 @@ function Navbar() {
             to="/"
             className="flex min-w-0 items-center gap-3 text-foreground transition-opacity hover:opacity-90"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-card text-primary">
               <Ticket className="h-5 w-5" />
             </span>
             <span className="min-w-0 leading-none">
@@ -49,7 +49,7 @@ function Navbar() {
             </span>
           </Link>
 
-          <div className="hidden items-center gap-1 rounded-lg border border-border bg-card p-1 md:flex">
+          <div className="hidden items-center gap-1 border border-border bg-card p-1 md:flex">
             <Link to="/" className={navClass("/", true)}>
               Início
             </Link>

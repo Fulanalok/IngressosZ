@@ -73,7 +73,7 @@ describe("EventDetailPage", () => {
   it("renders loading state", () => {
     eventState.status = "pending";
     render(<EventDetailPage />);
-    expect(document.querySelector(".animate-pulse")).toBeInTheDocument();
+    expect(screen.getByTestId("event-detail-skeleton")).toBeInTheDocument();
   });
 
   it("renders error state", () => {

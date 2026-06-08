@@ -107,7 +107,7 @@ function EventsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center p-12 surface-card max-w-md mx-auto">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center border border-red-900/30 bg-red-950/30 text-red-400">
             <RefreshCcw className="h-8 w-8" />
           </div>
           <h2 className="text-2xl font-extrabold text-foreground mb-4">Erro ao carregar eventos</h2>
@@ -201,7 +201,7 @@ function EventsPage() {
       <main className="showcase-container py-8">
         {isFiltering && (
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="inline-flex h-2 w-2 bg-primary" />
             <span>Aplicando filtros...</span>
           </div>
         )}
