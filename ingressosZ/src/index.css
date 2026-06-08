@@ -146,7 +146,7 @@
   .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12; }
 
   .dark-toggle {
-    @apply fixed top-6 right-6 z-50 bg-card text-foreground hover:bg-muted p-2.5 rounded-full shadow-xl border border-border/50 transition-colors;
+    @apply inline-flex h-9 w-9 items-center justify-center border border-border bg-card text-foreground hover:bg-muted transition-colors;
   }
 
   .surface-card {

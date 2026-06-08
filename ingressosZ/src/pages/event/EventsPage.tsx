@@ -122,19 +122,23 @@ function EventsPage() {
 
   return (
     <div className="min-h-screen page-bg">
-      <header className="border-b border-border py-10">
-        <div className="page-container">
-          <h1 className="mb-3 text-4xl font-bold leading-tight text-foreground">
-            Descubra <span className="text-primary">Experiências</span>
+      <header className="border-b border-border">
+        <div className="page-container py-10">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Eventos disponíveis
+          </p>
+          <h1 className="mb-3 text-4xl font-bold leading-tight text-foreground sm:text-5xl">
+            Escolha seu próximo evento
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl font-medium">
-            Explore os melhores eventos curados para você.
+            Filtre por nome, local, categoria ou preço e compre seu ingresso
+            digital.
           </p>
         </div>
       </header>
 
-      <div className="sticky top-20 z-30 border-b border-border bg-background py-6 shadow-sm">
-        <div className="page-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="border-b border-border bg-background">
+        <div className="page-container grid grid-cols-1 gap-4 py-6 md:grid-cols-2 lg:grid-cols-4">
           <div className="relative group">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
             <Input
@@ -142,7 +146,7 @@ function EventsPage() {
               placeholder="Buscar por nome..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12 bg-card border-border/50 rounded-xl focus:ring-primary/20 font-medium"
+              className="pl-10 h-12 bg-card border-border/50 rounded-none focus:ring-primary/20 font-medium"
             />
           </div>
 
@@ -151,7 +155,7 @@ function EventsPage() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="w-full h-12 rounded-xl border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
+              className="w-full h-12 rounded-none border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
             >
               {locations.map((loc) => (
                 <option key={loc as string} value={loc as string}>
@@ -167,7 +171,7 @@ function EventsPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full h-12 rounded-xl border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
+              className="w-full h-12 rounded-none border border-border/50 bg-card pl-10 pr-4 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-foreground cursor-pointer"
             >
               {categories.map((cat) => (
                 <option key={cat as string} value={cat as string}>
@@ -187,7 +191,7 @@ function EventsPage() {
               onChange={(e) =>
                 setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
               }
-              className="pl-10 h-12 bg-card border-border/50 rounded-xl focus:ring-primary/20 font-medium"
+              className="pl-10 h-12 bg-card border-border/50 rounded-none focus:ring-primary/20 font-medium"
               min="0"
             />
           </div>
