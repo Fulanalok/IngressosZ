@@ -58,7 +58,7 @@ function HomePage() {
               IngressosZ
             </p>
             <h1 className="text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-              Eventos, ingressos e QR Code em um fluxo simples
+              Compre seus ingressos com segurança aqui
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
               Compre ingressos digitais e acesse seus tickets em poucos passos.
