@@ -4,17 +4,15 @@ import { render, screen } from "@testing-library/react";
 import { Timestamp } from "firebase/firestore";
 import { BrowserRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { AuthContext, AuthContextType } from "@/context/auth/authContext";
+import { AuthContext, type AuthContextType } from "@/context/auth/authContext";
 import HomePage from "./HomePage";
 
-// Mock do EventCard
 vi.mock("@/components/event/EventCard", () => ({
   default: ({ event }: { event: { id: string; title: string } }) => (
     <div data-testid="featured-event-card">{event.title}</div>
   ),
 }));
 
-// Mock do useEvents
 vi.mock("@/hooks/event/useEvents", () => ({
   useEvents: () => ({
     data: [
@@ -60,16 +58,12 @@ describe("HomePage", () => {
     getAuthHeaders: async () => ({}),
   };
 
-  it("renderiza eventos em destaque (máximo 4)", () => {
+  it("renderiza próximos eventos (máximo 4)", () => {
     renderWithAuth(mockUser);
 
-    expect(screen.getByText("Eventos em Destaque")).toBeInTheDocument();
-
-    const cards = screen.getAllByTestId("featured-event-card");
-    expect(cards).toHaveLength(4);
-    // Usamos getAllByText e pegamos o primeiro pois o título do primeiro evento
-    // também aparece no Hero Section como "Próximo destaque"
-    expect(screen.getAllByText("Evento Destaque 1")[0]).toBeInTheDocument();
+    expect(screen.getByText("Próximos eventos")).toBeInTheDocument();
+    expect(screen.getAllByTestId("featured-event-card")).toHaveLength(4);
+    expect(screen.getByText("Evento Destaque 1")).toBeInTheDocument();
     expect(screen.getByText("Evento Extra")).toBeInTheDocument();
   });
 

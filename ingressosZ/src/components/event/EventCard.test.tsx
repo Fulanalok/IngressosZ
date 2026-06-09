@@ -3,10 +3,10 @@ import { render, screen } from "@testing-library/react";
 import { Timestamp } from "firebase/firestore";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import type { Event } from "../types";
+import type { Event } from "@/types";
 import EventCard from "./EventCard";
 
-vi.mock("../services/firestore", () => ({
+vi.mock("@/services/firestore", () => ({
   eventService: { getEventById: vi.fn() },
 }));
 
@@ -14,7 +14,7 @@ const baseEvent: Event = {
   id: "e1",
   title: "Rock Festival",
   description: "Um grande festival",
-  date: "2024-06-15T12:00:00", // explicit noon avoids timezone off-by-one at midnight UTC
+  date: "2024-06-15T12:00:00",
   time: "20:00",
   location: "Arena SP",
   address: "Rua X, 100",
@@ -77,24 +77,15 @@ describe("EventCard Component", () => {
     expect(screen.getByText("Música")).toBeInTheDocument();
   });
 
-  it("exibe badge 'Últimos ingressos!' quando availableTickets <= 10 e > 0", () => {
-    renderCard({ ...baseEvent, availableTickets: 5 });
-    expect(screen.getByText("Últimos ingressos!")).toBeInTheDocument();
-  });
-
-  it("não exibe badge 'Últimos ingressos!' quando availableTickets > 10", () => {
-    renderCard(baseEvent);
-    expect(screen.queryByText("Últimos ingressos!")).not.toBeInTheDocument();
-  });
-
-  it("exibe 'Esgotado' quando availableTickets === 0", () => {
+  it("exibe Esgotado quando availableTickets === 0", () => {
     renderCard({ ...baseEvent, availableTickets: 0 });
-    expect(screen.getByText("Esgotado")).toBeInTheDocument();
+    expect(screen.getAllByText("Esgotado")).toHaveLength(2);
   });
 
-  it("exibe 'Comprar ingresso' quando há ingressos disponíveis", () => {
+  it("exibe CTA simplificado quando há ingressos disponíveis", () => {
     renderCard(baseEvent);
-    expect(screen.getByText("Comprar ingresso")).toBeInTheDocument();
+    expect(screen.getByText("Ver detalhes")).toBeInTheDocument();
+    expect(screen.getByText("50 disponíveis")).toBeInTheDocument();
   });
 
   it("não exibe imagem quando event.image não está definido", () => {

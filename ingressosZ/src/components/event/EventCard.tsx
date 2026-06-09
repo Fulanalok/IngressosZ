@@ -52,31 +52,22 @@ function EventCard({ event }: EventCardProps) {
     return () => observer.disconnect();
   }, [prefetchDetails]);
 
-  const formattedDate = useMemo(() => {
-    return formatDisplayDate(event.date);
-  }, [event.date]);
-
-  const formattedTime = useMemo(() => {
-    return event.time ? event.time.slice(0, 5) : "--:--";
-  }, [event.time]);
-
-  const availableTickets = Number(event.availableTickets ?? 0);
-  const maxTickets = Math.max(Number(event.maxTickets ?? availableTickets), 1);
-  const soldPercent = Math.min(
-    100,
-    Math.max(0, ((maxTickets - availableTickets) / maxTickets) * 100)
+  const formattedDate = useMemo(() => formatDisplayDate(event.date), [event.date]);
+  const formattedTime = useMemo(
+    () => (event.time ? event.time.slice(0, 5) : "--:--"),
+    [event.time]
   );
+  const availableTickets = Number(event.availableTickets ?? 0);
   const isSoldOut = availableTickets === 0;
-  const isLastCall = availableTickets > 0 && availableTickets <= 10;
 
   return (
-    <div
+    <article
       ref={rootRef}
-      className="group flex h-full min-w-0 flex-col overflow-hidden border border-border bg-card transition-colors hover:border-primary/60"
+      className="group flex h-full min-w-0 flex-col overflow-hidden border border-border bg-card"
       onMouseEnter={prefetchDetails}
       onFocus={prefetchDetails}
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+      <div className="relative aspect-[16/9] overflow-hidden bg-muted">
         {event.image ? (
           <img
             src={event.image}
@@ -90,47 +81,30 @@ function EventCard({ event }: EventCardProps) {
             <Ticket className="h-12 w-12 text-muted-foreground" />
           </div>
         )}
-
-        <div className="absolute left-3 top-3">
-          <span className="border border-border bg-background/95 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
-            {event.category}
-          </span>
-        </div>
-
-        {(isLastCall || isSoldOut) && (
-          <div className="absolute right-3 top-3">
-            <span
-              className={`px-2.5 py-1 text-xs font-bold shadow-sm ${
-                isSoldOut
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-primary text-primary-foreground"
-              }`}
-            >
-              {isSoldOut ? "Sem ingressos" : "Últimos ingressos!"}
-            </span>
-          </div>
-        )}
+        <span className="absolute left-3 top-3 border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
+          {event.category}
+        </span>
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="line-clamp-2 min-h-[3.25rem] text-xl font-bold leading-tight text-foreground transition-colors group-hover:text-primary">
+        <h3 className="line-clamp-2 min-h-[3.25rem] text-xl font-bold leading-tight text-foreground">
           {event.title}
         </h3>
 
-        <div className="mt-4 grid gap-3 border-t border-border pt-4 text-sm text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+        <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm text-muted-foreground">
+          <p className="flex flex-wrap items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
             <span>{formattedDate}</span>
-            <Clock className="ml-2 h-4 w-4 text-muted-foreground" />
+            <Clock className="ml-2 h-4 w-4" />
             <span>{formattedTime}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </p>
+          <p className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 shrink-0" />
             <span className="truncate">{event.location}</span>
-          </div>
+          </p>
         </div>
 
-        <div className="mt-5 flex items-end justify-between gap-3 border-t border-border pt-4">
+        <div className="mt-5 flex items-end justify-between gap-4 border-t border-border pt-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               A partir de
@@ -139,30 +113,22 @@ function EventCard({ event }: EventCardProps) {
               R$ {(event.pricing?.standard ?? event.price ?? 0).toFixed(2)}
             </p>
           </div>
-          <p
-            className={`text-right text-xs font-bold ${
-              isLastCall ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            {availableTickets} disponíveis
+          <p className="text-right text-xs font-semibold text-muted-foreground">
+            {isSoldOut ? "Esgotado" : `${availableTickets} disponíveis`}
           </p>
         </div>
 
-        <div className="mt-4 h-1.5 overflow-hidden bg-muted">
-          <div className="h-full bg-primary" style={{ width: `${soldPercent}%` }} />
-        </div>
-
-        <Button asChild className="mt-5 w-full !rounded-none" disabled={isSoldOut}>
+        <Button asChild className="mt-5 w-full" disabled={isSoldOut}>
           <Link
             to={`/evento/${event.id}`}
             onMouseEnter={prefetchDetails}
             onFocus={prefetchDetails}
           >
-            {isSoldOut ? "Esgotado" : "Comprar ingresso"}
+            {isSoldOut ? "Esgotado" : "Ver detalhes"}
           </Link>
         </Button>
       </div>
-    </div>
+    </article>
   );
 }
 
