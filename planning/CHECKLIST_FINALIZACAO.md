@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-06-08.
+Atualizado em 2026-06-11.
 
 Este arquivo fica dividido em duas partes:
 
@@ -20,10 +20,10 @@ Este arquivo fica dividido em duas partes:
 - [x] `WEB_BASE_URL` local das Functions realinhado para a URL oficial do
   Hosting e Functions redeployadas em 2026-06-02.
 - [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
-- [x] Hosting republicado em 2026-06-05 com ajustes visuais e datas exibidas
-  como `DD/MM/YYYY`, sem hifens.
+- [x] Hosting republicado em 2026-06-11 com visual simplificado em preto/azul,
+  fundo preto absoluto e datas exibidas como `DD/MM/YYYY`, sem hifens.
 - [x] Projeto pronto para apresentacao no LinkedIn como portfolio em
-  2026-06-08.
+  2026-06-11.
 - [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
   reembolso ainda faltam.
 
@@ -33,9 +33,9 @@ Este arquivo fica dividido em duas partes:
   `https://<your-project>.web.app`.
 - [x] Repositorio com README raiz explicando stack, fluxo de pagamento,
   seguranca, setup, testes e deploy.
-- [x] Visual publico simplificado para apresentacao: fundo preto, sem
-  gradientes/degrades, sem vidro-morfismo, sem animacoes de scroll e sem blocos
-  promocionais desnecessarios.
+- [x] Visual publico simplificado para apresentacao: fundo preto absoluto,
+  paleta preto/azul, sem gradientes/degrades, sem vidro-morfismo, sem animacoes
+  de scroll e sem blocos promocionais desnecessarios.
 - [x] Footer publico enxuto com copyright e links legais.
 - [x] Datas exibidas sem hifens, em formato brasileiro.
 - [x] Hosting publicado apos os ultimos ajustes visuais.
@@ -276,6 +276,14 @@ Status 2026-06-05:
   passou com 9 arquivos e 66 testes.
 - [x] Hosting publicado com as mudancas visuais e URL oficial respondeu HTTP
   200.
+
+Status 2026-06-11:
+
+- [x] `npm.cmd --prefix ingressosZ run build` passou antes do deploy de
+  Hosting.
+- [x] `npm.cmd --prefix ingressosZ run lint` passou.
+- [x] Hosting publicado com a paleta preto/azul, fundo preto absoluto e URL
+  oficial respondeu HTTP 200.
 
 - [x] Guardar URL publica da Function `receiveWebhook`.
 
@@ -584,6 +592,17 @@ deploy acidental a partir de `ingressosZ/`.
   testes focados `HomePage EventCard ValidationResult Ticket` passaram; Hosting
   publicado e URL oficial respondeu HTTP 200.
 - [x] CI GitHub passou apos o push do commit `de58e3f`.
+- [x] Rodadas 2026-06-08 a 2026-06-11: vitrine publica simplificada novamente,
+  removendo o card lateral de destaque da home, reduzindo ruido visual da
+  listagem e dos cards de evento, e mantendo botoes de cantos retos.
+- [x] Rodadas 2026-06-08 a 2026-06-11: navbar, footer, tickets, validador,
+  compra/detalhe do evento e carteira de ingressos receberam polimento visual
+  sem grandes refactors.
+- [x] Rodada 2026-06-11: chamada principal da home atualizada para
+  "Compre seus ingressos com seguranca aqui".
+- [x] Rodada 2026-06-11: tema publico ajustado para preto/azul e fundo preto
+  absoluto; `npm.cmd --prefix ingressosZ run build`, `lint`, Cypress visual e
+  deploy de Hosting passaram nas rodadas correspondentes.
 - [x] Rodada 2026-05-25: frontend lint/typecheck/build/test passaram; backend
   lint/build/test passaram; Cypress smoke passou.
 - [x] Rodada 2026-05-26: `npm.cmd --prefix functions run lint`, `build` e

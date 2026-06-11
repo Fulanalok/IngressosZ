@@ -1,6 +1,6 @@
 # src/ - Codigo Fonte Frontend
 
-Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
+Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
 
 Frontend React/Vite do IngressosZ. A aplicacao cobre descoberta de eventos,
 compra por Checkout/Pix, area de ingressos, validacao presencial, painel admin
@@ -72,9 +72,9 @@ Definidas em `routing/AppRoutes.tsx`.
 - Propagar erros para UI exibir feedback com toast/estado visual.
 - Datas exibidas ao usuario devem passar por `lib/date.ts` (`formatDisplayDate`)
   para aparecer como `DD/MM/YYYY`, sem hifens.
-- Visual publico atual: fundo preto, sem gradientes/degrades, sem
-  vidro-morfismo e sem animacoes de scroll. Botoes principais usam cantos
-  retos.
+- Visual publico atual: fundo preto absoluto, paleta preto/azul, sem
+  gradientes/degrades, sem vidro-morfismo e sem animacoes de scroll. Botoes
+  principais usam cantos retos.
 
 ## Fluxo de Compra no Frontend
 
@@ -111,8 +111,8 @@ npm --prefix ingressosZ run test
 - `src/assets/react.svg` foi removido por falta de uso.
 - `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos; deploy
   deve partir da raiz do repo.
-- Home foi simplificada: sem copy introdutoria longa, sem cards de metricas,
-  titulo sem ponto final e destaque visual menos artificial.
+- Home foi simplificada: chamada principal "Compre seus ingressos com seguranca
+  aqui", copy curta, sem cards de metricas e sem bloco lateral de destaque.
 - `lib/date.ts` centraliza formatacao de datas para Home, EventCard, Ticket,
   ValidationResult e PDF do ingresso.
 - Manter textos e fluxos coerentes com `planning/CHECKLIST_FINALIZACAO.md`.

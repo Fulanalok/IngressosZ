@@ -23,11 +23,11 @@ QR Code, reembolso, App Check e revisao legal.
 
 ## Status Atual
 
-- UI publica em base preta, visual simples e sem gradientes, vidro-morfismo ou
-  animacoes de scroll.
+- UI publica em fundo preto absoluto, paleta preto/azul, visual simples e sem
+  gradientes, vidro-morfismo ou animacoes de scroll.
 - Botoes principais com cantos retos.
-- Home sem texto introdutorio, sem cards de metricas e com titulo sem ponto
-  final.
+- Home com chamada principal "Compre seus ingressos com seguranca aqui", copy
+  curta, sem cards de metricas e sem bloco lateral de destaque.
 - Datas exibidas em formato brasileiro (`DD/MM/YYYY`), sem hifens.
 - Checkout Mercado Pago com `paymentSessions`.
 - `paymentSessions.paymentMethod` identifica `checkout` ou `pix`.

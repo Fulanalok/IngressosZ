@@ -1,6 +1,6 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
+Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -30,9 +30,9 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] `WEB_BASE_URL` realinhado no dotenv local das Functions e Functions
   redeployadas em 2026-06-02.
 - [x] Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
-- [x] UI publica simplificada em junho/2026: fundo preto, sem gradientes,
-  sem vidro-morfismo, sem animacoes de scroll, botoes com cantos retos, home
-  sem intro copy/cards de metricas e datas exibidas como `DD/MM/YYYY`.
+- [x] UI publica simplificada em junho/2026: fundo preto absoluto, paleta
+  preto/azul, sem gradientes, sem vidro-morfismo, sem animacoes de scroll,
+  botoes com cantos retos, home direta e datas exibidas como `DD/MM/YYYY`.
 
 ## Alta Prioridade Antes de Publico
 
@@ -134,9 +134,10 @@ Obrigatorias para producao:
 - `ingressosZ/src/assets/react.svg` foi removido por falta de uso.
 - `ingressosZ/.firebaserc` e `ingressosZ/firebase.json` foram removidos para
   evitar deploy acidental fora da raiz.
-- Home/listagem agora seguem visual direto e escuro: sem gradientes/degrades,
-  sem vidro-morfismo, sem animacoes de scroll, sem cards de metricas na dobra
-  inicial e sem copy introdutoria longa.
+- Home/listagem agora seguem visual direto em preto e azul: sem
+  gradientes/degrades, sem vidro-morfismo, sem animacoes de scroll, sem cards de
+  metricas na dobra inicial e com a chamada principal "Compre seus ingressos com
+  seguranca aqui".
 - Datas devem usar `formatDisplayDate` de `ingressosZ/src/lib/date.ts` para
   evitar exibicao crua com hifens.
 - Rotas/dev tools existem apenas em `import.meta.env.DEV`; manter ate o teste

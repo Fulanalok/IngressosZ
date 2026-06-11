@@ -1,6 +1,6 @@
 # ops/ - Operacoes e Deploy
 
-Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
+Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
 
 ## Ambiente Atual
 
@@ -13,8 +13,9 @@ Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates witho
 - Functions implantadas em producao em 2026-06-01 e redeployadas em
   2026-06-02 com `WEB_BASE_URL` oficial.
 - Firestore Rules, Storage Rules e Hosting publicados em 2026-06-02.
-- Hosting republicado em 2026-06-05 apos ajustes visuais e formatacao de
-  datas; URL respondeu HTTP 200 apos o deploy.
+- Hosting republicado em 2026-06-11 apos as rodadas finais de simplificacao
+  visual, paleta preto/azul e fundo preto absoluto; URL respondeu HTTP 200 apos
+  o deploy.
 - Cloud SQL/Data Connect removidos para reduzir custo.
 - Secret Manager `SMTP_EMAIL` removido; `SMTP_EMAIL` agora e param/env comum.
 - Checklist operacional: `planning/CHECKLIST_FINALIZACAO.md`
@@ -176,8 +177,8 @@ Consoles:
 - [x] Secrets obrigatorios configurados para deploy das Functions.
 - [x] Lint, typecheck, build e testes passaram em 2026-06-01.
 - [x] Firestore Rules e Storage Rules publicadas em 2026-06-02.
-- [x] Hosting publicado em 2026-06-05 com visual escuro simplificado e datas
-  sem hifens.
+- [x] Hosting publicado em 2026-06-11 com visual preto/azul simplificado,
+  fundo preto absoluto e datas sem hifens.
 - [x] URL atual do webhook Mercado Pago registrada.
 
 ## Checklist Pos-Deploy

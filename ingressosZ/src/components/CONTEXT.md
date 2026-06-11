@@ -1,6 +1,6 @@
 # components/ - Componentes React
 
-Atualizado em 2026-06-05. Base Git: `1b897e1 style: format displayed dates without hyphens`.
+Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
 
 Componentes estao organizados por dominio. Evite misturar regra de negocio
 pesada dentro de UI; use hooks e services quando a logica passar de interacao
@@ -137,5 +137,6 @@ Datas mostradas no resultado de validacao devem usar `formatDisplayDate`.
 - Preferir composicao a props muito grandes.
 - Estados de loading/empty/error devem ser explicitos.
 - Testes ficam ao lado do componente ou em `__tests__`.
-- Manter o visual publico sem gradientes/degrades, sem vidro-morfismo e sem
-  animacoes de scroll. Botoes principais devem continuar com cantos retos.
+- Manter o visual publico em preto e azul, com fundo preto absoluto, sem
+  gradientes/degrades, sem vidro-morfismo e sem animacoes de scroll. Botoes
+  principais devem continuar com cantos retos.
