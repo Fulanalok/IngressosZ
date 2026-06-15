@@ -88,9 +88,12 @@ describe("EventCard Component", () => {
     expect(screen.getByText("50 disponíveis")).toBeInTheDocument();
   });
 
-  it("não exibe imagem quando event.image não está definido", () => {
+  it("exibe imagem reserva quando event.image não está definido", () => {
     const { image: _, ...withoutImage } = baseEvent;
     renderCard(withoutImage as Event);
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Rock Festival" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("images.unsplash.com")
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Clock, MapPin, Ticket } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { formatDisplayDate } from "@/lib/date";
@@ -11,10 +11,56 @@ interface EventCardProps {
   event: Event;
 }
 
+function getFallbackImage(category: string) {
+  const normalizedCategory = category.toLowerCase();
+
+  if (
+    normalizedCategory.includes("foto") ||
+    normalizedCategory.includes("educa")
+  ) {
+    return "https://images.unsplash.com/photo-1507236390809-947de8aea269?w=900&h=506&fit=crop&auto=format&q=80";
+  }
+
+  if (
+    normalizedCategory.includes("tech") ||
+    normalizedCategory.includes("tecnologia")
+  ) {
+    return "https://images.unsplash.com/photo-1700936655679-83f4b37d7d74?w=900&h=506&fit=crop&auto=format&q=80";
+  }
+
+  if (
+    normalizedCategory.includes("gastronomia") ||
+    normalizedCategory.includes("food")
+  ) {
+    return "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900&h=506&fit=crop&auto=format&q=80";
+  }
+
+  if (
+    normalizedCategory.includes("show") ||
+    normalizedCategory.includes("mus") ||
+    normalizedCategory.includes("jazz")
+  ) {
+    return "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=900&h=506&fit=crop&auto=format&q=80";
+  }
+
+  if (
+    normalizedCategory.includes("entreten") ||
+    normalizedCategory.includes("comedy") ||
+    normalizedCategory.includes("stand")
+  ) {
+    return "https://images.unsplash.com/photo-1580188928585-0ef5c1a5c4dd?w=900&h=506&fit=crop&auto=format&q=80";
+  }
+
+  return "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=900&h=506&fit=crop&auto=format&q=80";
+}
+
 function EventCard({ event }: EventCardProps) {
   const queryClient = useQueryClient();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const imagePrefetchedRef = useRef(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [fallbackImageFailed, setFallbackImageFailed] = useState(false);
+  const [remoteImageLoaded, setRemoteImageLoaded] = useState(false);
 
   const prefetchDetails = useCallback(() => {
     queryClient.prefetchQuery({
@@ -52,6 +98,12 @@ function EventCard({ event }: EventCardProps) {
     return () => observer.disconnect();
   }, [prefetchDetails]);
 
+  useEffect(() => {
+    setImageLoadFailed(false);
+    setFallbackImageFailed(false);
+    setRemoteImageLoaded(false);
+  }, [event.id, event.image]);
+
   const formattedDate = useMemo(() => formatDisplayDate(event.date), [event.date]);
   const formattedTime = useMemo(
     () => (event.time ? event.time.slice(0, 5) : "--:--"),
@@ -59,6 +111,11 @@ function EventCard({ event }: EventCardProps) {
   );
   const availableTickets = Number(event.availableTickets ?? 0);
   const isSoldOut = availableTickets === 0;
+  const fallbackImage = useMemo(
+    () => getFallbackImage(event.category),
+    [event.category]
+  );
+  const shouldLoadRemoteImage = Boolean(event.image && !imageLoadFailed);
 
   return (
     <article
@@ -68,19 +125,33 @@ function EventCard({ event }: EventCardProps) {
       onFocus={prefetchDetails}
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-        {event.image ? (
+        {!fallbackImageFailed ? (
           <img
-            src={event.image}
-            alt={event.title}
-            loading="lazy"
-            decoding="async"
+            src={fallbackImage}
+            alt={remoteImageLoaded ? "" : event.title}
+            loading="eager"
+            decoding="sync"
             className="h-full w-full object-cover"
+            onError={() => setFallbackImageFailed(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-background">
-            <Ticket className="h-12 w-12 text-muted-foreground" />
+          <div className="flex h-full w-full items-center justify-center bg-secondary">
+            <Ticket className="h-12 w-12 text-primary" aria-hidden="true" />
           </div>
         )}
+        {shouldLoadRemoteImage ? (
+          <img
+            src={event.image}
+            alt={remoteImageLoaded ? event.title : ""}
+            loading="lazy"
+            decoding="async"
+            className={`absolute inset-0 h-full w-full object-cover ${
+              remoteImageLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            onLoad={() => setRemoteImageLoaded(true)}
+            onError={() => setImageLoadFailed(true)}
+          />
+        ) : null}
         <span className="absolute left-3 top-3 border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
           {event.category}
         </span>
