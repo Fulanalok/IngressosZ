@@ -11,6 +11,7 @@ import { callableSecurityOptions } from "../config/security.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 export const refundPayment = onCall(
   { ...callableSecurityOptions, secrets: [mercadopagoAccessToken] },
+  // eslint-disable-next-line complexity -- legacy refund flow
   async (request) => {
     if (request.auth?.token.admin !== true) {
       throw new HttpsError(

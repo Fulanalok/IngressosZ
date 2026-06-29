@@ -1,9 +1,10 @@
+import { useAuth } from "@/hooks/auth/useAuth";
+import { appCheck } from "@/firebaseConfig";
+import { getToken } from "firebase/app-check";
+import type { User } from "firebase/auth";
 import { useState } from "react";
 import { logger } from "../../services/logger";
 import { TestDataService } from "../../services/testDataService";
-import { appCheck } from "@/firebaseConfig";
-import { useAuth } from "@/hooks/auth/useAuth";
-import { getToken } from "firebase/app-check";
 
 export interface TicketData {
   eventTitle: string;
@@ -17,6 +18,185 @@ export interface ValidationResultState {
   status: "success" | "error" | "invalid" | null;
   message: string;
   ticketData?: TicketData;
+}
+
+interface BackendTicket {
+  eventTitle?: string;
+  ticketType?: string;
+  holderEmail?: string;
+  eventDate?: string;
+  eventTime?: string;
+}
+
+interface BackendValidationResponse {
+  success?: boolean;
+  message?: string;
+  status?: string;
+  ticket?: BackendTicket;
+}
+
+type OfflineTicket = NonNullable<
+  ReturnType<typeof TestDataService.validateOfflineTicket>
+>;
+
+const FUNCTIONS_URL = "/functions";
+const VALIDATION_TIMEOUT_MS = 10_000;
+
+async function getAuthHeader(
+  user: User | null | undefined
+): Promise<Record<string, string>> {
+  const token = user?.getIdToken ? await user.getIdToken(false) : undefined;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function getAppCheckHeader(): Promise<Record<string, string>> {
+  if (!appCheck) return {};
+
+  try {
+    const appCheckToken = await getToken(appCheck, false);
+    return { "X-Firebase-AppCheck": appCheckToken.token };
+  } catch (error) {
+    logger.warn("Falha ao obter App Check para validação", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return {};
+  }
+}
+
+async function buildValidationHeaders(user: User | null | undefined) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  Object.assign(headers, await getAuthHeader(user));
+  Object.assign(headers, await getAppCheckHeader());
+  return headers;
+}
+
+function requestOptions(
+  qrCode: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+) {
+  return {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ qrCode }),
+    signal,
+  };
+}
+
+function postValidation(
+  qrCode: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+) {
+  return fetch(
+    `${FUNCTIONS_URL}/validateTicket`,
+    requestOptions(qrCode, headers, signal)
+  );
+}
+
+async function retryWithFreshToken(
+  response: Response,
+  user: User | null | undefined,
+  qrCode: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+) {
+  if (response.status !== 401 || !user) return response;
+
+  const freshToken = await user.getIdToken(true);
+  headers.Authorization = `Bearer ${freshToken}`;
+  return postValidation(qrCode, headers, signal);
+}
+
+function buildSuccessResult(
+  ticket: BackendTicket | undefined,
+  fallbackEmail: string
+): ValidationResultState {
+  const ticketData = buildSuccessTicketData(ticket, fallbackEmail);
+
+  return {
+    status: "success",
+    message: "Ingresso válido! Entrada autorizada.",
+    ticketData,
+  };
+}
+
+function getFieldValue(value: string | undefined, fallback: string) {
+  return value || fallback;
+}
+
+function buildSuccessTicketData(
+  ticket: BackendTicket | undefined,
+  fallbackEmail: string
+): TicketData {
+  return {
+    eventTitle: getFieldValue(ticket?.eventTitle, "Evento"),
+    ticketType: getFieldValue(ticket?.ticketType, "Geral"),
+    holderName: getFieldValue(ticket?.holderEmail, fallbackEmail),
+    eventDate: getFieldValue(ticket?.eventDate, new Date().toLocaleDateString()),
+    eventTime: getFieldValue(ticket?.eventTime, ""),
+  };
+}
+
+function buildBackendResult(
+  response: Response,
+  data: BackendValidationResponse,
+  fallbackEmail: string
+): ValidationResultState {
+  if (response.ok && data?.success) {
+    return buildSuccessResult(data.ticket, fallbackEmail);
+  }
+
+  return {
+    status: data?.status === "used" ? "error" : "invalid",
+    message:
+      data?.message ||
+      "Código do ingresso inválido. Verifique e tente novamente.",
+  };
+}
+
+function buildOfflineResult(ticket: OfflineTicket): ValidationResultState {
+  return {
+    status: ticket.status === "used" ? "error" : "success",
+    message:
+      ticket.status === "used"
+        ? "Este ingresso já foi utilizado."
+        : "Ingresso válido! Entrada autorizada.",
+    ticketData: {
+      eventTitle: ticket.eventTitle,
+      ticketType: ticket.ticketType,
+      holderName: ticket.userEmail,
+      eventDate: ticket.eventDate,
+      eventTime: ticket.eventTime || "",
+    },
+  };
+}
+
+function getOfflineValidationResult(qrCode: string) {
+  if (!import.meta.env.DEV) return null;
+
+  const offlineTicket = TestDataService.validateOfflineTicket(qrCode);
+  return offlineTicket ? buildOfflineResult(offlineTicket) : null;
+}
+
+function isTimeoutError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function buildTimeoutResult(): ValidationResultState {
+  return {
+    status: "error",
+    message: "Tempo limite excedido. Verifique a conexão e tente novamente.",
+  };
+}
+
+function buildBackendErrorResult(): ValidationResultState {
+  return {
+    status: "error",
+    message: "Erro ao validar ingresso no backend. Tente novamente.",
+  };
 }
 
 export function useTicketValidator() {
@@ -34,115 +214,28 @@ export function useTicketValidator() {
     setValidationResult({ status: null, message: "" });
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    const timeoutId = setTimeout(() => controller.abort(), VALIDATION_TIMEOUT_MS);
 
     try {
-      const functionsUrl = `/functions`;
-      const token =
-        user && user.getIdToken ? await user.getIdToken(false) : undefined;
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      if (appCheck) {
-        try {
-          const appCheckToken = await getToken(appCheck, false);
-          headers["X-Firebase-AppCheck"] = appCheckToken.token;
-        } catch (error) {
-          logger.warn("Falha ao obter App Check para validação", {
-            error: error instanceof Error ? error.message : "unknown",
-          });
-        }
-      }
-
-      let resp = await fetch(`${functionsUrl}/validateTicket`, {
-        method: "POST",
+      const headers = await buildValidationHeaders(user);
+      const response = await postValidation(
+        codeToValidate,
         headers,
-        body: JSON.stringify({ qrCode: codeToValidate }),
-        signal: controller.signal,
-      });
-
-      // On 401 retry once with a fresh token (handles token expiry)
-      if (resp.status === 401 && user) {
-        const freshToken = await user.getIdToken(true);
-        headers["Authorization"] = `Bearer ${freshToken}`;
-        resp = await fetch(`${functionsUrl}/validateTicket`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ qrCode: codeToValidate }),
-          signal: controller.signal,
-        });
-      }
-
-      const data = await resp.json();
-
-      if (resp.ok && data?.success) {
-        const details = data?.ticket;
-        const result: ValidationResultState = {
-          status: "success",
-          message: "Ingresso válido! Entrada autorizada.",
-          ticketData: {
-            eventTitle: details?.eventTitle || "Evento",
-            ticketType: details?.ticketType || "Geral",
-            holderName: details?.holderEmail || user?.email || "",
-            eventDate: details?.eventDate || new Date().toLocaleDateString(),
-            eventTime: details?.eventTime || "",
-          },
-        };
-        setValidationResult(result);
-        return result;
-      } else {
-        const msg =
-          data?.message ||
-          "Código do ingresso inválido. Verifique e tente novamente.";
-        const status = data?.status === "used" ? "error" : "invalid";
-        const result: ValidationResultState = { status, message: msg };
-        setValidationResult(result);
-        return result;
-      }
+        controller.signal
+      );
+      const finalResponse = await retryWithFreshToken(
+        response,
+        user,
+        codeToValidate,
+        headers,
+        controller.signal
+      );
+      const data = (await finalResponse.json()) as BackendValidationResponse;
+      const result = buildBackendResult(finalResponse, data, user?.email || "");
+      setValidationResult(result);
+      return result;
     } catch (backendErr) {
-      clearTimeout(timeoutId);
-      const timedOut =
-        backendErr instanceof DOMException && backendErr.name === "AbortError";
-      if (timedOut) {
-        const result: ValidationResultState = {
-          status: "error",
-          message: "Tempo limite excedido. Verifique a conexão e tente novamente.",
-        };
-        setValidationResult(result);
-        setIsValidating(false);
-        return result;
-      }
-      logger.error("Erro ao validar no backend", backendErr as Error);
-
-      // Fallback para modo offline/DEV
-      if (import.meta.env.DEV) {
-        const offlineTicket =
-          TestDataService.validateOfflineTicket(codeToValidate);
-        if (offlineTicket) {
-          const result: ValidationResultState = {
-            status: offlineTicket.status === "used" ? "error" : "success",
-            message:
-              offlineTicket.status === "used"
-                ? "Este ingresso já foi utilizado."
-                : "Ingresso válido! Entrada autorizada.",
-            ticketData: {
-              eventTitle: offlineTicket.eventTitle,
-              ticketType: offlineTicket.ticketType,
-              holderName: offlineTicket.userEmail,
-              eventDate: offlineTicket.eventDate,
-              eventTime: offlineTicket.eventTime || "",
-            },
-          };
-          setValidationResult(result);
-          return result;
-        }
-      }
-
-      const result: ValidationResultState = {
-        status: "error",
-        message: "Erro ao validar ingresso no backend. Tente novamente.",
-      };
+      const result = handleValidationError(backendErr, codeToValidate);
       setValidationResult(result);
       return result;
     } finally {
@@ -161,4 +254,11 @@ export function useTicketValidator() {
     isValidating,
     resetValidation,
   };
+}
+
+function handleValidationError(error: unknown, qrCode: string) {
+  if (isTimeoutError(error)) return buildTimeoutResult();
+
+  logger.error("Erro ao validar no backend", error as Error);
+  return getOfflineValidationResult(qrCode) ?? buildBackendErrorResult();
 }

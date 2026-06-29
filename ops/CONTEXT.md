@@ -1,6 +1,12 @@
 # ops/ - Operacoes e Deploy
 
-Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
+Atualizado em 2026-06-29.
+
+Documentacao publica de setup, deploy e apresentacao:
+
+- `docs/OPERATIONS.md`
+- `docs/LINKEDIN.md`
+- `docs/README.md`
 
 ## Ambiente Atual
 
@@ -18,6 +24,10 @@ Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black
   o deploy.
 - Cloud SQL/Data Connect removidos para reduzir custo.
 - Secret Manager `SMTP_EMAIL` removido; `SMTP_EMAIL` agora e param/env comum.
+- Qualidade local revalidada em 2026-06-29:
+  - `npm.cmd --prefix ingressosZ run qa`: 288 testes passing, 18 skipped.
+  - `npm.cmd --prefix functions run test`: 9 passing, 1 pending.
+  - `npm.cmd --prefix functions run lint`: passou com `complexity` max 10.
 - Checklist operacional: `planning/CHECKLIST_FINALIZACAO.md`
 
 ## Setup Local
@@ -176,6 +186,7 @@ Consoles:
   `WEB_BASE_URL` oficial e `SENTRY_DSN`.
 - [x] Secrets obrigatorios configurados para deploy das Functions.
 - [x] Lint, typecheck, build e testes passaram em 2026-06-01.
+- [x] Lint, typecheck, build e testes revalidados em 2026-06-29.
 - [x] Firestore Rules e Storage Rules publicadas em 2026-06-02.
 - [x] Hosting publicado em 2026-06-11 com visual preto/azul simplificado,
   fundo preto absoluto e datas sem hifens.

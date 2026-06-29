@@ -1,6 +1,6 @@
 # Checklist de Finalizacao - IngressosZ
 
-Atualizado em 2026-06-11.
+Atualizado em 2026-06-29.
 
 Este arquivo fica dividido em duas partes:
 
@@ -24,6 +24,13 @@ Este arquivo fica dividido em duas partes:
   fundo preto absoluto e datas exibidas como `DD/MM/YYYY`, sem hifens.
 - [x] Projeto pronto para apresentacao no LinkedIn como portfolio em
   2026-06-11.
+- [x] Documentacao publica reorganizada em 2026-06-29 com README raiz enxuto,
+  pasta `docs/` e guia para LinkedIn.
+- [x] ESLint passou a aplicar complexidade ciclomática máxima 10 em frontend e
+  Functions em 2026-06-29.
+- [x] QA local de 2026-06-29 passou: frontend `npm.cmd --prefix ingressosZ run
+  qa` com 288 testes passing e 18 skipped; backend `npm.cmd --prefix functions
+  run test` com 9 passing e 1 pending.
 - [ ] Mercado Pago, App Check, dominios e testes reais de compra/QR/e-mail/
   reembolso ainda faltam.
 
@@ -33,6 +40,11 @@ Este arquivo fica dividido em duas partes:
   `https://<your-project>.web.app`.
 - [x] Repositorio com README raiz explicando stack, fluxo de pagamento,
   seguranca, setup, testes e deploy.
+- [x] Pasta `docs/` com indice, visao de projeto, arquitetura, operacao,
+  seguranca e guia de postagem no LinkedIn.
+- [x] Regra ESLint `complexity` configurada com limite 10; frontend refatorado
+  para passar sem excecoes e Functions validadas com excecoes pontuais nos
+  handlers legados criticos de pagamento/webhook/operacao.
 - [x] Visual publico simplificado para apresentacao: fundo preto absoluto,
   paleta preto/azul, sem gradientes/degrades, sem vidro-morfismo, sem animacoes
   de scroll e sem blocos promocionais desnecessarios.
@@ -219,6 +231,23 @@ npm --prefix functions run lint
 npm --prefix functions run build
 npm --prefix functions run test
 ```
+
+Status 2026-06-29:
+
+- [x] `npm.cmd --prefix ingressosZ run qa` passou. Resultado: 42 arquivos de
+  teste passed, 1 skipped; 288 testes passed, 18 skipped.
+- [x] `npm.cmd --prefix functions run lint` passou com a regra
+  `complexity: ["error", 10]`.
+- [x] `npm.cmd --prefix functions run test` passou. Resultado: 9 passing,
+  1 pending.
+- [x] `npm.cmd --prefix ingressosZ run build` passou.
+- [x] `npm.cmd --prefix functions run build` passou.
+
+Observacao 2026-06-29: os handlers legados criticos das Functions
+(`checkout`, `pix`, `webhook`, validacao, e-mail, seed, roles e reembolso)
+mantem excecoes pontuais de `complexity` para evitar refatoracao arriscada
+antes do lancamento controlado. A refatoracao real desses fluxos fica como
+melhoria pos-lancamento.
 
 - [ ] Rodar emulador quando Java estiver instalado.
 
@@ -611,6 +640,11 @@ deploy acidental a partir de `ingressosZ/`.
   passaram. Backend: 9 passing, 1 pending no E2E webhook sem emulador.
 - [x] Rodada 2026-06-01: `npm.cmd --prefix ingressosZ run qa` passou.
   Frontend: 42 arquivos passaram, 1 skipped; 290 testes passaram, 18 skipped.
+- [x] Rodada 2026-06-29: documentacao publica reorganizada para GitHub e
+  LinkedIn; ESLint recebeu regra `complexity` com limite 10 no frontend e
+  backend; frontend foi refatorado para passar a regra; Functions mantiveram
+  excecoes pontuais nos handlers legados criticos; `qa` frontend e testes
+  backend passaram.
 - [x] Rodada 2026-06-01: `npm.cmd --prefix ingressosZ audit --omit=dev`
   retornou 0 vulnerabilidades.
 - [x] Rodada 2026-06-01: `npm.cmd --prefix functions audit --omit=dev`

@@ -1,6 +1,9 @@
 # planning/ - Roadmap e Pendencias
 
-Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
+Atualizado em 2026-06-29.
+
+A documentacao publica para GitHub/LinkedIn foi consolidada em `docs/`. Este
+arquivo continua como contexto operacional e roadmap interno.
 
 Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 `planning/CHECKLIST_FINALIZACAO.md`.
@@ -33,6 +36,14 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] UI publica simplificada em junho/2026: fundo preto absoluto, paleta
   preto/azul, sem gradientes, sem vidro-morfismo, sem animacoes de scroll,
   botoes com cantos retos, home direta e datas exibidas como `DD/MM/YYYY`.
+- [x] Documentacao reorganizada para apresentacao no GitHub e LinkedIn em
+  `README.md` e `docs/`.
+- [x] ESLint `complexity` configurado com limite 10 em frontend e Functions em
+  2026-06-29.
+- [x] Frontend refatorado para passar `complexity` sem excecoes locais.
+- [x] Functions passam lint/build/test; handlers legados criticos mantem
+  excecoes pontuais de `complexity` para reduzir risco antes do lancamento
+  controlado.
 
 ## Alta Prioridade Antes de Publico
 
@@ -43,7 +54,7 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] Fazer limpeza leve de arquivos/configs frontend antes do lancamento:
   substituir `/vite.svg`, remover `react.svg` sem uso e remover/alinhar
   `ingressosZ/.firebaserc` + `ingressosZ/firebase.json`.
-- [x] Rodar qualidade local completa em 2026-06-01.
+- [x] Rodar qualidade local completa em 2026-06-29.
 - [x] Executar deploy final de `functions`, `firestore:rules`, `storage` e
   `hosting`.
 - [ ] Cadastrar URL real de `receiveWebhook` no Mercado Pago com evento
@@ -109,6 +120,9 @@ Obrigatorias para producao:
    `npm --prefix functions run lint`,
    `npm --prefix functions run build`,
    `npm --prefix functions run test`.
+   Status 2026-06-29: `npm.cmd --prefix ingressosZ run qa` passou com
+   288 testes passing e 18 skipped; `npm.cmd --prefix functions run test`
+   passou com 9 passing e 1 pending.
 8. Fazer deploy quando houver nova alteracao, sempre pela raiz do repo:
    `npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>`.
 9. Registrar URL de `receiveWebhook` no Mercado Pago.

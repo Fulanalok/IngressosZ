@@ -2,7 +2,8 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { FirebaseError } from "firebase/app";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Link, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -10,6 +11,130 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { auth, functions } from "@/firebaseConfig";
+
+function getErrorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error
+    ? (error as FirebaseError).code
+    : null;
+}
+
+function getSignupValidationError(password: string, confirmPassword: string) {
+  if (password !== confirmPassword) return "As senhas não coincidem.";
+  if (password.length < 6) return "A senha deve ter pelo menos 6 caracteres.";
+  return "";
+}
+
+function getSignupErrorMessage(error: unknown) {
+  switch (getErrorCode(error)) {
+    case "auth/email-already-in-use":
+      return "Este e-mail já está em uso.";
+    case "auth/weak-password":
+      return "A senha deve ter pelo menos 6 caracteres.";
+    case "auth/invalid-email":
+      return "E-mail inválido.";
+    case "auth/network-request-failed":
+      return "Falha de rede ao criar conta. Verifique sua conexão e tente novamente.";
+    case "auth/configuration-not-found":
+      return "Erro de configuração do Firebase. Verifique as configurações do projeto.";
+    case "auth/api-key-not-valid":
+      return "Chave de API do Firebase inválida.";
+    case null:
+      return "Ocorreu um erro ao criar a conta.";
+    default:
+      return "Não foi possível criar a conta. Tente novamente em alguns instantes.";
+  }
+}
+
+function getRecaptchaError(siteKey: string, recaptchaToken: string | null) {
+  if (!siteKey) return "reCAPTCHA não configurado.";
+  if (!recaptchaToken) return "Confirme o reCAPTCHA para continuar.";
+  return "";
+}
+
+function AlertMessage({ id, message }: { id?: string; message: string }) {
+  if (!message) return null;
+
+  return (
+    <div
+      id={id}
+      role="alert"
+      aria-live="assertive"
+      className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-xl p-4"
+    >
+      <p className="text-sm text-red-800 dark:text-red-300 font-medium">
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function RecaptchaField({
+  recaptchaRef,
+  setRecaptchaToken,
+  siteKey,
+}: {
+  recaptchaRef: React.RefObject<ReCAPTCHA | null>;
+  setRecaptchaToken: (token: string | null) => void;
+  siteKey: string;
+}) {
+  if (!siteKey) {
+    return (
+      <div className="text-center text-sm text-muted-foreground">
+        reCAPTCHA não configurado neste ambiente
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-center">
+      <ReCAPTCHA
+        ref={recaptchaRef}
+        sitekey={siteKey}
+        onChange={(token: string | null) => setRecaptchaToken(token)}
+        onExpired={() => setRecaptchaToken(null)}
+      />
+    </div>
+  );
+}
+
+function SubmitContent({ loading }: { loading: boolean }) {
+  if (!loading) return <>Criar conta gratuita</>;
+
+  return (
+    <>
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2" />
+      Criando conta...
+    </>
+  );
+}
+
+function Benefits() {
+  const benefits = [
+    "Compre de forma segura e rápida",
+    "Acesse seus ingressos no celular",
+    "Receba alertas de novos eventos",
+    "Histórico completo de compras",
+  ];
+
+  return (
+    <div className="surface-card p-8 border border-border/50">
+      <h3 className="text-xl font-extrabold text-foreground mb-6">
+        Por que escolher o <span className="text-primary">IngressosZ</span>?
+      </h3>
+      <div className="grid grid-cols-1 gap-4">
+        {benefits.map((benefit) => (
+          <div
+            key={benefit}
+            className="flex items-center text-muted-foreground font-medium"
+          >
+            <div className="w-2 h-2 bg-primary rounded-full mr-3 shadow-sm shadow-primary/20 flex-shrink-0" />
+            {benefit}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SignUp() {
   const [email, setEmail] = useState("");
@@ -30,76 +155,38 @@ function SignUp() {
   const from = (location.state as { from?: { pathname?: string } } | null)?.from
     ?.pathname;
 
-  const handleSignUp = async (event: React.FormEvent) => {
+  const handleSignUp = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
     setRecaptchaError("");
 
-    if (password !== confirmPassword) {
-      setError("As senhas não coincidem.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres.");
+    const validationError = getSignupValidationError(password, confirmPassword);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setLoading(true);
 
     try {
-      if (!siteKey) {
-        setRecaptchaError("reCAPTCHA não configurado.");
+      const recaptchaMessage = getRecaptchaError(siteKey, recaptchaToken);
+      if (recaptchaMessage) {
+        setRecaptchaError(recaptchaMessage);
         return;
       }
-      if (!recaptchaToken) {
-        setRecaptchaError("Confirme o reCAPTCHA para continuar.");
-        return;
-      }
+
       const verifyRecaptcha = httpsCallable(functions, "verifyRecaptchaV2");
       await verifyRecaptcha({ token: recaptchaToken });
-      await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      await createUserWithEmailAndPassword(
+        auth,
+        email.trim().toLowerCase(),
+        password
+      );
       navigate(from || "/", { replace: true });
     } catch (err: unknown) {
       console.error("Erro ao criar usuário:", err);
-      const errorCode =
-        typeof err === "object" && err !== null && "code" in err
-          ? (err as FirebaseError).code
-          : null;
-      if (errorCode) {
-        switch (errorCode) {
-          case "auth/email-already-in-use":
-            setError("Este e-mail já está em uso.");
-            break;
-          case "auth/weak-password":
-            setError("A senha deve ter pelo menos 6 caracteres.");
-            break;
-          case "auth/invalid-email":
-            setError("E-mail inválido.");
-            break;
-          case "auth/network-request-failed":
-            setError(
-              "Falha de rede ao criar conta. Verifique sua conexão e tente novamente."
-            );
-            break;
-          case "auth/configuration-not-found":
-            setError(
-              "Erro de configuração do Firebase. Verifique as configurações do projeto."
-            );
-            break;
-          case "auth/api-key-not-valid":
-            setError("Chave de API do Firebase inválida.");
-            break;
-          default:
-            setError(
-              "Não foi possível criar a conta. Tente novamente em alguns instantes."
-            );
-            toast.error("Erro ao criar conta. Tente novamente.");
-        }
-      } else {
-        setError("Ocorreu um erro ao criar a conta.");
-        toast.error("Ocorreu um erro inesperado.");
-      }
+      setError(getSignupErrorMessage(err));
+      toast.error("Erro ao criar conta. Tente novamente.");
       recaptchaRef.current?.reset();
       setRecaptchaToken(null);
     } finally {
@@ -120,17 +207,17 @@ function SignUp() {
   return (
     <div className="min-h-screen page-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        {/* Header */}
         <div className="text-center">
           <h2 className="text-4xl font-extrabold text-foreground mb-2 tracking-tight">
             Crie sua conta
           </h2>
           <p className="text-muted-foreground">
-            Junte-se ao <span className="text-primary font-bold">IngressosZ</span> e descubra eventos incríveis
+            Junte-se ao{" "}
+            <span className="text-primary font-bold">IngressosZ</span> e
+            descubra eventos incríveis
           </p>
         </div>
 
-        {/* Form */}
         <Card className="mt-8 shadow-xl border-border/50">
           <CardContent>
             <form
@@ -199,57 +286,20 @@ function SignUp() {
                 />
               </div>
 
-              {error && (
-                <div
-                  id="signup-error"
-                  role="alert"
-                  aria-live="assertive"
-                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-xl p-4"
-                >
-                  <p className="text-sm text-red-800 dark:text-red-300 font-medium">
-                    {error}
-                  </p>
-                </div>
-              )}
+              <AlertMessage id="signup-error" message={error} />
+              <RecaptchaField
+                recaptchaRef={recaptchaRef}
+                setRecaptchaToken={setRecaptchaToken}
+                siteKey={siteKey}
+              />
+              <AlertMessage message={recaptchaError} />
 
-              {siteKey ? (
-                <div className="flex justify-center">
-                  <ReCAPTCHA
-                    ref={recaptchaRef}
-                    sitekey={siteKey}
-                    onChange={(token: string | null) =>
-                      setRecaptchaToken(token)
-                    }
-                    onExpired={() => setRecaptchaToken(null)}
-                  />
-                </div>
-              ) : (
-                <div className="text-center text-sm text-muted-foreground">
-                  reCAPTCHA não configurado neste ambiente
-                </div>
-              )}
-
-              {recaptchaError && (
-                <div
-                  role="alert"
-                  aria-live="assertive"
-                  className="bg-red-50 dark:bg-red-900/40 border border-red-200 dark:border-red-600 rounded-xl p-4"
-                >
-                  <p className="text-sm text-red-800 dark:text-red-300 font-medium">
-                    {recaptchaError}
-                  </p>
-                </div>
-              )}
-
-              <Button type="submit" disabled={loading} className="w-full btn-primary py-6 text-base">
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                    Criando conta...
-                  </>
-                ) : (
-                  <>Criar conta gratuita</>
-                )}
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full btn-primary py-6 text-base"
+              >
+                <SubmitContent loading={loading} />
               </Button>
             </form>
           </CardContent>
@@ -267,34 +317,19 @@ function SignUp() {
             </div>
 
             <div className="mt-6 w-full">
-              <Button variant="secondary" asChild className="w-full rounded-none border-border/50">
+              <Button
+                variant="secondary"
+                asChild
+                className="w-full rounded-none border-border/50"
+              >
                 <Link to="/login">Fazer login</Link>
               </Button>
             </div>
           </CardFooter>
         </Card>
 
-        {/* Benefits */}
-        <div className="surface-card p-8 border border-border/50">
-          <h3 className="text-xl font-extrabold text-foreground mb-6">
-            Por que escolher o <span className="text-primary">IngressosZ</span>?
-          </h3>
-          <div className="grid grid-cols-1 gap-4">
-            {[
-              "Compre de forma segura e rápida",
-              "Acesse seus ingressos no celular",
-              "Receba alertas de novos eventos",
-              "Histórico completo de compras"
-            ].map((benefit, i) => (
-              <div key={i} className="flex items-center text-muted-foreground font-medium">
-                <div className="w-2 h-2 bg-primary rounded-full mr-3 shadow-sm shadow-primary/20 flex-shrink-0"></div>
-                {benefit}
-              </div>
-            ))}
-          </div>
-        </div>
+        <Benefits />
 
-        {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
           <p>
             Ao criar uma conta, você concorda com nossos{" "}

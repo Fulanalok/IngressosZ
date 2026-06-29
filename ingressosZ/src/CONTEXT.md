@@ -1,6 +1,6 @@
 # src/ - Codigo Fonte Frontend
 
-Atualizado em 2026-06-11. Base Git: `241f1f9 style: set site background to black`.
+Atualizado em 2026-06-29.
 
 Frontend React/Vite do IngressosZ. A aplicacao cobre descoberta de eventos,
 compra por Checkout/Pix, area de ingressos, validacao presencial, painel admin
@@ -75,6 +75,8 @@ Definidas em `routing/AppRoutes.tsx`.
 - Visual publico atual: fundo preto absoluto, paleta preto/azul, sem
   gradientes/degrades, sem vidro-morfismo e sem animacoes de scroll. Botoes
   principais usam cantos retos.
+- ESLint aplica `complexity` maxima 10; componentes, hooks e paginas
+  principais foram refatorados para passar sem excecoes locais em 2026-06-29.
 
 ## Fluxo de Compra no Frontend
 
@@ -99,6 +101,9 @@ npm --prefix ingressosZ run test
 ```
 
 `npm --prefix ingressosZ run test` roda Vitest com coverage.
+
+Status 2026-06-29: `npm.cmd --prefix ingressosZ run qa` passou com 288 testes
+passing e 18 skipped.
 
 ## Atencoes
 

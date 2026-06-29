@@ -1,6 +1,12 @@
 # architecture/ - Arquitetura do IngressosZ
 
-Atualizado em 2026-05-26. Base Git: `1baef6c feat: harden production security and compliance`.
+Atualizado em 2026-06-29.
+
+Documentacao publica organizada em `docs/`, especialmente:
+
+- `docs/PROJECT.md`
+- `docs/ARCHITECTURE.md`
+- `docs/SECURITY.md`
 
 ## Visao Geral
 
@@ -169,6 +175,8 @@ Exports publicos atuais:
 ## Referencias
 
 - `README.md`
+- `docs/README.md`
+- `docs/ARCHITECTURE.md`
 - `functions/API.md`
 - `planning/CONTEXT.md`
 - `planning/CHECKLIST_FINALIZACAO.md`

@@ -1,101 +1,88 @@
 # IngressosZ
 
-IngressosZ e uma plataforma single-company para criacao de eventos, venda de
-ingressos digitais, emissao de QR Codes e validacao presencial.
+IngressosZ e uma plataforma de ingressos digitais para eventos pequenos e
+medios. O projeto cobre descoberta de eventos, checkout, Pix, webhook de
+pagamento, emissao de tickets com QR Code e validacao presencial.
 
-O projeto usa Firebase como base operacional e Mercado Pago para Checkout/Pix.
-A prioridade e manter um fluxo simples, seguro e barato de operar.
+O objetivo atual e servir como projeto de portfolio com um fluxo realista de
+produto, backend e seguranca. Para uso comercial amplo, ainda ha validacoes
+operacionais e legais mapeadas na documentacao.
 
 ## Demo
 
-- Site publicado: `https://<your-project>.web.app`
-- Repositorio: `https://github.com/Fulanalok/IngressosZ`
+- Site publicado: https://<your-project>.web.app
+- Repositorio: https://github.com/Fulanalok/IngressosZ
 
-## Status para Portfolio
+## Destaques
 
-Pronto para apresentacao no LinkedIn como projeto de portfolio: frontend
-publicado, README atualizado, fluxo tecnico documentado, deploy em Firebase
-Hosting e arquitetura de pagamentos/ingressos descrita.
-
-O uso comercial em producao ainda depende das validacoes reais listadas no
-checklist de producao, principalmente Mercado Pago, webhook, Pix/cartao, e-mail,
-QR Code, reembolso, App Check e revisao legal.
-
-## Status Atual
-
-- UI publica em fundo preto absoluto, paleta preto/azul, visual simples e sem
-  gradientes, vidro-morfismo ou animacoes de scroll.
-- Botoes principais com cantos retos.
-- Home com chamada principal "Compre seus ingressos com seguranca aqui", copy
-  curta, sem cards de metricas e sem bloco lateral de destaque.
-- Datas exibidas em formato brasileiro (`DD/MM/YYYY`), sem hifens.
-- Checkout Mercado Pago com `paymentSessions`.
-- `paymentSessions.paymentMethod` identifica `checkout` ou `pix`.
-- Webhook Mercado Pago com assinatura HMAC via `MP_WEBHOOK_SECRET`.
-- Emissao de tickets com QR Code JWT assinado.
-- Validador com endpoint HTTP autenticado.
-- Painel admin para eventos, roles e reembolsos.
-- Upload e otimizacao de imagens no Storage.
-- E-mails transacionais de confirmacao.
-- Observabilidade com Sentry.
+- Frontend React/Vite publicado no Firebase Hosting.
+- Backend serverless com Firebase Functions v2.
+- Checkout Pro e Pix via Mercado Pago.
+- Webhook Mercado Pago com validacao HMAC.
+- `paymentSessions` para rastrear a intencao de pagamento.
+- Tickets digitais com QR Code JWT assinado.
+- Validador presencial com controle de role.
+- Painel admin para eventos, roles, vendas e reembolsos.
+- Firestore Rules e Storage Rules para proteger escrita sensivel.
+- Documentacao separando portfolio/demo de pendencias de producao comercial.
 
 ## Stack
 
-- Frontend: React 19, TypeScript, Vite, Tailwind v4.
-- Dados: TanStack Query v5.
-- Backend: Firebase Functions v2, Node.js 24.
-- Banco: Firestore.
-- Storage: Firebase Storage.
-- Auth: Firebase Authentication.
-- Pagamentos: Mercado Pago Checkout Pro e Pix.
-- Monitoramento: Sentry.
+| Camada | Tecnologias |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| Estado/dados | TanStack Query, Firebase SDK |
+| Backend | Firebase Functions v2, Node.js 24, TypeScript |
+| Banco | Cloud Firestore |
+| Storage | Firebase Storage |
+| Auth | Firebase Authentication |
+| Pagamentos | Mercado Pago Checkout Pro e Pix |
+| Observabilidade | Sentry |
+| Testes | Vitest, Testing Library, Cypress, Mocha |
 
-## Estrutura
+## Arquitetura resumida
+
+```mermaid
+flowchart LR
+  A["Usuario"] --> B["React/Vite"]
+  B --> C["Firebase Auth"]
+  B --> D["Firestore"]
+  B --> E["Functions v2"]
+  E --> F["Mercado Pago"]
+  F --> G["receiveWebhook"]
+  G --> D
+  G --> H["Tickets + QR JWT"]
+  I["Validador"] --> E
+```
+
+Fluxo principal:
+
+1. Usuario escolhe evento e quantidade.
+2. Frontend cria `paymentSessions/{id}` no Firestore.
+3. Frontend chama Checkout ou Pix.
+4. Mercado Pago confirma via webhook.
+5. Backend valida a assinatura, consolida compra e emite tickets.
+6. QR Code e validado por usuario com role permitida.
+
+## Estrutura do repositorio
 
 ```text
 .
+|-- docs/                    # Documentacao publica para GitHub/portfolio
 |-- ingressosZ/              # Frontend React/Vite
 |-- functions/               # Firebase Functions
+|-- architecture/            # Contexto tecnico interno
+|-- ops/                     # Contexto operacional interno
+|-- planning/                # Checklist e roadmap
 |-- firestore.rules          # Regras Firestore
-|-- firestore.indexes.json   # Indices Firestore
 |-- storage.rules            # Regras Storage
 |-- firebase.json            # Hosting, Functions e emuladores
-|-- planning/CONTEXT.md      # Roadmap operacional
-|-- architecture/CONTEXT.md  # Arquitetura atual
-|-- ops/CONTEXT.md           # Deploy e operacoes
-`-- functions/API.md         # Contratos backend
+`-- package.json             # Scripts do monorepo
 ```
 
-## Fluxo de Pagamento
+## Rodando localmente
 
-1. Usuario autenticado escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` no Firestore com:
-   - `eventId`
-   - `userId`
-   - `userEmail`
-   - `ticketType`
-   - `quantity`
-   - `unitPrice`
-   - `totalAmount`
-   - `status: "pending"`
-   - `provider: "mercadopago"`
-   - `paymentMethod: "checkout"` ou `"pix"`
-3. Frontend chama `createPaymentPreference` ou `createPixPayment`.
-4. Mercado Pago processa o pagamento.
-5. Mercado Pago chama `receiveWebhook`.
-6. Backend valida HMAC, consulta a API do Mercado Pago, atualiza a sessao,
-   cria `purchases`, decrementa estoque, gera `tickets` e envia e-mail.
-
-## Regras de Seguranca
-
-- `events`: leitura publica; escrita controlada por owner/organizer/admin.
-- `paymentSessions`: criacao pelo usuario autenticado; `paymentMethod` limitado
-  a `checkout` ou `pix`.
-- `tickets`: leitura pelo dono/admin; escrita direta pelo cliente bloqueada.
-- `purchases`: sem acesso direto do cliente.
-- `users`: role protegida contra alteracao comum.
-
-## Setup Local
+Instale dependencias:
 
 ```bash
 npm install
@@ -114,65 +101,15 @@ Functions/emuladores:
 firebase emulators:start
 ```
 
-## Variaveis do Frontend
-
-Crie `ingressosZ/.env.local` usando `ingressosZ/.env.example` como base.
-
-Principais variaveis:
-
-```env
-VITE_FIREBASE_API_KEY="..."
-VITE_FIREBASE_AUTH_DOMAIN="..."
-VITE_FIREBASE_PROJECT_ID="..."
-VITE_FIREBASE_STORAGE_BUCKET="..."
-VITE_FIREBASE_MESSAGING_SENDER_ID="..."
-VITE_FIREBASE_APP_ID="..."
-VITE_FIREBASE_MEASUREMENT_ID="..."
-VITE_FUNCTIONS_REGION="southamerica-east1"
-VITE_API_URL=""
-VITE_MERCADOPAGO_PUBLIC_KEY="..."
-VITE_RECAPTCHA_V2_SITE_KEY="..."
-VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY="..."
-VITE_APPCHECK_DEBUG_TOKEN="false"
-VITE_USE_EMULATORS="false"
-VITE_FUNCTIONS_PORT="5001"
-VITE_FIREBASE_EMULATOR_FUNCTIONS_PORT="5001"
-VITE_FIREBASE_EMULATOR_AUTH_PORT="9099"
-VITE_FIREBASE_EMULATOR_FIRESTORE_PORT="8086"
-VITE_FIREBASE_EMULATOR_STORAGE_PORT="9199"
-VITE_SENTRY_DSN=""
-```
-
-## Secrets e Params das Functions
-
-Secrets obrigatorios:
-
-```bash
-firebase functions:secrets:set MP_ACCESS_TOKEN
-firebase functions:secrets:set MP_WEBHOOK_SECRET
-firebase functions:secrets:set JWT_SECRET
-firebase functions:secrets:set SMTP_PASSWORD
-firebase functions:secrets:set RECAPTCHA_V2_SECRET
-```
-
-Params em `functions/.env`:
-
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_EMAIL=seu-email@exemplo.com
-WEB_BASE_URL=https://<your-project>.web.app
-SENTRY_DSN=
-```
-
-## Testes
+## Qualidade
 
 Frontend:
 
 ```bash
 npm --prefix ingressosZ run lint
+npm --prefix ingressosZ run typecheck
 npm --prefix ingressosZ run build
-npm --prefix ingressosZ run test -- --run
+npm --prefix ingressosZ run test
 ```
 
 Backend:
@@ -183,43 +120,30 @@ npm --prefix functions run build
 npm --prefix functions run test
 ```
 
-O teste E2E do webhook roda completo quando Firestore/Auth emulators estao
-ativos. Sem emuladores, ele fica pendente.
-
 ## Deploy
 
+Deploy completo pela raiz:
+
 ```bash
-npx firebase-tools use
 npx firebase-tools deploy --only firestore:rules,storage,functions,hosting --project <your-firebase-project-id>
 ```
 
-Execute deploy sempre a partir da raiz do repositorio. O `firebase.json` da
-raiz e a fonte operacional oficial para Hosting, Functions, Firestore Rules,
-Storage Rules e emuladores.
+## Status
 
-Apos o deploy, cadastre a URL publica da Function `receiveWebhook` no painel do
-Mercado Pago e habilite o evento `Payments`.
+Pronto para demonstracao controlada no LinkedIn como projeto de portfolio.
 
-## Checklist de Producao
+Antes de uso comercial amplo, ainda faltam validacoes reais de Mercado Pago,
+webhook, Pix/cartao, e-mail transacional, QR Code, reembolso/admin, App Check e
+revisao legal.
 
-- [ ] `npx firebase-tools use` aponta para o projeto correto ou o deploy usa
-  `--project <your-firebase-project-id>`.
-- [ ] Frontend `.env.local` contem Firebase, Mercado Pago, reCAPTCHA e App
-  Check.
-- [ ] Functions secrets configurados.
-- [ ] `WEB_BASE_URL` aponta para a URL publica real.
-- [ ] Dominios autorizados no Firebase Auth.
-- [ ] Dominios autorizados no reCAPTCHA v2.
-- [ ] Dominios autorizados no reCAPTCHA Enterprise/App Check.
-- [ ] Webhook Mercado Pago cadastrado e testado.
-- [ ] Compra real de baixo valor testada em Checkout e Pix.
-- [ ] QR Code validado com role `validator`, `organizer` ou `admin`.
-- [ ] Reembolso/admin testado em compra elegivel.
+## Documentacao
 
-## Documentacao Relacionada
-
-- [functions/API.md](functions/API.md)
-- [architecture/CONTEXT.md](architecture/CONTEXT.md)
-- [planning/CONTEXT.md](planning/CONTEXT.md)
-- [ops/CONTEXT.md](ops/CONTEXT.md)
-- [ingressosZ/README.md](ingressosZ/README.md)
+- [docs/README.md](docs/README.md) - indice da documentacao.
+- [docs/PROJECT.md](docs/PROJECT.md) - visao de produto e escopo.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - arquitetura e fluxo tecnico.
+- [docs/OPERATIONS.md](docs/OPERATIONS.md) - setup, qualidade e deploy.
+- [docs/SECURITY.md](docs/SECURITY.md) - seguranca e pendencias.
+- [docs/LINKEDIN.md](docs/LINKEDIN.md) - guia para apresentar o projeto.
+- [functions/API.md](functions/API.md) - contratos e Functions backend.
+- [planning/CHECKLIST_FINALIZACAO.md](planning/CHECKLIST_FINALIZACAO.md) -
+  checklist operacional detalhado.

@@ -13,6 +13,7 @@ import { requireAppCheck } from "../utils/appCheck.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 export const createPaymentPreference = onCall(
   { ...callableSecurityOptions, secrets: [mercadopagoAccessToken] },
+  // eslint-disable-next-line complexity -- legacy payment flow
   async (request) => {
     const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
     let accessToken: string;
@@ -197,7 +198,9 @@ export const createPaymentPreference = onCall(
 
 export const createPaymentPreferencePublic = onRequest(
   { secrets: [mercadopagoAccessToken] },
+  // eslint-disable-next-line complexity -- legacy payment flow
   async (req, res) => {
+    // eslint-disable-next-line complexity -- legacy payment flow
     corsHandler(req, res, async () => {
       if (req.method !== "POST") {
         res.status(405).send("Method Not Allowed");

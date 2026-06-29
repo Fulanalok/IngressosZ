@@ -12,6 +12,7 @@ import {
 } from "../config/params.js";
 export const onTicketCreated = onDocumentCreated(
   { document: "tickets/{ticketId}", secrets: [smtpPassword] },
+  // eslint-disable-next-line complexity -- legacy email handler
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -71,6 +72,7 @@ export const onTicketCreated = onDocumentCreated(
   }
 );
 
+// eslint-disable-next-line complexity -- legacy email template
 const sendTicketEmail = async (
   userId: string,
   eventId: string,
@@ -315,6 +317,7 @@ export const sendPurchaseEmail = async (
   });
 };
 
+// eslint-disable-next-line complexity -- legacy SMTP config
 const sendEmail = async (to: string, subject: string, html: string) => {
   try {
     const email = smtpEmail.value();

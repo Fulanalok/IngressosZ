@@ -1,5 +1,5 @@
-import { auth } from "@/firebaseConfig";
 import { normalizeUserRole, USER_ROLES } from "@/constants/roles";
+import { auth } from "@/firebaseConfig";
 import { userService } from "@/services/firestore";
 import { logger } from "@/services/logger";
 import type { UserProfile } from "@/types";
@@ -7,6 +7,53 @@ import type { User } from "firebase/auth";
 import { getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
 import { ReactNode, useEffect, useState } from "react";
 import { AuthContext, type AuthContextType } from "./authContext";
+
+function createProfilePayload(user: User): Omit<UserProfile, "uid" | "createdAt"> {
+  return {
+    email: user.email || "",
+    displayName: user.displayName || "",
+    phone: user.phoneNumber || "",
+    role: USER_ROLES.USER,
+    avatarUrl: user.photoURL || "",
+  };
+}
+
+async function ensureUserProfile(user: User) {
+  const profile = await userService.getUserProfile(user.uid);
+
+  if (profile) return profile;
+
+  await userService.createUserProfile(user.uid, createProfilePayload(user));
+  return userService.getUserProfile(user.uid);
+}
+
+async function getRoleFromClaims(user: User, fallbackRole: UserProfile["role"]) {
+  try {
+    const tokenResult = await user.getIdTokenResult();
+    const claimsRole = tokenResult.claims.role;
+
+    if (tokenResult.claims.admin === true) return USER_ROLES.ADMIN;
+    if (typeof claimsRole === "string") return normalizeUserRole(claimsRole);
+    return normalizeUserRole(fallbackRole);
+  } catch {
+    return normalizeUserRole(fallbackRole);
+  }
+}
+
+async function syncProfileRole(user: User, profile: UserProfile | null) {
+  if (!profile) return null;
+
+  const roleFromClaims = await getRoleFromClaims(user, profile.role);
+  if (profile.role === roleFromClaims) return profile;
+
+  await userService.updateUserProfile(user.uid, { role: roleFromClaims });
+  return { ...profile, role: roleFromClaims };
+}
+
+async function getSyncedUserProfile(user: User) {
+  const profile = await ensureUserProfile(user);
+  return syncProfileRole(user, profile);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -16,47 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setLoading(true);
+
       if (currentUser) {
-        let profile = await userService.getUserProfile(currentUser.uid);
-        if (!profile) {
-          const newUserProfile: Omit<UserProfile, "uid" | "createdAt"> = {
-            email: currentUser.email || "",
-            displayName: currentUser.displayName || "",
-            phone: currentUser.phoneNumber || "",
-            role: USER_ROLES.USER,
-            avatarUrl: currentUser.photoURL || "",
-          };
-          await userService.createUserProfile(currentUser.uid, newUserProfile);
-          profile = await userService.getUserProfile(currentUser.uid);
-        }
-
-        let roleFromClaims: UserProfile["role"] = normalizeUserRole(
-          profile?.role
-        );
-        try {
-          const tokenResult = await currentUser.getIdTokenResult();
-          const claimsRole = tokenResult.claims.role;
-          const isAdmin = tokenResult.claims.admin === true;
-          if (isAdmin) {
-            roleFromClaims = USER_ROLES.ADMIN;
-          } else if (typeof claimsRole === "string") {
-            roleFromClaims = normalizeUserRole(claimsRole);
-          }
-        } catch {
-          roleFromClaims = normalizeUserRole(profile?.role);
-        }
-
-        if (profile && profile.role !== roleFromClaims) {
-          await userService.updateUserProfile(currentUser.uid, {
-            role: roleFromClaims,
-          });
-          profile = { ...profile, role: roleFromClaims };
-        }
-
-        setUserProfile(profile || null);
+        setUserProfile(await getSyncedUserProfile(currentUser));
       } else {
         setUserProfile(null);
       }
+
       setUser(currentUser);
       setLoading(false);
     });
@@ -67,20 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     getRedirectResult(auth)
       .then(async (result) => {
-        if (result?.user) {
-          const { user: authUser } = result;
-          const profile = await userService.getUserProfile(authUser.uid);
-          if (!profile) {
-            const newUserProfile: Omit<UserProfile, "uid" | "createdAt"> = {
-              email: authUser.email || "",
-              displayName: authUser.displayName || "",
-              phone: authUser.phoneNumber || "",
-              role: USER_ROLES.USER,
-              avatarUrl: authUser.photoURL || "",
-            };
-            await userService.createUserProfile(authUser.uid, newUserProfile);
-          }
-        }
+        if (result?.user) await ensureUserProfile(result.user);
       })
       .catch((error) => {
         logger.error("Erro no login com redirecionamento", error);
@@ -100,8 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getFreshIdToken: AuthContextType["getFreshIdToken"] = async () => {
     if (!user) return null;
     try {
-      const token = await user.getIdToken(true);
-      return token;
+      return await user.getIdToken(true);
     } catch {
       return null;
     }

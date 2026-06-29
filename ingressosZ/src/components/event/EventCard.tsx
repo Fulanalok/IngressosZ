@@ -11,47 +11,97 @@ interface EventCardProps {
   event: Event;
 }
 
+const DEFAULT_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=900&h=506&fit=crop&auto=format&q=80";
+
+const FALLBACK_IMAGES = [
+  {
+    terms: ["foto", "educa"],
+    url: "https://images.unsplash.com/photo-1507236390809-947de8aea269?w=900&h=506&fit=crop&auto=format&q=80",
+  },
+  {
+    terms: ["tech", "tecnologia"],
+    url: "https://images.unsplash.com/photo-1700936655679-83f4b37d7d74?w=900&h=506&fit=crop&auto=format&q=80",
+  },
+  {
+    terms: ["gastronomia", "food"],
+    url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900&h=506&fit=crop&auto=format&q=80",
+  },
+  {
+    terms: ["show", "mus", "jazz"],
+    url: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=900&h=506&fit=crop&auto=format&q=80",
+  },
+  {
+    terms: ["entreten", "comedy", "stand"],
+    url: "https://images.unsplash.com/photo-1580188928585-0ef5c1a5c4dd?w=900&h=506&fit=crop&auto=format&q=80",
+  },
+];
+
 function getFallbackImage(category: string) {
   const normalizedCategory = category.toLowerCase();
+  return (
+    FALLBACK_IMAGES.find(({ terms }) =>
+      terms.some((term) => normalizedCategory.includes(term))
+    )?.url ?? DEFAULT_FALLBACK_IMAGE
+  );
+}
 
-  if (
-    normalizedCategory.includes("foto") ||
-    normalizedCategory.includes("educa")
-  ) {
-    return "https://images.unsplash.com/photo-1507236390809-947de8aea269?w=900&h=506&fit=crop&auto=format&q=80";
-  }
+interface EventCardImageProps {
+  event: Event;
+  imageLoadFailed: boolean;
+  fallbackImageFailed: boolean;
+  remoteImageLoaded: boolean;
+  onFallbackImageError: () => void;
+  onRemoteImageLoad: () => void;
+  onRemoteImageError: () => void;
+}
 
-  if (
-    normalizedCategory.includes("tech") ||
-    normalizedCategory.includes("tecnologia")
-  ) {
-    return "https://images.unsplash.com/photo-1700936655679-83f4b37d7d74?w=900&h=506&fit=crop&auto=format&q=80";
-  }
+function EventCardImage({
+  event,
+  imageLoadFailed,
+  fallbackImageFailed,
+  remoteImageLoaded,
+  onFallbackImageError,
+  onRemoteImageLoad,
+  onRemoteImageError,
+}: EventCardImageProps) {
+  const fallbackImage = getFallbackImage(event.category);
+  const shouldLoadRemoteImage = Boolean(event.image && !imageLoadFailed);
 
-  if (
-    normalizedCategory.includes("gastronomia") ||
-    normalizedCategory.includes("food")
-  ) {
-    return "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900&h=506&fit=crop&auto=format&q=80";
-  }
-
-  if (
-    normalizedCategory.includes("show") ||
-    normalizedCategory.includes("mus") ||
-    normalizedCategory.includes("jazz")
-  ) {
-    return "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=900&h=506&fit=crop&auto=format&q=80";
-  }
-
-  if (
-    normalizedCategory.includes("entreten") ||
-    normalizedCategory.includes("comedy") ||
-    normalizedCategory.includes("stand")
-  ) {
-    return "https://images.unsplash.com/photo-1580188928585-0ef5c1a5c4dd?w=900&h=506&fit=crop&auto=format&q=80";
-  }
-
-  return "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=900&h=506&fit=crop&auto=format&q=80";
+  return (
+    <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+      {!fallbackImageFailed ? (
+        <img
+          src={fallbackImage}
+          alt={remoteImageLoaded ? "" : event.title}
+          loading="eager"
+          decoding="sync"
+          className="h-full w-full object-cover"
+          onError={onFallbackImageError}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-secondary">
+          <Ticket className="h-12 w-12 text-primary" aria-hidden="true" />
+        </div>
+      )}
+      {shouldLoadRemoteImage ? (
+        <img
+          src={event.image}
+          alt={remoteImageLoaded ? event.title : ""}
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full object-cover ${
+            remoteImageLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          onLoad={onRemoteImageLoad}
+          onError={onRemoteImageError}
+        />
+      ) : null}
+      <span className="absolute left-3 top-3 border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
+        {event.category}
+      </span>
+    </div>
+  );
 }
 
 function EventCard({ event }: EventCardProps) {
@@ -111,11 +161,6 @@ function EventCard({ event }: EventCardProps) {
   );
   const availableTickets = Number(event.availableTickets ?? 0);
   const isSoldOut = availableTickets === 0;
-  const fallbackImage = useMemo(
-    () => getFallbackImage(event.category),
-    [event.category]
-  );
-  const shouldLoadRemoteImage = Boolean(event.image && !imageLoadFailed);
 
   return (
     <article
@@ -124,38 +169,15 @@ function EventCard({ event }: EventCardProps) {
       onMouseEnter={prefetchDetails}
       onFocus={prefetchDetails}
     >
-      <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-        {!fallbackImageFailed ? (
-          <img
-            src={fallbackImage}
-            alt={remoteImageLoaded ? "" : event.title}
-            loading="eager"
-            decoding="sync"
-            className="h-full w-full object-cover"
-            onError={() => setFallbackImageFailed(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-secondary">
-            <Ticket className="h-12 w-12 text-primary" aria-hidden="true" />
-          </div>
-        )}
-        {shouldLoadRemoteImage ? (
-          <img
-            src={event.image}
-            alt={remoteImageLoaded ? event.title : ""}
-            loading="lazy"
-            decoding="async"
-            className={`absolute inset-0 h-full w-full object-cover ${
-              remoteImageLoaded ? "opacity-100" : "opacity-0"
-            }`}
-            onLoad={() => setRemoteImageLoaded(true)}
-            onError={() => setImageLoadFailed(true)}
-          />
-        ) : null}
-        <span className="absolute left-3 top-3 border border-border bg-background px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
-          {event.category}
-        </span>
-      </div>
+      <EventCardImage
+        event={event}
+        imageLoadFailed={imageLoadFailed}
+        fallbackImageFailed={fallbackImageFailed}
+        remoteImageLoaded={remoteImageLoaded}
+        onFallbackImageError={() => setFallbackImageFailed(true)}
+        onRemoteImageLoad={() => setRemoteImageLoaded(true)}
+        onRemoteImageError={() => setImageLoadFailed(true)}
+      />
 
       <div className="flex flex-1 flex-col p-5">
         <h3 className="line-clamp-2 min-h-[3.25rem] text-xl font-bold leading-tight text-foreground">

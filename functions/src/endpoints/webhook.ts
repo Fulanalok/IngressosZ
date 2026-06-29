@@ -57,6 +57,7 @@ export const receiveWebhook = onRequest(
       jwtSecret,
     ],
   },
+  // eslint-disable-next-line complexity -- legacy critical webhook
   async (request, response) => {
     const client = new MercadoPagoConfig({
       accessToken: mercadopagoAccessToken.value(),

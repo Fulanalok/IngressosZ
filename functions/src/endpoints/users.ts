@@ -43,6 +43,7 @@ export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
   }
 });
 
+// eslint-disable-next-line complexity -- legacy role flow
 export const setUserRole = onCall(callableSecurityOptions, async (request) => {
   const isAdmin = request.auth?.token.admin === true;
   const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";

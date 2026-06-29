@@ -7,6 +7,7 @@ import { checkRateLimit } from "../utils/rateLimit.js";
 
 export const seedDatabase = onCall(
   { ...callableSecurityOptions, secrets: [jwtSecret] },
+  // eslint-disable-next-line complexity -- legacy emulator seed
   async (request) => {
     const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
     if (!isEmulator) {

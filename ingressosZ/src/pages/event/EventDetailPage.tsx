@@ -146,25 +146,10 @@ export function EventDetailPage() {
                 />
               </div>
 
-              <div className="mt-6 border-t border-border pt-6">
-                {event.availableTickets > 0 ? (
-                  <button
-                    onClick={() => setShowPurchase(true)}
-                    className="btn-primary w-full py-4 text-base"
-                  >
-                    Comprar ingresso
-                  </button>
-                ) : (
-                  <div className="border border-red-900/50 bg-red-950/30 p-6 text-center">
-                    <p className="mb-1 text-xl font-bold text-red-300">
-                      Ingressos esgotados
-                    </p>
-                    <p className="text-sm text-red-200">
-                      Fique atento para novas edições deste evento.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <PurchaseAction
+                availableTickets={event.availableTickets}
+                onPurchase={() => setShowPurchase(true)}
+              />
             </aside>
           </div>
         </div>
@@ -218,6 +203,37 @@ function InfoRow({ icon, label, value, href, danger = false }: InfoRowProps) {
           {label}
         </p>
         {content}
+      </div>
+    </div>
+  );
+}
+
+function PurchaseAction({
+  availableTickets,
+  onPurchase,
+}: {
+  availableTickets: number;
+  onPurchase: () => void;
+}) {
+  if (availableTickets > 0) {
+    return (
+      <div className="mt-6 border-t border-border pt-6">
+        <button onClick={onPurchase} className="btn-primary w-full py-4 text-base">
+          Comprar ingresso
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 border-t border-border pt-6">
+      <div className="border border-red-900/50 bg-red-950/30 p-6 text-center">
+        <p className="mb-1 text-xl font-bold text-red-300">
+          Ingressos esgotados
+        </p>
+        <p className="text-sm text-red-200">
+          Fique atento para novas edições deste evento.
+        </p>
       </div>
     </div>
   );

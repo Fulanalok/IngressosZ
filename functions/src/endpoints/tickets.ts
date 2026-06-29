@@ -9,7 +9,9 @@ import { requireAppCheck } from "../utils/appCheck.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 export const validateTicket = onRequest(
   { secrets: [jwtSecret] },
+  // eslint-disable-next-line complexity -- legacy validation flow
   async (req, res) => {
+    // eslint-disable-next-line complexity -- legacy validation flow
     corsHandler(req, res, async () => {
       try {
         if (!(await requireAppCheck(req, res))) return;

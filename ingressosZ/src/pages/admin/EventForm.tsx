@@ -6,9 +6,13 @@ import { Input } from "@/components/ui/input";
 import type { Event } from "@/types";
 import { storageService } from "@/services/storage";
 
+type EventFormData = Omit<Event, "id" | "createdAt" | "updatedAt">;
+type TicketType = "standard" | "vip" | "premium";
+type UploadProgress = "idle" | "uploading" | "done";
+
 interface EventFormProps {
   initialData?: Event | null;
-  onSave: (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => Promise<void>;
+  onSave: (data: EventFormData) => Promise<void>;
   onCancel: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }
@@ -19,6 +23,12 @@ const TICKET_TYPE_LABELS: Record<string, string> = {
   premium: "Premium",
 };
 
+const TICKET_TYPE_COLORS: Record<TicketType, string> = {
+  standard: "bg-slate-400",
+  vip: "bg-amber-400",
+  premium: "bg-purple-500",
+};
+
 const CATEGORIES = [
   "Entretenimento",
   "Música",
@@ -27,6 +37,105 @@ const CATEGORIES = [
   "Educação",
   "Esporte",
 ];
+
+const TICKET_TYPES: TicketType[] = ["standard", "vip", "premium"];
+const EMPTY_TICKET_VALUES: Record<TicketType, number> = {
+  standard: 0,
+  vip: 0,
+  premium: 0,
+};
+
+function createDefaultFormData(): EventFormData {
+  return {
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    address: "",
+    price: 0,
+    maxTickets: 100,
+    availableTickets: 100,
+    category: "Entretenimento",
+    image: "",
+    organizerId: "admin",
+    inventory: { ...EMPTY_TICKET_VALUES },
+    pricing: { ...EMPTY_TICKET_VALUES },
+  };
+}
+
+function getInputValue(name: string, value: string) {
+  if (["price", "maxTickets", "availableTickets"].includes(name)) {
+    return Number(value);
+  }
+  if (name !== "maxPerPurchase") return value;
+  return value === "" ? undefined : Number(value);
+}
+
+function getDateValidationError(date: string) {
+  if (!date) return "A data do evento é obrigatória.";
+
+  const eventDate = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (isNaN(eventDate.getTime())) return "Data do evento inválida.";
+  if (eventDate < today) return "A data do evento não pode ser no passado.";
+  return null;
+}
+
+function cleanPricing(data: EventFormData) {
+  const cleanedPricing: Record<string, number> = {};
+
+  TICKET_TYPES.forEach((type) => {
+    const value = data.pricing?.[type];
+    if (value && value > 0) cleanedPricing[type] = value;
+  });
+
+  return Object.keys(cleanedPricing).length > 0 ? cleanedPricing : undefined;
+}
+
+function getTotalInventory(data: EventFormData) {
+  return TICKET_TYPES.reduce(
+    (total, type) => total + (data.inventory?.[type] || 0),
+    0
+  );
+}
+
+function prepareEventData(
+  formData: EventFormData,
+  imageUrl: string,
+  isEditing: boolean
+): EventFormData {
+  const dataToSave = { ...formData, image: imageUrl };
+  const pricing = cleanPricing(dataToSave);
+  const totalInventory = getTotalInventory(dataToSave);
+
+  if (pricing) dataToSave.pricing = pricing;
+  if (!pricing) delete dataToSave.pricing;
+
+  if (totalInventory > 0) {
+    dataToSave.availableTickets = totalInventory;
+    dataToSave.maxTickets = Math.max(dataToSave.maxTickets, totalInventory);
+  } else if (!isEditing) {
+    dataToSave.availableTickets = dataToSave.maxTickets;
+  }
+
+  return dataToSave;
+}
+
+async function resolveImageUrl(
+  currentImage: string | undefined,
+  selectedFile: File | null,
+  setUploadProgress: (progress: UploadProgress) => void
+) {
+  if (!selectedFile) return currentImage || "";
+
+  setUploadProgress("uploading");
+  const imageUrl = await storageService.uploadEventImage(selectedFile);
+  setUploadProgress("done");
+  return imageUrl;
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -40,30 +149,264 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function TicketInventoryRows({
+  formData,
+  onNestedChange,
+}: {
+  formData: EventFormData;
+  onNestedChange: (
+    category: "inventory" | "pricing",
+    type: TicketType,
+    value: string
+  ) => void;
+}) {
+  return (
+    <>
+      {TICKET_TYPES.map((type) => (
+        <div
+          key={type}
+          className="grid grid-cols-3 gap-0 border-b last:border-b-0 items-center"
+        >
+          <div className="px-4 py-3 flex items-center gap-2 text-sm font-medium">
+            <span className={`w-2 h-2 rounded-full ${TICKET_TYPE_COLORS[type]}`} />
+            {TICKET_TYPE_LABELS[type]}
+          </div>
+          <div className="px-3 py-2 border-l">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              aria-label={`Preço ${type}`}
+              value={formData.pricing?.[type] || 0}
+              onChange={(e) => onNestedChange("pricing", type, e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="px-3 py-2 border-l">
+            <Input
+              type="number"
+              min="0"
+              aria-label={`Estoque ${type}`}
+              value={formData.inventory?.[type] || 0}
+              onChange={(e) => onNestedChange("inventory", type, e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function BannerPreview({
+  fileInputRef,
+  previewUrl,
+  removeImage,
+  selectedFile,
+  uploadProgress,
+}: {
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  previewUrl: string;
+  removeImage: () => void;
+  selectedFile: File | null;
+  uploadProgress: UploadProgress;
+}) {
+  return (
+    <div className="relative w-full h-52 rounded-lg overflow-hidden border border-border group">
+      <img
+        src={previewUrl}
+        alt="Preview do banner"
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-background hover:bg-muted text-foreground text-xs font-semibold px-3 py-1.5 rounded-none border border-border transition-colors"
+        >
+          Trocar imagem
+        </button>
+        <button
+          type="button"
+          onClick={removeImage}
+          className="bg-red-500/80 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-none transition-colors flex items-center gap-1"
+        >
+          <X className="h-3 w-3" />
+          Remover
+        </button>
+      </div>
+      {uploadProgress === "uploading" && (
+        <div className="absolute bottom-0 inset-x-0 h-1 bg-muted">
+          <div className="h-full bg-primary animate-pulse w-full" />
+        </div>
+      )}
+      {selectedFile && uploadProgress !== "uploading" && (
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded">
+          {selectedFile.name}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BannerDropZone({
+  fileInputRef,
+  handleDragLeave,
+  handleDragOver,
+  handleDrop,
+  isDragging,
+}: {
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  handleDragLeave: () => void;
+  handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  isDragging: boolean;
+}) {
+  return (
+    <div
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onClick={() => fileInputRef.current?.click()}
+      className={`w-full h-40 rounded-lg border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 select-none
+        ${
+          isDragging
+            ? "border-primary bg-primary/5"
+            : "border-border bg-muted/20 hover:border-primary/50 hover:bg-muted/40"
+        }`}
+    >
+      <div
+        className={`p-3 rounded-full transition-colors ${
+          isDragging ? "bg-primary/20" : "bg-muted"
+        }`}
+      >
+        <Upload
+          className={`h-5 w-5 transition-colors ${
+            isDragging ? "text-primary" : "text-muted-foreground"
+          }`}
+        />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-foreground">
+          {isDragging ? "Solte a imagem aqui" : "Arraste ou clique para enviar"}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          PNG, JPG, WEBP · máx. 5MB
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <ImageIcon className="h-3 w-3" />
+        <span>Ou cole uma URL abaixo</span>
+      </div>
+    </div>
+  );
+}
+
+function BannerField({
+  fileInputRef,
+  handleDragLeave,
+  handleDragOver,
+  handleDrop,
+  isDragging,
+  previewUrl,
+  removeImage,
+  selectedFile,
+  uploadProgress,
+}: {
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  handleDragLeave: () => void;
+  handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  isDragging: boolean;
+  previewUrl: string | null;
+  removeImage: () => void;
+  selectedFile: File | null;
+  uploadProgress: UploadProgress;
+}) {
+  return previewUrl ? (
+    <BannerPreview
+      fileInputRef={fileInputRef}
+      previewUrl={previewUrl}
+      removeImage={removeImage}
+      selectedFile={selectedFile}
+      uploadProgress={uploadProgress}
+    />
+  ) : (
+    <BannerDropZone
+      fileInputRef={fileInputRef}
+      handleDragLeave={handleDragLeave}
+      handleDragOver={handleDragOver}
+      handleDrop={handleDrop}
+      isDragging={isDragging}
+    />
+  );
+}
+
+function getSubmitLabel(
+  initialData: Event | null | undefined,
+  loading: boolean,
+  uploadProgress: UploadProgress
+) {
+  if (!loading) return `${initialData ? "Atualizar" : "Criar"} Evento`;
+  return uploadProgress === "uploading" ? "Enviando imagem..." : "Salvando...";
+}
+
+function FormActions({
+  initialData,
+  isDirty,
+  loading,
+  onCancel,
+  uploadProgress,
+}: {
+  initialData?: Event | null;
+  isDirty: boolean;
+  loading: boolean;
+  onCancel: () => void;
+  uploadProgress: UploadProgress;
+}) {
+  const submitLabel = getSubmitLabel(initialData, loading, uploadProgress);
+  const handleCancel = () => {
+    if (isDirty && !window.confirm("Há alterações não salvas. Deseja descartá-las?")) {
+      return;
+    }
+    onCancel();
+  };
+
+  return (
+    <div className="flex justify-end gap-3 pt-4 border-t">
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={handleCancel}
+        disabled={loading}
+      >
+        Cancelar
+      </Button>
+      <Button type="submit" disabled={loading} className="min-w-28">
+        {loading ? (
+          <span className="flex items-center gap-2">
+            <span className="h-3.5 w-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            {submitLabel}
+          </span>
+        ) : (
+          submitLabel
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: EventFormProps) {
-  const [formData, setFormData] = useState<Omit<Event, "id" | "createdAt" | "updatedAt">>({
-    title: "",
-    description: "",
-    date: "",
-    time: "",
-    location: "",
-    address: "",
-    price: 0,
-    maxTickets: 100,
-    availableTickets: 100,
-    category: "Entretenimento",
-    image: "",
-    organizerId: "admin",
-    inventory: { standard: 0, vip: 0, premium: 0 },
-    pricing: { standard: 0, vip: 0, premium: 0 },
-  });
+  const [formData, setFormData] = useState<EventFormData>(
+    createDefaultFormData()
+  );
 
   const [loading, setLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<"idle" | "uploading" | "done">("idle");
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Revoke blob URL to prevent memory leaks when preview changes or component unmounts
@@ -87,8 +430,8 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
       const { id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = initialData;
       setFormData({
         ...rest,
-        inventory: rest.inventory || { standard: 0, vip: 0, premium: 0 },
-        pricing: rest.pricing || { standard: 0, vip: 0, premium: 0 },
+        inventory: rest.inventory || { ...EMPTY_TICKET_VALUES },
+        pricing: rest.pricing || { ...EMPTY_TICKET_VALUES },
       });
       if (rest.image) setPreviewUrl(rest.image);
     }
@@ -147,29 +490,20 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "price" ||
-        name === "maxTickets" ||
-        name === "availableTickets"
-          ? Number(value)
-          : name === "maxPerPurchase"
-            ? value === ""
-              ? undefined
-              : Number(value)
-            : value,
+      [name]: getInputValue(name, value),
     }));
   };
 
   const handleNestedChange = (
     category: "inventory" | "pricing",
-    type: "standard" | "vip" | "premium",
+    type: TicketType,
     value: string
   ) => {
     markDirty();
     setFormData((prev) => ({
       ...prev,
       [category]: {
-        ...(prev[category] || { standard: 0, vip: 0, premium: 0 }),
+        ...(prev[category] || { ...EMPTY_TICKET_VALUES }),
         [type]: Number(value),
       },
     }));
@@ -178,64 +512,24 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.date) {
-      toast.error("A data do evento é obrigatória.");
-      return;
-    }
-
-    const eventDate = new Date(formData.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (isNaN(eventDate.getTime())) {
-      toast.error("Data do evento inválida.");
-      return;
-    }
-    if (eventDate < today) {
-      toast.error("A data do evento não pode ser no passado.");
+    const dateError = getDateValidationError(formData.date);
+    if (dateError) {
+      toast.error(dateError);
       return;
     }
 
     setLoading(true);
     try {
-      let imageUrl = formData.image;
-
-      if (selectedFile) {
-        setUploadProgress("uploading");
-        imageUrl = await storageService.uploadEventImage(selectedFile);
-        setUploadProgress("done");
-      }
-
-      const dataToSave = { ...formData, image: imageUrl };
-
-      if (dataToSave.pricing) {
-        const cleanedPricing: Record<string, number> = {};
-        let hasPricing = false;
-        (["standard", "vip", "premium"] as const).forEach((type) => {
-          const val = dataToSave.pricing?.[type];
-          if (val && val > 0) {
-            cleanedPricing[type] = val;
-            hasPricing = true;
-          }
-        });
-        if (hasPricing) {
-          dataToSave.pricing = cleanedPricing;
-        } else {
-          delete dataToSave.pricing;
-        }
-      }
-
-      const totalInventory =
-        (dataToSave.inventory?.standard || 0) +
-        (dataToSave.inventory?.vip || 0) +
-        (dataToSave.inventory?.premium || 0);
-
-      if (totalInventory > 0) {
-        dataToSave.availableTickets = totalInventory;
-        dataToSave.maxTickets = Math.max(dataToSave.maxTickets, totalInventory);
-      } else if (!initialData) {
-        dataToSave.availableTickets = dataToSave.maxTickets;
-      }
-
+      const imageUrl = await resolveImageUrl(
+        formData.image,
+        selectedFile,
+        setUploadProgress
+      );
+      const dataToSave = prepareEventData(
+        formData,
+        imageUrl,
+        Boolean(initialData)
+      );
       await onSave(dataToSave);
       setIsDirty(false);
       onDirtyChange?.(false);
@@ -390,46 +684,10 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
           <div className="px-4 py-2 border-l">Preço (R$)</div>
           <div className="px-4 py-2 border-l">Estoque</div>
         </div>
-        {(["standard", "vip", "premium"] as const).map((type) => (
-          <div
-            key={type}
-            className="grid grid-cols-3 gap-0 border-b last:border-b-0 items-center"
-          >
-            <div className="px-4 py-3 flex items-center gap-2 text-sm font-medium">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  type === "standard"
-                    ? "bg-slate-400"
-                    : type === "vip"
-                    ? "bg-amber-400"
-                    : "bg-purple-500"
-                }`}
-              />
-              {TICKET_TYPE_LABELS[type]}
-            </div>
-            <div className="px-3 py-2 border-l">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                aria-label={`Preço ${type}`}
-                value={formData.pricing?.[type] || 0}
-                onChange={(e) => handleNestedChange("pricing", type, e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div className="px-3 py-2 border-l">
-              <Input
-                type="number"
-                min="0"
-                aria-label={`Estoque ${type}`}
-                value={formData.inventory?.[type] || 0}
-                onChange={(e) => handleNestedChange("inventory", type, e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-        ))}
+        <TicketInventoryRows
+          formData={formData}
+          onNestedChange={handleNestedChange}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -491,79 +749,17 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
       {/* Banner */}
       <SectionTitle>Banner do Evento</SectionTitle>
 
-      {previewUrl ? (
-        <div className="relative w-full h-52 rounded-lg overflow-hidden border border-border group">
-          <img
-            src={previewUrl}
-            alt="Preview do banner"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-background hover:bg-muted text-foreground text-xs font-semibold px-3 py-1.5 rounded-none border border-border transition-colors"
-            >
-              Trocar imagem
-            </button>
-            <button
-              type="button"
-              onClick={removeImage}
-              className="bg-red-500/80 hover:bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-none transition-colors flex items-center gap-1"
-            >
-              <X className="h-3 w-3" />
-              Remover
-            </button>
-          </div>
-          {uploadProgress === "uploading" && (
-            <div className="absolute bottom-0 inset-x-0 h-1 bg-muted">
-              <div className="h-full bg-primary animate-pulse w-full" />
-            </div>
-          )}
-          {selectedFile && uploadProgress !== "uploading" && (
-            <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded">
-              {selectedFile.name}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          className={`w-full h-40 rounded-lg border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 select-none
-            ${
-              isDragging
-                ? "border-primary bg-primary/5"
-                : "border-border bg-muted/20 hover:border-primary/50 hover:bg-muted/40"
-            }`}
-        >
-          <div
-            className={`p-3 rounded-full transition-colors ${
-              isDragging ? "bg-primary/20" : "bg-muted"
-            }`}
-          >
-            <Upload
-              className={`h-5 w-5 transition-colors ${
-                isDragging ? "text-primary" : "text-muted-foreground"
-              }`}
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
-              {isDragging ? "Solte a imagem aqui" : "Arraste ou clique para enviar"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              PNG, JPG, WEBP · máx. 5MB
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ImageIcon className="h-3 w-3" />
-            <span>Ou cole uma URL abaixo</span>
-          </div>
-        </div>
-      )}
+      <BannerField
+        fileInputRef={fileInputRef}
+        handleDragLeave={handleDragLeave}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        isDragging={isDragging}
+        previewUrl={previewUrl}
+        removeImage={removeImage}
+        selectedFile={selectedFile}
+        uploadProgress={uploadProgress}
+      />
 
       <input
         ref={fileInputRef}
@@ -582,30 +778,13 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
         aria-label="URL da Imagem"
       />
 
-      {/* Ações */}
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            if (isDirty && !window.confirm("Há alterações não salvas. Deseja descartá-las?")) return;
-            onCancel();
-          }}
-          disabled={loading}
-        >
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={loading} className="min-w-28">
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="h-3.5 w-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              {uploadProgress === "uploading" ? "Enviando imagem..." : "Salvando..."}
-            </span>
-          ) : (
-            `${initialData ? "Atualizar" : "Criar"} Evento`
-          )}
-        </Button>
-      </div>
+      <FormActions
+        initialData={initialData}
+        isDirty={isDirty}
+        loading={loading}
+        onCancel={onCancel}
+        uploadProgress={uploadProgress}
+      />
     </form>
   );
 }

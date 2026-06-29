@@ -1,6 +1,6 @@
 # functions/ - Firebase Functions Backend
 
-Atualizado em 2026-06-02. Base Git: `7cd9bc8 docs: record production deploy update`.
+Atualizado em 2026-06-29.
 
 Backend serverless do IngressosZ em Firebase Cloud Functions v2, Node.js 24,
 TypeScript e ESM.
@@ -51,6 +51,14 @@ publicos.
   `functions/.env.<your-firebase-project-id>` carregado pelo Firebase CLI.
 - URL publica de `receiveWebhook`:
   `https://<your-webhook-url>`.
+- Qualidade local revalidada em 2026-06-29:
+  - `npm.cmd --prefix functions run lint` passou.
+  - `npm.cmd --prefix functions run build` passou.
+  - `npm.cmd --prefix functions run test` passou com 9 passing e 1 pending.
+- ESLint aplica `complexity` maxima 10. Handlers legados criticos de
+  pagamento, Pix, webhook, validacao, e-mail, seed, roles e reembolso mantem
+  excecoes pontuais para evitar refatoracao arriscada antes do lancamento
+  controlado.
 
 Comandos:
 

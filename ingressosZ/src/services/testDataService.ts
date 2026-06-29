@@ -10,6 +10,12 @@ import {
 import { auth, db } from "../firebaseConfig";
 
 export class TestDataService {
+  static logDev(message: string, data?: unknown) {
+    if (import.meta.env.DEV) {
+      console.log(message, data ?? "");
+    }
+  }
+
   // Verificar se há dados de teste específicos
   static async hasTestData(): Promise<boolean> {
     try {
@@ -106,41 +112,33 @@ export class TestDataService {
   // Inicializar dados de teste completos
   static async initializeTestData(force: boolean = false) {
     try {
-      if (import.meta.env.DEV) {
-        console.log("Iniciando criação de dados de teste...");
-      }
+      this.logDev("Iniciando criação de dados de teste...");
 
-      // Verificar se já há dados (apenas se não for forçado)
-      if (!force) {
-        const hasData = await this.hasTestData();
-        if (hasData) {
-          if (import.meta.env.DEV) {
-            console.log("Dados de teste já existem no Firestore");
-            console.log("Use force=true para recriar os dados");
-          }
-          return;
-        }
-      } else {
-        if (import.meta.env.DEV) {
-          console.log("Modo força ativado - recriando dados...");
-        }
-      }
+      if (await this.shouldSkipInitialization(force)) return;
 
       // Criar eventos
-      if (import.meta.env.DEV) {
-        console.log("Criando eventos de teste...");
-      }
+      this.logDev("Criando eventos de teste...");
       await this.createTestEvents();
 
-      if (import.meta.env.DEV) {
-        console.log("Dados de teste criados com sucesso!");
-      }
+      this.logDev("Dados de teste criados com sucesso!");
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.log("Erro ao inicializar dados de teste:", error);
-      }
+      this.logDev("Erro ao inicializar dados de teste:", error);
       throw error;
     }
+  }
+
+  static async shouldSkipInitialization(force: boolean) {
+    if (force) {
+      this.logDev("Modo força ativado - recriando dados...");
+      return false;
+    }
+
+    const hasData = await this.hasTestData();
+    if (hasData) {
+      this.logDev("Dados de teste já existem no Firestore");
+      this.logDev("Use force=true para recriar os dados");
+    }
+    return hasData;
   }
 
   // Dados offline para teste quando Firebase não está disponível
