@@ -11,7 +11,7 @@ revisao legal.
 
 ## Demo
 
-- Site publicado: https://<your-project>.web.app
+- Site publicado: https://<your-firebase-project-id>.web.app
 - Repositorio: https://github.com/Fulanalok/IngressosZ
 
 ## Principais recursos

@@ -50,7 +50,7 @@ publicos.
 - Ultimo deploy confirmado: 2026-06-02, com
   `functions/.env.<your-firebase-project-id>` carregado pelo Firebase CLI.
 - URL publica de `receiveWebhook`:
-  `https://<your-webhook-url>`.
+  `https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook`.
 - Qualidade local revalidada em 2026-06-29:
   - `npm.cmd --prefix functions run lint` passou.
   - `npm.cmd --prefix functions run build` passou.
@@ -85,7 +85,7 @@ Params:
 - `SMTP_EMAIL`
 - `SMTP_HOST`, default `smtp.gmail.com`
 - `SMTP_PORT`, default `465`
-- `WEB_BASE_URL`, default `https://<your-project>.web.app`
+- `WEB_BASE_URL`, default `https://<your-firebase-project-id>.web.app`
 
 Nota: `SMTP_EMAIL` nao deve voltar para Secret Manager. Em 2026-06-01 o secret
 antigo `SMTP_EMAIL` foi removido apos o redeploy das Functions. Em 2026-06-02,

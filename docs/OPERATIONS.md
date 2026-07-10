@@ -68,7 +68,7 @@ Params em `functions/.env`:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_EMAIL=seu-email@exemplo.com
-WEB_BASE_URL=https://<your-project>.web.app
+WEB_BASE_URL=https://<your-firebase-project-id>.web.app
 SENTRY_DSN=
 ```
 
@@ -131,7 +131,7 @@ npx firebase-tools deploy --only hosting --project <your-firebase-project-id>
 Webhook atual:
 
 ```text
-https://<your-webhook-url>
+https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook
 ```
 
 Configurar no painel Mercado Pago:

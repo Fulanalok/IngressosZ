@@ -8,3 +8,11 @@ typings/
 # Node.js dependency directory
 node_modules/
 *.local
+.env
+.env.*
+!.env.example
+serviceAccount*.json
+*.pem
+*.p12
+*.p8
+*.key

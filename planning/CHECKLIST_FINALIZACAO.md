@@ -12,7 +12,7 @@ Este arquivo fica dividido em duas partes:
 - [x] Codigo, documentacao base e CI estao organizados no GitHub.
 - [x] Branch `main` esta alinhada com `origin/main`.
 - [x] URL Firebase Hosting atual adotada como default:
-  `https://<your-project>.web.app`.
+  `https://<your-firebase-project-id>.web.app`.
 - [x] Functions implantadas em `southamerica-east1` em 2026-06-01.
 - [x] Lint, build e testes frontend/backend passaram em 2026-06-01.
 - [x] Cloud SQL/Data Connect removidos para reduzir custo.
@@ -37,7 +37,7 @@ Este arquivo fica dividido em duas partes:
 ## Pronto para LinkedIn
 
 - [x] Site publicado e acessivel:
-  `https://<your-project>.web.app`.
+  `https://<your-firebase-project-id>.web.app`.
 - [x] Repositorio com README raiz explicando stack, fluxo de pagamento,
   seguranca, setup, testes e deploy.
 - [x] Pasta `docs/` com indice, visao de projeto, arquitetura, operacao,
@@ -85,7 +85,7 @@ Como fazer:
 Como fazer:
 
 1. Firebase Console > Authentication > Settings > Authorized domains.
-2. Confirmar `<your-project>.web.app`.
+2. Confirmar `<your-firebase-project-id>.web.app`.
 3. Adicionar dominio proprio depois, se existir.
 
 ### 2. Configurar Secrets das Functions
@@ -123,7 +123,7 @@ Criar/conferir `functions/.env` local sem versionar secrets:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_EMAIL=seu-email@exemplo.com
-WEB_BASE_URL=https://<your-project>.web.app
+WEB_BASE_URL=https://<your-firebase-project-id>.web.app
 SENTRY_DSN=
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_PROFILES_SAMPLE_RATE=0
@@ -133,7 +133,7 @@ Observacao: se outro provedor de e-mail for usado, ajustar `SMTP_HOST` e
 `SMTP_PORT`. `SMTP_EMAIL` e param/env comum, nao Secret Manager.
 
 Status 2026-06-02: `functions/.env.<your-firebase-project-id>` criado e
-realinhado com `WEB_BASE_URL=https://<your-project>.web.app`.
+realinhado com `WEB_BASE_URL=https://<your-firebase-project-id>.web.app`.
 Firebase CLI confirmou carregamento desse dotenv no redeploy das Functions.
 
 - [x] Remover o secret antigo `SMTP_EMAIL` do Secret Manager.
@@ -183,7 +183,7 @@ Variaveis que precisam estar reais:
 Como fazer:
 
 1. Abrir o painel do reCAPTCHA v2.
-2. Adicionar `<your-project>.web.app`.
+2. Adicionar `<your-firebase-project-id>.web.app`.
 3. Copiar site key para `VITE_RECAPTCHA_V2_SITE_KEY`.
 4. Copiar secret key para `RECAPTCHA_V2_SECRET`.
 
@@ -193,7 +193,7 @@ Como fazer:
 
 1. Firebase Console > App Check.
 2. Configurar reCAPTCHA Enterprise para o Web App.
-3. Autorizar `<your-project>.web.app`.
+3. Autorizar `<your-firebase-project-id>.web.app`.
 4. Copiar a chave para `VITE_APPCHECK_RECAPTCHA_ENTERPRISE_KEY`.
 
 - [ ] Ativar enforcement do App Check.
@@ -325,7 +325,7 @@ Como fazer:
 URL do webhook Mercado Pago:
 
 ```text
-https://<your-webhook-url>
+https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook
 ```
 
 ### 7. Configurar Mercado Pago
@@ -587,7 +587,7 @@ deploy acidental a partir de `ingressosZ/`.
 - [x] `.firebaserc` aponta para `<your-firebase-project-id>`.
 - [x] Region das Functions confirmada como `southamerica-east1`.
 - [x] Hosting atual confirmado:
-  `https://<your-project>.web.app`.
+  `https://<your-firebase-project-id>.web.app`.
 - [x] `WEB_BASE_URL` default alinhado para o Hosting atual.
 - [x] Configuracao local de Data Connect/Cloud SQL removida do repo para evitar
   recriacao acidental da instancia `ingressosz-main-fdc`.
@@ -597,7 +597,7 @@ deploy acidental a partir de `ingressosZ/`.
 - [x] Secret Manager `SMTP_EMAIL` removido apos novo deploy das Functions.
 - [x] Deploy de Functions concluido em 2026-06-01.
 - [x] URL publica de `receiveWebhook` registrada:
-  `https://<your-webhook-url>`.
+  `https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook`.
 - [x] Rodada 2026-06-02: `functions/.env.<your-firebase-project-id>`
   realinhado com o Hosting oficial e Functions redeployadas com sucesso.
 - [x] Rodada 2026-06-02: `npm.cmd --prefix ingressosZ run build` passou, e

@@ -11,11 +11,12 @@ portfolio e apresentacao no LinkedIn.
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Explicar arquitetura, fluxo de pagamento e emissoes de ingressos. |
 | [OPERATIONS.md](OPERATIONS.md) | Rodar localmente, testar, configurar ambiente e fazer deploy. |
 | [SECURITY.md](SECURITY.md) | Apresentar decisoes de seguranca, regras e pendencias de producao. |
+| [PUBLIC_RELEASE_SECURITY.md](PUBLIC_RELEASE_SECURITY.md) | Conferir se o repositorio pode ficar publico sem expor dados sensiveis. |
 | [LINKEDIN.md](LINKEDIN.md) | Preparar a apresentacao do projeto no LinkedIn. |
 
 ## Status resumido
 
-- Site publicado: https://<your-project>.web.app
+- Site publicado: https://<your-firebase-project-id>.web.app
 - Backend: Firebase Functions v2 em `southamerica-east1`.
 - Banco e storage: Firestore e Firebase Storage.
 - Pagamentos: Mercado Pago Checkout Pro e Pix.

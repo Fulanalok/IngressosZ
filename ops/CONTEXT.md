@@ -11,7 +11,7 @@ Documentacao publica de setup, deploy e apresentacao:
 ## Ambiente Atual
 
 - Firebase project: `<your-firebase-project-id>`
-- Hosting principal confirmado via Firebase CLI: `https://<your-project>.web.app`
+- Hosting principal confirmado via Firebase CLI: `https://<your-firebase-project-id>.web.app`
 - Dominio proprio/curto ainda nao confirmado.
 - Functions region: `southamerica-east1`
 - Backend runtime: Node.js 24
@@ -95,13 +95,13 @@ Params em `functions/.env`:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_EMAIL=seu-email@exemplo.com
-WEB_BASE_URL=https://<your-project>.web.app
+WEB_BASE_URL=https://<your-firebase-project-id>.web.app
 SENTRY_DSN=
 ```
 
 Nota operacional: em 2026-06-02 o dotenv local de projeto
 `functions/.env.<your-firebase-project-id>` foi realinhado para
-`WEB_BASE_URL=https://<your-project>.web.app`, e o redeploy das
+`WEB_BASE_URL=https://<your-firebase-project-id>.web.app`, e o redeploy das
 Functions confirmou o carregamento desse arquivo.
 
 ## Deploy
@@ -143,7 +143,7 @@ oficial usa somente o `firebase.json` da raiz.
 Webhook:
 
 - Function: `receiveWebhook`
-- URL atual: `https://<your-webhook-url>`
+- URL atual: `https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook`
 - Evento: `Payments`
 - Seguranca: assinatura HMAC com `MP_WEBHOOK_SECRET`
 - Pos-deploy: copiar a URL publica gerada pelo Firebase e cadastrar no painel
@@ -194,7 +194,7 @@ Consoles:
 
 ## Checklist Pos-Deploy
 
-- [ ] Abrir `https://<your-project>.web.app`.
+- [ ] Abrir `https://<your-firebase-project-id>.web.app`.
 - [ ] Login/cadastro funcionam sem erro de reCAPTCHA por dominio.
 - [ ] Checkout cria `paymentSessions` com `paymentMethod: "checkout"`.
 - [ ] Pix cria `paymentSessions` com `paymentMethod: "pix"`.

@@ -58,7 +58,7 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] Executar deploy final de `functions`, `firestore:rules`, `storage` e
   `hosting`.
 - [ ] Cadastrar URL real de `receiveWebhook` no Mercado Pago com evento
-  `Payments`: `https://<your-webhook-url>`.
+  `Payments`: `https://<your-region>-<your-project>.cloudfunctions.net/receiveWebhook`.
 - [ ] Testar compra real controlada via Checkout/cartao.
 - [ ] Testar compra real controlada via Pix.
 - [ ] Validar ticket, e-mail, QR Code e reembolso/admin em producao.
@@ -82,7 +82,7 @@ Configure em `functions/.env` ou pelo prompt do Firebase deploy.
 | Param | Default recomendado | Finalidade |
 | --- | --- | --- |
 | `SENTRY_DSN` | vazio ou DSN Sentry | Monitoramento backend |
-| `WEB_BASE_URL` | `https://<your-project>.web.app` | URLs em e-mails/back URLs |
+| `WEB_BASE_URL` | `https://<your-firebase-project-id>.web.app` | URLs em e-mails/back URLs |
 | `SMTP_EMAIL` | vazio | Remetente dos e-mails |
 | `SMTP_HOST` | `smtp.gmail.com` | Servidor SMTP |
 | `SMTP_PORT` | `465` | Porta SMTP TLS |

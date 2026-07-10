@@ -10,7 +10,7 @@ operacionais e legais mapeadas na documentacao.
 
 ## Demo
 
-- Site publicado: https://<your-project>.web.app
+- Site publicado: https://<your-firebase-project-id>.web.app
 - Repositorio: https://github.com/Fulanalok/IngressosZ
 
 ## Destaques
@@ -143,6 +143,8 @@ revisao legal.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - arquitetura e fluxo tecnico.
 - [docs/OPERATIONS.md](docs/OPERATIONS.md) - setup, qualidade e deploy.
 - [docs/SECURITY.md](docs/SECURITY.md) - seguranca e pendencias.
+- [docs/PUBLIC_RELEASE_SECURITY.md](docs/PUBLIC_RELEASE_SECURITY.md) -
+  checklist para publicacao segura do repositorio.
 - [docs/LINKEDIN.md](docs/LINKEDIN.md) - guia para apresentar o projeto.
 - [functions/API.md](functions/API.md) - contratos e Functions backend.
 - [planning/CHECKLIST_FINALIZACAO.md](planning/CHECKLIST_FINALIZACAO.md) -

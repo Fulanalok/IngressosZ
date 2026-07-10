@@ -65,7 +65,7 @@ que ainda precisa ser validado antes de uso comercial amplo, como compra real,
 webhook em producao, e-mail transacional, App Check e revisao legal.
 
 Demo:
-https://<your-project>.web.app
+https://<your-firebase-project-id>.web.app
 
 Repositorio:
 https://github.com/Fulanalok/IngressosZ

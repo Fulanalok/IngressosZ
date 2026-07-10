@@ -16,6 +16,16 @@ build/
 .env.*
 .env.local
 .env.*.local
+!.env.example
+!**/.env.example
+*.pem
+*.p12
+*.p8
+*.key
+serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+firebase-debug.*.log
 
 # Firebase local cache
 /.firebase/
