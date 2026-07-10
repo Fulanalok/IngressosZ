@@ -8,11 +8,6 @@ O objetivo atual e servir como projeto de portfolio com um fluxo realista de
 produto, backend e seguranca. Para uso comercial amplo, ainda ha validacoes
 operacionais e legais mapeadas na documentacao.
 
-## Demo
-
-- Site publicado: https://<your-firebase-project-id>.web.app
-- Repositorio: https://github.com/Fulanalok/IngressosZ
-
 ## Destaques
 
 - Frontend React/Vite publicado no Firebase Hosting.
