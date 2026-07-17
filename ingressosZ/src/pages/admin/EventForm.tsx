@@ -12,6 +12,7 @@ type UploadProgress = "idle" | "uploading" | "done";
 
 interface EventFormProps {
   initialData?: Event | null;
+  onValidate?: (data: EventFormData) => Promise<void> | void;
   onSave: (data: EventFormData) => Promise<void>;
   onCancel: () => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -107,7 +108,8 @@ function prepareEventData(
   imageUrl: string,
   isEditing: boolean
 ): EventFormData {
-  const dataToSave = { ...formData, image: imageUrl };
+  const dataToSave = { ...formData };
+  if (imageUrl || "image" in formData) dataToSave.image = imageUrl;
   if (isEditing) return dataToSave;
 
   const pricing = cleanPricing(dataToSave);
@@ -398,7 +400,13 @@ function FormActions({
   );
 }
 
-export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: EventFormProps) {
+export function EventForm({
+  initialData,
+  onValidate,
+  onSave,
+  onCancel,
+  onDirtyChange,
+}: EventFormProps) {
   const [formData, setFormData] = useState<EventFormData>(
     createDefaultFormData()
   );
@@ -430,11 +438,7 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
   useEffect(() => {
     if (initialData) {
       const { id: _id, createdAt: _ca, updatedAt: _ua, ...rest } = initialData;
-      setFormData({
-        ...rest,
-        inventory: rest.inventory || { ...EMPTY_TICKET_VALUES },
-        pricing: rest.pricing || { ...EMPTY_TICKET_VALUES },
-      });
+      setFormData(rest);
       if (rest.image) setPreviewUrl(rest.image);
     }
   }, [initialData]);
@@ -522,16 +526,20 @@ export function EventForm({ initialData, onSave, onCancel, onDirtyChange }: Even
 
     setLoading(true);
     try {
+      const isEditing = Boolean(initialData);
+      const dataToValidate = prepareEventData(
+        formData,
+        formData.image || "",
+        isEditing
+      );
+      await onValidate?.(dataToValidate);
+
       const imageUrl = await resolveImageUrl(
         formData.image,
         selectedFile,
         setUploadProgress
       );
-      const dataToSave = prepareEventData(
-        formData,
-        imageUrl,
-        Boolean(initialData)
-      );
+      const dataToSave = prepareEventData(formData, imageUrl, isEditing);
       await onSave(dataToSave);
       setIsDirty(false);
       onDirtyChange?.(false);

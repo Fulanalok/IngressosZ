@@ -36,7 +36,32 @@ const EDITABLE_EVENT_FIELDS = [
   "category",
 ] as const;
 
-function eventFieldEquals(left: unknown, right: unknown) {
+const PROTECTED_EVENT_MESSAGE =
+  "Preço e estoque exigem uma operação administrativa confiável, " +
+  "que será implementada em outro PR.";
+
+function canonicalTicketMap(value: unknown) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, amount]) => [key, Number(amount)] as const)
+      .filter(([, amount]) => Number.isFinite(amount) && amount > 0)
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
+}
+
+function eventFieldEquals(
+  field: (typeof PROTECTED_EVENT_FIELDS)[number],
+  left: unknown,
+  right: unknown
+) {
+  if (field === "pricing" || field === "inventory") {
+    return (
+      JSON.stringify(canonicalTicketMap(left)) ===
+      JSON.stringify(canonicalTicketMap(right))
+    );
+  }
   if (typeof left === "object" || typeof right === "object") {
     return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
   }
@@ -50,7 +75,7 @@ function getChangedProtectedEventFields(
   return PROTECTED_EVENT_FIELDS.filter(
     (field) =>
       field in requestedData &&
-      !eventFieldEquals(currentEvent[field], requestedData[field])
+      !eventFieldEquals(field, currentEvent[field], requestedData[field])
   );
 }
 
@@ -74,7 +99,7 @@ function getEditableEventChanges(
   for (const field of EDITABLE_EVENT_FIELDS) {
     if (
       field in requestedData &&
-      !eventFieldEquals(currentEvent[field], requestedData[field])
+      currentEvent[field] !== requestedData[field]
     ) {
       Object.assign(changes, { [field]: requestedData[field] });
     }
@@ -86,11 +111,19 @@ function getEditableEventChanges(
 
 interface EventFormModalProps {
   currentEvent: Event | null;
+  onValidate: (
+    data: Omit<Event, "id" | "createdAt" | "updatedAt">
+  ) => Promise<void> | void;
   onSave: (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => Promise<void>;
   onClose: () => void;
 }
 
-function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) {
+function EventFormModal({
+  currentEvent,
+  onValidate,
+  onSave,
+  onClose,
+}: EventFormModalProps) {
   const [isFormDirty, setIsFormDirty] = useState(false);
 
   const handleClose = () => {
@@ -153,6 +186,7 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <EventForm
             initialData={currentEvent}
+            onValidate={onValidate}
             onSave={onSave}
             onCancel={handleClose}
             onDirtyChange={setIsFormDirty}
@@ -321,20 +355,25 @@ export default function AdminPage() {
     }
   };
 
+  const validateProtectedEventChanges = (
+    data: Omit<Event, "id" | "createdAt" | "updatedAt">
+  ) => {
+    if (!currentEvent) return;
+
+    const protectedChanges = getChangedProtectedEventFields(
+      currentEvent,
+      data
+    );
+    if (protectedChanges.length > 0) {
+      toast.error(PROTECTED_EVENT_MESSAGE);
+      throw new Error(PROTECTED_EVENT_MESSAGE);
+    }
+  };
+
   const handleSave = async (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => {
     try {
       if (currentEvent) {
-        const protectedChanges = getChangedProtectedEventFields(
-          currentEvent,
-          data
-        );
-        if (protectedChanges.length > 0) {
-          const message =
-            "Preço e estoque exigem uma operação administrativa confiável, " +
-            "que será implementada em outro PR.";
-          toast.error(message);
-          throw new Error(message);
-        }
+        validateProtectedEventChanges(data);
         await eventService.updateEvent(
           currentEvent.id,
           getEditableEventChanges(currentEvent, data)
@@ -579,6 +618,7 @@ export default function AdminPage() {
       {isEditing && (
         <EventFormModal
           currentEvent={currentEvent}
+          onValidate={validateProtectedEventChanges}
           onSave={handleSave}
           onClose={handleCloseModal}
         />

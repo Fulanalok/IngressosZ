@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventForm } from "./EventForm";
 import type { Event } from "@/types";
 import { storageService } from "@/services/storage";
@@ -19,6 +19,10 @@ describe("EventForm Component", () => {
     onSave: mockOnSave,
     onCancel: mockOnCancel,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   const initialData: Event = {
     id: "1",
@@ -189,5 +193,55 @@ describe("EventForm Component", () => {
       availableTickets: 120,
       inventory: initialData.inventory,
     });
+  });
+
+  it("preserva pricing e inventory ausentes ao editar", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { pricing: _pricing, inventory: _inventory, ...withoutMaps } =
+      initialData;
+    render(
+      <EventForm
+        {...defaultProps}
+        onSave={onSave}
+        initialData={withoutMaps}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Título/i), {
+      target: { value: "Updated without maps" },
+    });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("pricing");
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("inventory");
+  });
+
+  it("valida alteracoes protegidas antes de enviar a imagem", async () => {
+    const onValidate = vi
+      .fn()
+      .mockRejectedValue(new Error("Protected event fields changed"));
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:preview");
+    const { container } = render(
+      <EventForm
+        {...defaultProps}
+        initialData={initialData}
+        onValidate={onValidate}
+      />
+    );
+    const file = new File(["image"], "event.png", { type: "image/png" });
+    const fileInput = container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onValidate).toHaveBeenCalled());
+    expect(storageService.uploadEventImage).not.toHaveBeenCalled();
+    expect(mockOnSave).not.toHaveBeenCalled();
+    createObjectURL.mockRestore();
   });
 });

@@ -100,6 +100,50 @@ vi.mock("./EventForm", () => ({
           >
             Save Inventory Mock
           </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                title: "Title without pricing",
+                pricing: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Missing Pricing Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                location: "Location without inventory",
+                inventory: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Missing Inventory Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                description: "Zero maps are canonical",
+                pricing: { standard: 0, vip: 0, premium: 0 },
+                inventory: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Zero Maps Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                pricing: { standard: 10, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Nonzero Pricing Mock
+          </button>
         </>
       )}
       <button onClick={onCancel}>Cancel Mock</button>
@@ -228,7 +272,51 @@ describe("AdminPage Component", () => {
     expect(toast.success).toHaveBeenCalledWith("Evento atualizado");
   });
 
-  it.each(["Save Price Mock", "Save Inventory Mock"])(
+  it("evento sem pricing edita somente o titulo", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Missing Pricing Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        title: "Title without pricing",
+      });
+    });
+  });
+
+  it("evento sem inventory edita somente o local", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Missing Inventory Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        location: "Location without inventory",
+      });
+    });
+  });
+
+  it("trata mapas ausentes e totalmente zerados como equivalentes", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Zero Maps Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        description: "Zero maps are canonical",
+      });
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Save Price Mock",
+    "Save Inventory Mock",
+    "Save Nonzero Pricing Mock",
+  ])(
     "recusa explicitamente alteracao protegida por %s sem mostrar sucesso",
     async (action) => {
       renderWithEvents();
