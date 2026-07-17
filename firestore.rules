@@ -167,7 +167,7 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
-      allow read: if isAdmin() || ownsEventData(resource.data);
+      allow read: if true;
 
       allow create: if eventFieldsAreValid()
         && request.resource.data.createdBy == request.auth.uid

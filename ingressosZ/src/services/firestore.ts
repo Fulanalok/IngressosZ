@@ -83,20 +83,22 @@ export const eventService = {
 
   async updateEvent(
     eventId: string,
-    eventData: Partial<Omit<Event, "id">>
+    eventData: Partial<
+      Pick<
+        Event,
+        | "title"
+        | "description"
+        | "date"
+        | "time"
+        | "location"
+        | "address"
+        | "image"
+        | "category"
+      >
+    >
   ): Promise<void> {
-    const editableData = { ...eventData };
-    delete editableData.organizerId;
-    delete editableData.createdBy;
-    delete editableData.createdAt;
-    delete editableData.price;
-    delete editableData.maxTickets;
-    delete editableData.maxPerPurchase;
-    delete editableData.availableTickets;
-    delete editableData.inventory;
-    delete editableData.pricing;
     await updateDoc(doc(db, "events", eventId), {
-      ...editableData,
+      ...eventData,
       updatedAt: serverTimestamp(),
     });
   },

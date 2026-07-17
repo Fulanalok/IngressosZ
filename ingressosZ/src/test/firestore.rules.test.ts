@@ -72,10 +72,60 @@ describe("autorizacao do Firestore", () => {
   afterAll(async () => testEnv?.cleanup());
   beforeEach(async () => testEnv.clearFirestore());
 
+  it("permite leitura publica de eventos por usuario anonimo", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const anonymous = testEnv.unauthenticatedContext();
+
+    await assertSucceeds(
+      getDoc(doc(anonymous.firestore(), "events/public-event"))
+    );
+    await assertSucceeds(
+      getDocs(collection(anonymous.firestore(), "events"))
+    );
+  });
+
+  it("permite usuario comum ler eventos", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "events/public-event"))
+    );
+  });
+
+  it("bloqueia anonimo ao criar, editar ou excluir evento", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const anonymous = testEnv.unauthenticatedContext();
+
+    await assertFails(
+      setDoc(
+        doc(anonymous.firestore(), "events/new-event"),
+        eventData("anonymous")
+      )
+    );
+    await assertFails(
+      updateDoc(doc(anonymous.firestore(), "events/public-event"), {
+        title: "Tentativa",
+      })
+    );
+    await assertFails(
+      deleteDoc(doc(anonymous.firestore(), "events/public-event"))
+    );
+  });
+
   it("bloqueia usuario comum ao criar evento", async () => {
+    await seed("events/public-event", eventData("org-a"));
     const user = testEnv.authenticatedContext("user-a", { role: "user" });
     await assertFails(
       setDoc(doc(user.firestore(), "events/event-user"), eventData("user-a"))
+    );
+    await assertFails(
+      updateDoc(doc(user.firestore(), "events/public-event"), {
+        title: "Tentativa",
+      })
+    );
+    await assertFails(
+      deleteDoc(doc(user.firestore(), "events/public-event"))
     );
   });
 
@@ -94,7 +144,7 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
-  it("isola leitura, edicao e exclusao entre organizers", async () => {
+  it("isola edicao e exclusao entre organizers", async () => {
     await seed("events/event-a", eventData("org-a"));
     await seed("events/event-b", eventData("org-b"));
     const organizerA = testEnv.authenticatedContext("org-a", {
@@ -111,7 +161,7 @@ describe("autorizacao do Firestore", () => {
         )
       )
     );
-    await assertFails(getDoc(doc(organizerA.firestore(), "events/event-b")));
+    await assertSucceeds(getDoc(doc(organizerA.firestore(), "events/event-b")));
     await assertFails(
       updateDoc(doc(organizerA.firestore(), "events/event-b"), {
         title: "Tentativa",
@@ -213,7 +263,7 @@ describe("autorizacao do Firestore", () => {
         doc(unassigned.firestore(), "events/event-a/validators/validator-b")
       )
     );
-    await assertFails(getDoc(doc(assigned.firestore(), "events/event-a")));
+    await assertSucceeds(getDoc(doc(assigned.firestore(), "events/event-a")));
   });
 
   it("bloqueia alteracao direta de role por user e organizer", async () => {

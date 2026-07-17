@@ -108,6 +108,8 @@ function prepareEventData(
   isEditing: boolean
 ): EventFormData {
   const dataToSave = { ...formData, image: imageUrl };
+  if (isEditing) return dataToSave;
+
   const pricing = cleanPricing(dataToSave);
   const totalInventory = getTotalInventory(dataToSave);
 
@@ -117,7 +119,7 @@ function prepareEventData(
   if (totalInventory > 0) {
     dataToSave.availableTickets = totalInventory;
     dataToSave.maxTickets = Math.max(dataToSave.maxTickets, totalInventory);
-  } else if (!isEditing) {
+  } else {
     dataToSave.availableTickets = dataToSave.maxTickets;
   }
 

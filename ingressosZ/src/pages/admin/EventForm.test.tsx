@@ -167,4 +167,27 @@ describe("EventForm Component", () => {
     expect(savedData.availableTickets).toBe(100);
     expect(savedData.maxTickets).toBeGreaterThan(0); // Should be at least 100 or default 100 depending on logic
   });
+
+  it("na edicao nao recalcula estoque ao alterar apenas o titulo", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EventForm
+        {...defaultProps}
+        onSave={onSave}
+        initialData={{ ...initialData, availableTickets: 120 }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Título/i), {
+      target: { value: "Updated title" },
+    });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      title: "Updated title",
+      availableTickets: 120,
+      inventory: initialData.inventory,
+    });
+  });
 });

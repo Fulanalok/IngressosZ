@@ -8,6 +8,11 @@ import {
   ticketService,
 } from "@/services/firestore";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock("../../services/firestore", () => ({
   eventService: {
@@ -62,6 +67,41 @@ vi.mock("./EventForm", () => ({
     <div data-testid="event-form">
       <h2>{initialData ? "Edit Mode" : "Create Mode"}</h2>
       <button onClick={() => onSave({ title: "New Event" })}>Save Mock</button>
+      {initialData && (
+        <>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                title: "Updated title",
+                location: "Updated location",
+              }).catch(() => undefined)
+            }
+          >
+            Save Editable Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                price: initialData.price + 1,
+              }).catch(() => undefined)
+            }
+          >
+            Save Price Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                inventory: { standard: 1 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Inventory Mock
+          </button>
+        </>
+      )}
       <button onClick={onCancel}>Cancel Mock</button>
     </div>
   ),
@@ -172,6 +212,39 @@ describe("AdminPage Component", () => {
     expect(confirmSpy).toHaveBeenCalled();
     expect(eventService.deleteEvent).toHaveBeenCalledWith("1");
   });
+
+  it("edita titulo e local enviando somente campos editaveis alterados", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Editable Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        title: "Updated title",
+        location: "Updated location",
+      });
+    });
+    expect(toast.success).toHaveBeenCalledWith("Evento atualizado");
+  });
+
+  it.each(["Save Price Mock", "Save Inventory Mock"])(
+    "recusa explicitamente alteracao protegida por %s sem mostrar sucesso",
+    async (action) => {
+      renderWithEvents();
+      await screen.findByText("Event 1");
+      fireEvent.click(screen.getAllByText("Editar")[0]);
+      fireEvent.click(screen.getByText(action));
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith(
+          expect.stringContaining("operação administrativa confiável")
+        );
+      });
+      expect(eventService.updateEvent).not.toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+    }
+  );
 
   it("organizer consulta somente dados dos proprios eventos", async () => {
     (useAuth as any).mockReturnValue({

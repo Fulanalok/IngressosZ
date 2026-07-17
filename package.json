@@ -14,12 +14,13 @@
     "build": "concurrently \"npm run build:frontend\" \"npm run build:backend\"",
     "build:frontend": "npm --prefix ingressosZ run build",
     "build:backend": "npm --prefix functions run build",
-    "test:rules": "npx firebase-tools emulators:exec --project demo-ingressosz --only firestore \"npm --prefix ingressosZ run test:rules\"",
+    "test:rules": "firebase emulators:exec --project demo-ingressosz --only firestore \"npm --prefix ingressosZ run test:rules\"",
     "test:emulator": "npm run test:rules"
   },
   "devDependencies": {
     "@cspell/dict-pt-br": "^2.4.2",
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "firebase-tools": "15.24.0"
   },
   "dependencies": {
     "@sentry/react": "^10.42.0"

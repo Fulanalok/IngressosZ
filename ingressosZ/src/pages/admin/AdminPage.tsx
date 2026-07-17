@@ -16,6 +16,72 @@ import {
 import type { Event, PaymentSession, Ticket } from "@/types";
 import { EventForm } from "./EventForm";
 
+const PROTECTED_EVENT_FIELDS = [
+  "price",
+  "maxTickets",
+  "maxPerPurchase",
+  "availableTickets",
+  "inventory",
+  "pricing",
+] as const;
+
+const EDITABLE_EVENT_FIELDS = [
+  "title",
+  "description",
+  "date",
+  "time",
+  "location",
+  "address",
+  "image",
+  "category",
+] as const;
+
+function eventFieldEquals(left: unknown, right: unknown) {
+  if (typeof left === "object" || typeof right === "object") {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  }
+  return left === right;
+}
+
+function getChangedProtectedEventFields(
+  currentEvent: Event,
+  requestedData: Partial<Event>
+) {
+  return PROTECTED_EVENT_FIELDS.filter(
+    (field) =>
+      field in requestedData &&
+      !eventFieldEquals(currentEvent[field], requestedData[field])
+  );
+}
+
+function getEditableEventChanges(
+  currentEvent: Event,
+  requestedData: Partial<Event>
+) {
+  const changes: Partial<
+    Pick<
+      Event,
+      | "title"
+      | "description"
+      | "date"
+      | "time"
+      | "location"
+      | "address"
+      | "image"
+      | "category"
+    >
+  > = {};
+  for (const field of EDITABLE_EVENT_FIELDS) {
+    if (
+      field in requestedData &&
+      !eventFieldEquals(currentEvent[field], requestedData[field])
+    ) {
+      Object.assign(changes, { [field]: requestedData[field] });
+    }
+  }
+  return changes;
+}
+
 // ─── Event Form Modal ──────────────────────────────────────────────────────────
 
 interface EventFormModalProps {
@@ -258,7 +324,21 @@ export default function AdminPage() {
   const handleSave = async (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => {
     try {
       if (currentEvent) {
-        await eventService.updateEvent(currentEvent.id, data);
+        const protectedChanges = getChangedProtectedEventFields(
+          currentEvent,
+          data
+        );
+        if (protectedChanges.length > 0) {
+          const message =
+            "Preço e estoque exigem uma operação administrativa confiável, " +
+            "que será implementada em outro PR.";
+          toast.error(message);
+          throw new Error(message);
+        }
+        await eventService.updateEvent(
+          currentEvent.id,
+          getEditableEventChanges(currentEvent, data)
+        );
       } else {
         await eventService.createEvent({
           ...data,
