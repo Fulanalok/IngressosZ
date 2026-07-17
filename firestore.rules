@@ -1,34 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Verifica se o usuário está autenticado.
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Verifica se o usuário tem papel de admin ou organizer via Firebase Custom Claims.
-    // As claims são definidas pelas Cloud Functions `setAdminRole` e `setUserRole`.
-    // - claim `admin == true` → papel admin (compatibilidade retroativa)
-    // - claim `role == "admin" | "organizer"` → papel admin ou organizador
-    function isOwner() {
+    function hasRole(role) {
       return isAuthenticated()
-        && (
-          (request.auth.token.keys().hasAny(['admin'])
+        && request.auth.token.keys().hasAny(['role'])
+        && request.auth.token.role == role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated()
+        && ((request.auth.token.keys().hasAny(['admin'])
             && request.auth.token.admin == true)
-          || (request.auth.token.keys().hasAny(['role'])
-            && (request.auth.token.role == "admin"
-              || request.auth.token.role == "organizer"))
-        );
+          || hasRole('admin'));
     }
 
-    function isUnchanged(key) {
-      return (key in resource.data)
-        && (key in request.resource.data)
-        && (resource.data[key] == request.resource.data[key]);
+    function isOrganizer() {
+      return hasRole('organizer');
     }
 
-    function isValidEventCreate() {
+    function isValidator() {
+      return hasRole('validator');
+    }
+
+    function ownsEventData(eventData) {
+      return isOrganizer() && eventData.organizerId == request.auth.uid;
+    }
+
+    function ownsEvent(eventId) {
+      return isOrganizer()
+        && exists(/databases/$(database)/documents/events/$(eventId))
+        && get(/databases/$(database)/documents/events/$(eventId))
+          .data.organizerId == request.auth.uid;
+    }
+
+    function isAssignedValidator(eventId) {
+      let assignment = get(
+        /databases/$(database)/documents/events/$(eventId)/validators/$(request.auth.uid)
+      );
+      return isValidator()
+        && assignment.data.active == true
+        && assignment.data.userId == request.auth.uid;
+    }
+
+    function eventFieldsAreValid() {
       return request.resource.data.keys().hasOnly([
           'title',
           'description',
@@ -38,7 +56,9 @@ service cloud.firestore {
           'address',
           'price',
           'maxTickets',
+          'maxPerPurchase',
           'availableTickets',
+          'soldTickets',
           'inventory',
           'pricing',
           'image',
@@ -56,6 +76,7 @@ service cloud.firestore {
         && request.resource.data.address is string
         && request.resource.data.category is string
         && request.resource.data.organizerId is string
+        && request.resource.data.createdBy is string
         && request.resource.data.price is number
         && request.resource.data.maxTickets is number
         && request.resource.data.availableTickets is number
@@ -63,9 +84,14 @@ service cloud.firestore {
         && request.resource.data.maxTickets >= 0
         && request.resource.data.availableTickets >= 0
         && request.resource.data.availableTickets <= request.resource.data.maxTickets
-        && request.resource.data.createdBy is string
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
+        && (!('maxPerPurchase' in request.resource.data)
+          || (request.resource.data.maxPerPurchase is number
+            && request.resource.data.maxPerPurchase > 0))
+        && (!('soldTickets' in request.resource.data)
+          || (request.resource.data.soldTickets is number
+            && request.resource.data.soldTickets >= 0))
         && (!('inventory' in request.resource.data)
           || request.resource.data.inventory is map)
         && (!('pricing' in request.resource.data)
@@ -74,98 +100,30 @@ service cloud.firestore {
           || request.resource.data.image is string);
     }
 
-    function isValidEventUpdate() {
-      return request.resource.data.keys().hasOnly([
-          'title',
-          'description',
-          'date',
-          'time',
-          'location',
-          'address',
-          'price',
-          'maxTickets',
-          'availableTickets',
-          'inventory',
-          'pricing',
-          'image',
-          'category',
-          'organizerId',
-          'createdBy',
-          'createdAt',
-          'updatedAt'
-        ])
-        && (!('title' in request.resource.data)
-          || request.resource.data.title is string)
-        && (!('description' in request.resource.data)
-          || request.resource.data.description is string)
-        && (!('date' in request.resource.data)
-          || request.resource.data.date is string)
-        && (!('time' in request.resource.data)
-          || request.resource.data.time is string)
-        && (!('location' in request.resource.data)
-          || request.resource.data.location is string)
-        && (!('address' in request.resource.data)
-          || request.resource.data.address is string)
-        && (!('category' in request.resource.data)
-          || request.resource.data.category is string)
-        && (!('organizerId' in request.resource.data)
-          || request.resource.data.organizerId is string)
-        && (!('price' in request.resource.data)
-          || (request.resource.data.price is number
-            && request.resource.data.price >= 0))
-        && (!('maxTickets' in request.resource.data)
-          || (request.resource.data.maxTickets is number
-            && request.resource.data.maxTickets >= 0))
-        && (!('availableTickets' in request.resource.data)
-          || (request.resource.data.availableTickets is number
-            && request.resource.data.availableTickets >= 0
-            && request.resource.data.availableTickets
-              <= (('maxTickets' in request.resource.data)
-                ? request.resource.data.maxTickets
-                : resource.data.maxTickets)))
-        && (!('createdBy' in request.resource.data)
-          || request.resource.data.createdBy is string)
-        && (!('createdAt' in request.resource.data)
-          || request.resource.data.createdAt is timestamp)
-        && (!('updatedAt' in request.resource.data)
-          || request.resource.data.updatedAt is timestamp)
-        && (!('inventory' in request.resource.data)
-          || request.resource.data.inventory is map)
-        && (!('pricing' in request.resource.data)
-          || request.resource.data.pricing is map)
-        && (!('image' in request.resource.data)
-          || request.resource.data.image is string);
+    function eventIdentityIsUnchanged() {
+      return request.resource.data.organizerId == resource.data.organizerId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
     }
-    function isSensitiveEventUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'availableTickets',
-        'inventory',
-        'pricing',
-        'maxTickets'
+
+    function onlyEditableEventFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'title',
+        'description',
+        'date',
+        'time',
+        'location',
+        'address',
+        'image',
+        'category',
+        'updatedAt'
       ]);
-    }
-    function roleMatchesAuth() {
-      return (request.auth.token.admin == true
-        && request.resource.data.role == 'admin')
-        || (request.auth.token.role is string
-          && (request.auth.token.role == 'user'
-            || request.auth.token.role == 'organizer'
-            || request.auth.token.role == 'validator'
-            || request.auth.token.role == 'admin')
-          && request.resource.data.role == request.auth.token.role)
-        || (!(request.auth.token.role is string)
-          && request.resource.data.role == 'user');
     }
 
     function authEmailMatches(email) {
       return !(email is string)
         || !request.auth.token.keys().hasAny(['email'])
         || email == request.auth.token.email;
-    }
-
-    function emailMatchesAuth() {
-      return !('email' in request.resource.data)
-        || authEmailMatches(request.resource.data.email);
     }
 
     function isValidPaymentSessionCreate() {
@@ -183,25 +141,23 @@ service cloud.firestore {
           'createdAt'
         ])
         && request.resource.data.eventId is string
-        && request.resource.data.userId is string
+        && request.resource.data.userId == request.auth.uid
         && request.resource.data.userEmail is string
+        && authEmailMatches(request.resource.data.userEmail)
         && request.resource.data.ticketType is string
         && request.resource.data.quantity is number
+        && request.resource.data.quantity > 0
         && request.resource.data.unitPrice is number
+        && request.resource.data.unitPrice >= 0
         && request.resource.data.totalAmount is number
+        && request.resource.data.totalAmount
+          == request.resource.data.unitPrice * request.resource.data.quantity
         && request.resource.data.status == 'pending'
         && request.resource.data.provider == 'mercadopago'
         && (!('paymentMethod' in request.resource.data)
           || request.resource.data.paymentMethod == 'pix'
           || request.resource.data.paymentMethod == 'checkout')
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.quantity > 0
-        && request.resource.data.unitPrice >= 0
-        && request.resource.data.totalAmount >= 0
-        && request.resource.data.totalAmount
-          == request.resource.data.unitPrice * request.resource.data.quantity
-        && request.resource.data.userId == request.auth.uid
-        && authEmailMatches(request.resource.data.userEmail);
+        && request.resource.data.createdAt is timestamp;
     }
 
     function ticketBelongsToUser(userId, ticketId) {
@@ -210,121 +166,98 @@ service cloud.firestore {
           .data.userId == userId;
     }
 
-    // --- 1. Coleção '/events' ---
-    // Leitura pública. Criação/edição/exclusão restritas a admins/organizadores
-    // ou ao próprio criador do evento (campo `createdBy`).
     match /events/{eventId} {
-      allow read: if true;
+      allow read: if isAdmin() || ownsEventData(resource.data);
 
-      allow create: if isValidEventCreate()
-        && (isOwner()
-          || (isAuthenticated()
-            && request.resource.data.createdBy == request.auth.uid
+      allow create: if eventFieldsAreValid()
+        && request.resource.data.createdBy == request.auth.uid
+        && (isAdmin()
+          || (isOrganizer()
             && request.resource.data.organizerId == request.auth.uid));
 
-      allow update, delete: if isValidEventUpdate()
-        && (isOwner()
-          || (isAuthenticated()
-            && resource.data.createdBy == request.auth.uid))
-        && (!('createdBy' in request.resource.data)
-          || (('createdBy' in resource.data) && isUnchanged('createdBy')))
-        && (!('createdAt' in request.resource.data)
-          || (('createdAt' in resource.data) && isUnchanged('createdAt')))
-        && (!('organizerId' in request.resource.data)
-          || (('organizerId' in resource.data) && isUnchanged('organizerId')))
-        && (!isSensitiveEventUpdate() || isOwner());
+      allow update: if eventFieldsAreValid()
+        && eventIdentityIsUnchanged()
+        && onlyEditableEventFieldsChanged()
+        && (isAdmin() || ownsEventData(resource.data));
+
+      allow delete: if isAdmin() || ownsEventData(resource.data);
+
+      match /validators/{userId} {
+        allow read: if isAdmin()
+          || (isAssignedValidator(eventId) && request.auth.uid == userId);
+        allow create, update: if isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'userId', 'assignedAt', 'assignedBy', 'active'
+          ])
+          && request.resource.data.userId == userId
+          && request.resource.data.assignedAt is timestamp
+          && request.resource.data.assignedBy == request.auth.uid
+          && request.resource.data.active is bool;
+        allow delete: if isAdmin();
+      }
+
+      match /participants/{participantId} {
+        allow read: if isAdmin() || ownsEvent(eventId);
+        allow write: if false;
+      }
     }
 
-
-    // --- 2. Coleção '/tickets' ---
-    // Ingressos emitidos pelas Cloud Functions após pagamento aprovado.
-    // Campos relevantes: userId, eventId, purchaseId, ticketType, qrCode, status, validated.
-    // Escrita e atualização sempre via Cloud Functions (regra restritiva no cliente).
     match /tickets/{ticketId} {
-      allow create: if false;
-
-      allow update, delete: if false;
-
       allow read: if isAuthenticated()
-        && (request.auth.uid == resource.data.userId || isOwner());
+        && (request.auth.uid == resource.data.userId
+          || isAdmin()
+          || ownsEvent(resource.data.eventId));
+      allow create, update, delete: if false;
     }
 
     match /paymentSessions/{sessionId} {
-      allow create: if isAuthenticated()
-        && isValidPaymentSessionCreate();
+      allow create: if isAuthenticated() && isValidPaymentSessionCreate();
       allow read: if isAuthenticated()
-        && (resource.data.userId == request.auth.uid || isOwner());
+        && (resource.data.userId == request.auth.uid
+          || isAdmin()
+          || ownsEvent(resource.data.eventId));
       allow update, delete: if false;
     }
 
-    // --- 3. Coleção '/purchases' ---
-    // Compras são geradas pelas Cloud Functions após aprovação do pagamento.
-    // Nenhum acesso direto do cliente.
     match /purchases/{purchaseId} {
       allow read, write: if false;
     }
 
-    // --- 4. Subcoleção '/users/{userId}/purchasedTickets' ---
-    // Registro local de ingressos comprados por cada usuário.
-    // Leitura e criação apenas pelo próprio usuário. Deleção/atualização bloqueadas.
     match /users/{userId}/purchasedTickets/{purchasedTicketId} {
-      // Customers can ONLY read their own purchased tickets.
       allow read: if isAuthenticated() && request.auth.uid == userId;
-
-      // When a customer successfully buys a ticket (via the '/tickets' rule or a Cloud Function),
-      // a corresponding record is created in their '/purchasedTickets' subcollection.
       allow create: if isAuthenticated()
-                     && request.auth.uid == userId
-                     && request.resource.data.ticketId is string
-                     && request.resource.data.eventId is string
-                     && request.resource.data.purchaseDate is timestamp
-                     && request.resource.data.keys().hasAll(['ticketId', 'eventId', 'purchaseDate'])
-                     && request.resource.data.size() == 3
-                     && ticketBelongsToUser(userId, request.resource.data.ticketId);
-
-      // Bloqueia edição e deleção direta pelo cliente. Apenas Cloud Functions alteram registros.
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'ticketId', 'eventId', 'purchaseDate'
+        ])
+        && request.resource.data.ticketId is string
+        && request.resource.data.eventId is string
+        && request.resource.data.purchaseDate is timestamp
+        && ticketBelongsToUser(userId, request.resource.data.ticketId);
       allow update, delete: if false;
     }
 
     match /users/{userId} {
       allow read: if isAuthenticated()
-        && (request.auth.uid == userId || isOwner());
+        && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly([
-          'uid',
-          'email',
-          'displayName',
-          'phone',
-          'createdAt',
-          'role',
-          'avatarUrl'
+          'uid', 'email', 'displayName', 'phone', 'createdAt', 'role', 'avatarUrl'
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.createdAt is timestamp
         && request.resource.data.role == 'user'
-        && emailMatchesAuth();
+        && (!('email' in request.resource.data)
+          || authEmailMatches(request.resource.data.email));
       allow update: if isAuthenticated()
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly([
-          'uid',
-          'email',
-          'displayName',
-          'phone',
-          'createdAt',
-          'role',
-          'avatarUrl'
-        ])
-        && request.resource.data.uid == request.auth.uid
-        && isUnchanged('uid')
-        && isUnchanged('createdAt')
-        && isUnchanged('email')
-        && roleMatchesAuth();
-      allow delete: if isOwner();
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'phone', 'avatarUrl'
+        ]);
+      allow delete: if isAdmin();
     }
 
-
-    // --- 5. Regra padrão: bloqueia qualquer outra coleção não mapeada. ---
     match /{document=**} {
       allow read, write: if false;
     }

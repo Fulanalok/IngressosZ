@@ -5,8 +5,14 @@ import SetAdminRole from "@/components/admin/SetAdminRole";
 import AdminDashboard, { type EventMetric } from "@/components/admin/AdminDashboard";
 import AttendeeList from "@/components/admin/AttendeeList";
 import { Button } from "@/components/ui/button";
+import { USER_ROLES } from "@/constants/roles";
 import { useAuth } from "@/hooks/auth/useAuth";
-import { adminRealtimeService, eventService, paymentService } from "@/services/firestore";
+import {
+  adminRealtimeService,
+  eventService,
+  paymentService,
+  ticketService,
+} from "@/services/firestore";
 import type { Event, PaymentSession, Ticket } from "@/types";
 import { EventForm } from "./EventForm";
 
@@ -93,6 +99,7 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line complexity -- admin and organizer data sources differ by ownership
 export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -109,6 +116,7 @@ export default function AdminPage() {
 
   const unsubscribesRef = useRef<(() => void)[]>([]);
   const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === USER_ROLES.ADMIN;
 
   // Derived stats from live data
   const stats = {
@@ -124,7 +132,58 @@ export default function AdminPage() {
   }));
 
   useEffect(() => {
+    if (!userProfile) return;
+
     setLoading(true);
+    unsubscribesRef.current.forEach((unsubscribe) => unsubscribe());
+    unsubscribesRef.current = [];
+
+    if (!isAdmin) {
+      let cancelled = false;
+      const loadOrganizerData = async (ownedEvents: Event[]) => {
+        setEvents(ownedEvents);
+        try {
+          const [ticketGroups, paymentGroups] = await Promise.all([
+            Promise.all(
+              ownedEvents.map((event) =>
+                ticketService.getTicketsByEvent(event.id)
+              )
+            ),
+            Promise.all(
+              ownedEvents.map((event) =>
+                paymentService.getPaymentsByEvent(event.id)
+              )
+            ),
+          ]);
+          if (!cancelled) {
+            setTickets(ticketGroups.flat());
+            setPayments(paymentGroups.flat());
+            setLastUpdated(new Date());
+            setLoading(false);
+          }
+        } catch {
+          if (!cancelled) {
+            toast.error("Erro ao carregar dados dos seus eventos");
+            setLoading(false);
+          }
+        }
+      };
+
+      const unsubscribe = adminRealtimeService.subscribeToOrganizerEvents(
+        userProfile.uid,
+        (ownedEvents) => void loadOrganizerData(ownedEvents),
+        () => {
+          toast.error("Erro ao escutar seus eventos");
+          setLoading(false);
+        }
+      );
+      unsubscribesRef.current = [unsubscribe];
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
     let eventsReady = false;
     let ticketsReady = false;
     let paymentsReady = false;
@@ -168,7 +227,7 @@ export default function AdminPage() {
 
     unsubscribesRef.current = [unsubEvents, unsubTickets, unsubPayments];
     return () => unsubscribesRef.current.forEach((u) => u());
-  }, []);
+  }, [isAdmin, userProfile]);
 
   const handleCreate = () => {
     setCurrentEvent(null);
@@ -288,17 +347,19 @@ export default function AdminPage() {
               <Calendar className="h-4 w-4" />
               Meus Eventos
             </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`pb-4 text-sm font-semibold transition-colors flex items-center gap-2 border-b-2 ${
-                activeTab === "settings"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Settings className="h-4 w-4" />
-              Configurações
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab("settings")}
+                className={`pb-4 text-sm font-semibold transition-colors flex items-center gap-2 border-b-2 ${
+                  activeTab === "settings"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Settings className="h-4 w-4" />
+                Configurações
+              </button>
+            )}
           </div>
 
           {/* Tab content */}
@@ -420,7 +481,7 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
-          ) : (
+          ) : isAdmin ? (
             <div className="space-y-8">
               <div className="bg-card border rounded-2xl p-6 shadow-sm">
                 <h2 className="text-xl font-bold mb-4">Gerenciamento de Administradores</h2>
@@ -430,7 +491,7 @@ export default function AdminPage() {
                 <SetAdminRole />
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

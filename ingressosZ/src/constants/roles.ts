@@ -28,9 +28,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const ASSIGNABLE_ROLE_OPTIONS: Array<{
-  value: Exclude<UserRole, "user">;
+  value: UserRole;
   label: string;
 }> = [
+  { value: USER_ROLES.USER, label: "Usuário comum" },
   { value: USER_ROLES.VALIDATOR, label: ROLE_LABELS.validator },
   { value: USER_ROLES.ORGANIZER, label: ROLE_LABELS.organizer },
   { value: USER_ROLES.ADMIN, label: ROLE_LABELS.admin },

@@ -23,7 +23,8 @@ import type { Event, UserProfile } from "@/types";
 function canAccessValidator(userProfile: UserProfile | null) {
   return (
     userProfile?.role === USER_ROLES.ORGANIZER ||
-    userProfile?.role === USER_ROLES.VALIDATOR
+    userProfile?.role === USER_ROLES.VALIDATOR ||
+    userProfile?.role === USER_ROLES.ADMIN
   );
 }
 

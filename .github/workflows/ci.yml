@@ -40,6 +40,9 @@ jobs:
         working-directory: ./ingressosZ
         run: npm run test
 
+      - name: Firestore Rules Tests
+        run: npm run test:rules
+
       - name: Unit Tests (Backend)
         working-directory: ./functions
         run: npm run test

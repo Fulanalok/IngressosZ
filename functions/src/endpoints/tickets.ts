@@ -3,6 +3,7 @@ import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { onRequest } from "firebase-functions/v2/https";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import { canValidateEvent } from "../auth/authorization.js";
 import { corsHandler } from "../config/cors.js";
 import { jwtSecret } from "../config/params.js";
 import { requireAppCheck } from "../utils/appCheck.js";
@@ -30,38 +31,6 @@ export const validateTicket = onRequest(
           res.status(401).json({ success: false, message: "Token inválido" });
           return;
         }
-        const isAdmin = decodedToken.admin === true;
-        const role = (decodedToken as unknown as { role?: string }).role;
-        let hasPermission =
-          isAdmin ||
-          role === "validator" ||
-          role === "organizer" ||
-          role === "admin";
-        const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-        if (!hasPermission && isEmulator) {
-          try {
-            const userDoc = await getFirestore()
-              .collection("users")
-              .doc(decodedToken.uid)
-              .get();
-            const userRole = (userDoc.data() as { role?: string } | null)?.role;
-            if (
-              typeof userRole === "string" &&
-              ["validator", "organizer", "admin"].includes(
-                userRole.toLowerCase()
-              )
-            ) {
-              hasPermission = true;
-            }
-          } catch (error) {
-            void error;
-          }
-        }
-        if (!hasPermission) {
-          res.status(403).json({ success: false, message: "Não autorizado" });
-          return;
-        }
-
         const allowedValidator = await checkRateLimit(
           `validate:${decodedToken.uid}`,
           30
@@ -137,7 +106,35 @@ export const validateTicket = onRequest(
           return;
         }
 
-        const ticketRef = getFirestore().collection("tickets").doc(ticketId);
+        const firestore = getFirestore();
+        const hasPermission = await canValidateEvent(
+          { uid: decodedToken.uid, token: decodedToken },
+          eventId,
+          {
+            async getEvent(id) {
+              const snapshot = await firestore
+                .collection("events")
+                .doc(id)
+                .get();
+              return snapshot.exists ? snapshot.data() ?? null : null;
+            },
+            async getValidatorAssignment(id, userId) {
+              const snapshot = await firestore
+                .collection("events")
+                .doc(id)
+                .collection("validators")
+                .doc(userId)
+                .get();
+              return snapshot.exists ? snapshot.data() ?? null : null;
+            },
+          }
+        );
+        if (!hasPermission) {
+          res.status(403).json({ success: false, message: "Não autorizado" });
+          return;
+        }
+
+        const ticketRef = firestore.collection("tickets").doc(ticketId);
         const ticketSnap = await ticketRef.get();
 
         if (!ticketSnap.exists) {
@@ -150,6 +147,7 @@ export const validateTicket = onRequest(
 
         const ticket = ticketSnap.data() as {
           qrCode: string;
+          eventId?: string;
           validated?: boolean;
           validatedAt?: Timestamp;
           ticketType?: string;
@@ -159,6 +157,14 @@ export const validateTicket = onRequest(
           res.status(500).json({
             success: false,
             message: "Erro ao recuperar dados do ingresso",
+          });
+          return;
+        }
+
+        if (ticket.eventId !== eventId) {
+          res.status(403).json({
+            success: false,
+            message: "Ingresso não pertence ao evento informado",
           });
           return;
         }
@@ -184,11 +190,11 @@ export const validateTicket = onRequest(
         await ticketRef.update({
           validated: true,
           validatedAt: FieldValue.serverTimestamp(),
-          validatedBy: "api",
+          validatedBy: decodedToken.uid,
           status: "used",
         });
 
-        const eventSnap = await getFirestore()
+        const eventSnap = await firestore
           .collection("events")
           .doc(eventId)
           .get();

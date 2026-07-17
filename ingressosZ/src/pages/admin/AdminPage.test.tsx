@@ -1,7 +1,12 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import AdminPage from "./AdminPage";
-import { eventService, adminRealtimeService, paymentService } from "@/services/firestore";
+import {
+  adminRealtimeService,
+  eventService,
+  paymentService,
+  ticketService,
+} from "@/services/firestore";
 import { useAuth } from "@/hooks/auth/useAuth";
 
 vi.mock("../../services/firestore", () => ({
@@ -15,11 +20,13 @@ vi.mock("../../services/firestore", () => ({
     getUserTickets: vi.fn(),
     subscribeToUserTickets: vi.fn(() => vi.fn()),
     getTicketById: vi.fn(),
+    getTicketsByEvent: vi.fn().mockResolvedValue([]),
   },
   userService: {
     getUserProfile: vi.fn(),
   },
   paymentService: {
+    getPaymentsByEvent: vi.fn().mockResolvedValue([]),
     subscribeToAllPayments: vi.fn().mockImplementation((onUpdate) => {
       onUpdate([]);
       return vi.fn();
@@ -27,6 +34,10 @@ vi.mock("../../services/firestore", () => ({
   },
   adminRealtimeService: {
     subscribeToAdminEvents: vi.fn().mockImplementation(() => vi.fn()),
+    subscribeToOrganizerEvents: vi.fn().mockImplementation((_uid, onUpdate) => {
+      onUpdate([]);
+      return vi.fn();
+    }),
     subscribeToAllTickets: vi.fn().mockImplementation((onUpdate) => {
       onUpdate([]);
       return vi.fn();
@@ -160,5 +171,29 @@ describe("AdminPage Component", () => {
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(eventService.deleteEvent).toHaveBeenCalledWith("1");
+  });
+
+  it("organizer consulta somente dados dos proprios eventos", async () => {
+    (useAuth as any).mockReturnValue({
+      userProfile: { uid: "org-a", role: "organizer" },
+    });
+    (
+      adminRealtimeService.subscribeToOrganizerEvents as any
+    ).mockImplementation((_uid: string, onUpdate: any) => {
+      onUpdate([mockEvents[0]]);
+      return vi.fn();
+    });
+
+    render(<AdminPage />);
+
+    await waitFor(() => {
+      expect(ticketService.getTicketsByEvent).toHaveBeenCalledWith("1");
+      expect(paymentService.getPaymentsByEvent).toHaveBeenCalledWith("1");
+    });
+    expect(
+      adminRealtimeService.subscribeToOrganizerEvents
+    ).toHaveBeenCalledWith("org-a", expect.any(Function), expect.any(Function));
+    expect(adminRealtimeService.subscribeToAllTickets).not.toHaveBeenCalled();
+    expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
   });
 });
