@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import {
   canValidateEvent,
+  claimRole,
   isAdminClaims,
   type EventAuthorizationReader,
 } from "../../lib/auth/authorization.js";
@@ -22,6 +23,23 @@ function reader(
 }
 
 describe("authorization", () => {
+  it("aceita somente roles canonicas em minusculas", () => {
+    for (const role of ["user", "organizer", "validator", "admin"]) {
+      expect(claimRole({ role })).to.equal(role);
+    }
+
+    for (const role of [
+      "Admin",
+      "Organizer",
+      "Validator",
+      "USER",
+      "unknown",
+    ]) {
+      expect(claimRole({ role })).to.equal(null);
+    }
+    expect(claimRole({ role: 1 })).to.equal(null);
+  });
+
   it("permite somente admin autorizar alteracoes de roles", () => {
     expect(isAdminClaims({ admin: true })).to.equal(true);
     expect(isAdminClaims({ role: "admin" })).to.equal(true);

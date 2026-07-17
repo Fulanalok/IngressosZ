@@ -144,6 +144,70 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
+  it("permite criar evento com capacidade inicial valida", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertSucceeds(
+      setDoc(doc(organizer.firestore(), "events/valid-event"), eventData("org-a"))
+    );
+  });
+
+  it("bloqueia maxTickets fracionario na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/fractional-max"), {
+        ...eventData("org-a"),
+        maxTickets: 100.5,
+        availableTickets: 100.5,
+      })
+    );
+  });
+
+  it("bloqueia availableTickets fracionario na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/fractional-available"), {
+        ...eventData("org-a"),
+        maxTickets: 100,
+        availableTickets: 99.5,
+      })
+    );
+  });
+
+  it("bloqueia soldTickets positivo na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/sold-event"), {
+        ...eventData("org-a"),
+        soldTickets: 1,
+      })
+    );
+  });
+
+  it("bloqueia estoque disponivel diferente da capacidade na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/mismatched-stock"), {
+        ...eventData("org-a"),
+        availableTickets: 99,
+      })
+    );
+  });
+
   it("isola edicao e exclusao entre organizers", async () => {
     await seed("events/event-a", eventData("org-a"));
     await seed("events/event-b", eventData("org-b"));
@@ -195,9 +259,15 @@ describe("autorizacao do Firestore", () => {
 
   it("permite organizer ler tickets somente do proprio evento", async () => {
     await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
     await seed("tickets/ticket-a", {
       eventId: "event-a",
       userId: "buyer-a",
+      purchaseDate: createdAt,
+    });
+    await seed("tickets/ticket-b", {
+      eventId: "event-b",
+      userId: "buyer-b",
       purchaseDate: createdAt,
     });
     const organizerA = testEnv.authenticatedContext("org-a", {
@@ -213,13 +283,31 @@ describe("autorizacao do Firestore", () => {
         )
       )
     );
+    await assertFails(
+      getDocs(collection(organizerA.firestore(), "tickets"))
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "tickets"),
+          where("eventId", "==", "event-b")
+        )
+      )
+    );
   });
 
   it("permite organizer consultar vendas somente do proprio evento", async () => {
     await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
     await seed("paymentSessions/payment-a", {
       eventId: "event-a",
       userId: "buyer-a",
+      status: "approved",
+      createdAt,
+    });
+    await seed("paymentSessions/payment-b", {
+      eventId: "event-b",
+      userId: "buyer-b",
       status: "approved",
       createdAt,
     });
@@ -236,20 +324,47 @@ describe("autorizacao do Firestore", () => {
         )
       )
     );
+    await assertFails(
+      getDocs(collection(organizerA.firestore(), "paymentSessions"))
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "paymentSessions"),
+          where("eventId", "==", "event-b")
+        )
+      )
+    );
   });
 
-  it("permite validator ler somente a propria atribuicao ativa", async () => {
+  it("restringe validator a propria atribuicao ativa", async () => {
     await seed("events/event-a", eventData("org-a"));
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+    });
+    await seed("events/event-a/participants/buyer-a", {
+      userId: "buyer-a",
+    });
     await seed("events/event-a/validators/validator-a", {
       userId: "validator-a",
       assignedAt: createdAt,
       assignedBy: "admin-a",
       active: true,
     });
+    await seed("events/event-a/validators/validator-inactive", {
+      userId: "validator-inactive",
+      assignedAt: createdAt,
+      assignedBy: "admin-a",
+      active: false,
+    });
     const assigned = testEnv.authenticatedContext("validator-a", {
       role: "validator",
     });
     const unassigned = testEnv.authenticatedContext("validator-b", {
+      role: "validator",
+    });
+    const inactive = testEnv.authenticatedContext("validator-inactive", {
       role: "validator",
     });
 
@@ -263,7 +378,64 @@ describe("autorizacao do Firestore", () => {
         doc(unassigned.firestore(), "events/event-a/validators/validator-b")
       )
     );
-    await assertSucceeds(getDoc(doc(assigned.firestore(), "events/event-a")));
+    await assertFails(
+      getDoc(
+        doc(
+          inactive.firestore(),
+          "events/event-a/validators/validator-inactive"
+        )
+      )
+    );
+    await assertFails(getDoc(doc(assigned.firestore(), "tickets/ticket-a")));
+    await assertFails(
+      getDoc(
+        doc(assigned.firestore(), "events/event-a/participants/buyer-a")
+      )
+    );
+  });
+
+  it("valida criacao de purchasedTickets contra o ticket de origem", async () => {
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "user-a",
+    });
+    await seed("tickets/ticket-b", {
+      eventId: "event-b",
+      userId: "user-b",
+    });
+    await seed("tickets/ticket-c", {
+      eventId: "event-a",
+      userId: "user-a",
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    const purchasedTickets = collection(
+      user.firestore(),
+      "users/user-a/purchasedTickets"
+    );
+    const validData = {
+      ticketId: "ticket-a",
+      eventId: "event-a",
+      purchaseDate: createdAt,
+    };
+
+    await assertSucceeds(setDoc(doc(purchasedTickets, "ticket-a"), validData));
+    await assertFails(
+      setDoc(doc(purchasedTickets, "different-id"), validData)
+    );
+    await assertFails(
+      setDoc(doc(purchasedTickets, "ticket-c"), {
+        ...validData,
+        ticketId: "ticket-c",
+        eventId: "event-b",
+      })
+    );
+    await assertFails(
+      setDoc(doc(purchasedTickets, "ticket-b"), {
+        ticketId: "ticket-b",
+        eventId: "event-b",
+        purchaseDate: createdAt,
+      })
+    );
   });
 
   it("bloqueia alteracao direta de role por user e organizer", async () => {

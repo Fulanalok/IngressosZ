@@ -240,7 +240,9 @@ export default function AdminPage() {
 
     if (!isAdmin) {
       let cancelled = false;
+      let loadGeneration = 0;
       const loadOrganizerData = async (ownedEvents: Event[]) => {
+        const generation = ++loadGeneration;
         setEvents(ownedEvents);
         try {
           const [ticketGroups, paymentGroups] = await Promise.all([
@@ -255,14 +257,14 @@ export default function AdminPage() {
               )
             ),
           ]);
-          if (!cancelled) {
+          if (!cancelled && generation === loadGeneration) {
             setTickets(ticketGroups.flat());
             setPayments(paymentGroups.flat());
             setLastUpdated(new Date());
             setLoading(false);
           }
         } catch {
-          if (!cancelled) {
+          if (!cancelled && generation === loadGeneration) {
             toast.error("Erro ao carregar dados dos seus eventos");
             setLoading(false);
           }
@@ -365,7 +367,6 @@ export default function AdminPage() {
       data
     );
     if (protectedChanges.length > 0) {
-      toast.error(PROTECTED_EVENT_MESSAGE);
       throw new Error(PROTECTED_EVENT_MESSAGE);
     }
   };
@@ -385,7 +386,6 @@ export default function AdminPage() {
         });
       }
       handleCloseModal();
-      toast.success(currentEvent ? "Evento atualizado" : "Evento criado");
     } catch (error) {
       console.error("Erro ao salvar", error);
       throw error;

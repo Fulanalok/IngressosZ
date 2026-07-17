@@ -32,6 +32,43 @@ async function requireTargetRole(userId: string, expectedRole: string) {
   }
 }
 
+interface EventValidatorRequest {
+  auth?: { uid: string; token: Record<string, unknown> };
+  data: unknown;
+}
+
+type TargetRoleChecker = (
+  userId: string,
+  expectedRole: string
+) => Promise<void>;
+
+/**
+ * Validates and authorizes one validator assignment change.
+ * @param {EventValidatorRequest} request Callable request.
+ * @param {TargetRoleChecker} targetRoleChecker Target role verifier.
+ * @return {Promise<object>} Normalized assignment arguments.
+ */
+export async function authorizeEventValidatorChange(
+  request: EventValidatorRequest,
+  targetRoleChecker: TargetRoleChecker = requireTargetRole
+) {
+  requireAdmin(request);
+  const { eventId, userId, active = true } = request.data as {
+    eventId?: string;
+    userId?: string;
+    active?: boolean;
+  };
+  if (!eventId || !userId || typeof active !== "boolean") {
+    throw new HttpsError(
+      "invalid-argument",
+      "eventId, userId e active válidos são obrigatórios."
+    );
+  }
+  if (active) await targetRoleChecker(userId, "validator");
+
+  return { eventId, userId, active };
+}
+
 export const setEventOrganizer = onCall(
   callableSecurityOptions,
   async (request) => {
@@ -64,19 +101,8 @@ export const setEventOrganizer = onCall(
 export const setEventValidator = onCall(
   callableSecurityOptions,
   async (request) => {
-    requireAdmin(request);
-    const { eventId, userId, active = true } = request.data as {
-      eventId?: string;
-      userId?: string;
-      active?: boolean;
-    };
-    if (!eventId || !userId || typeof active !== "boolean") {
-      throw new HttpsError(
-        "invalid-argument",
-        "eventId, userId e active válidos são obrigatórios."
-      );
-    }
-    await requireTargetRole(userId, "validator");
+    const { eventId, userId, active } =
+      await authorizeEventValidatorChange(request);
 
     const eventRef = getFirestore().collection("events").doc(eventId);
     const event = await eventRef.get();

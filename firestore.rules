@@ -78,8 +78,8 @@ service cloud.firestore {
         && request.resource.data.organizerId is string
         && request.resource.data.createdBy is string
         && request.resource.data.price is number
-        && request.resource.data.maxTickets is number
-        && request.resource.data.availableTickets is number
+        && request.resource.data.maxTickets is int
+        && request.resource.data.availableTickets is int
         && request.resource.data.price >= 0
         && request.resource.data.maxTickets >= 0
         && request.resource.data.availableTickets >= 0
@@ -90,14 +90,22 @@ service cloud.firestore {
           || (request.resource.data.maxPerPurchase is number
             && request.resource.data.maxPerPurchase > 0))
         && (!('soldTickets' in request.resource.data)
-          || (request.resource.data.soldTickets is number
-            && request.resource.data.soldTickets >= 0))
+          || (request.resource.data.soldTickets is int
+            && request.resource.data.soldTickets >= 0
+            && request.resource.data.soldTickets <= request.resource.data.maxTickets))
         && (!('inventory' in request.resource.data)
           || request.resource.data.inventory is map)
         && (!('pricing' in request.resource.data)
           || request.resource.data.pricing is map)
         && (!('image' in request.resource.data)
           || request.resource.data.image is string);
+    }
+
+    function eventInitialStockIsValid() {
+      return request.resource.data.availableTickets
+          == request.resource.data.maxTickets
+        && (!('soldTickets' in request.resource.data)
+          || request.resource.data.soldTickets == 0);
     }
 
     function eventIdentityIsUnchanged() {
@@ -170,6 +178,7 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if eventFieldsAreValid()
+        && eventInitialStockIsValid()
         && request.resource.data.createdBy == request.auth.uid
         && (isAdmin()
           || (isOrganizer()
@@ -231,9 +240,13 @@ service cloud.firestore {
           'ticketId', 'eventId', 'purchaseDate'
         ])
         && request.resource.data.ticketId is string
+        && purchasedTicketId == request.resource.data.ticketId
         && request.resource.data.eventId is string
         && request.resource.data.purchaseDate is timestamp
-        && ticketBelongsToUser(userId, request.resource.data.ticketId);
+        && ticketBelongsToUser(userId, request.resource.data.ticketId)
+        && request.resource.data.eventId == get(
+          /databases/$(database)/documents/tickets/$(request.resource.data.ticketId)
+        ).data.eventId;
       allow update, delete: if false;
     }
 

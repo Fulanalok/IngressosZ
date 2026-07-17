@@ -4,7 +4,7 @@ import { userService } from "@/services/firestore";
 import { logger } from "@/services/logger";
 import type { UserProfile } from "@/types";
 import type { User } from "firebase/auth";
-import { getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
+import { getRedirectResult, onIdTokenChanged, signOut } from "firebase/auth";
 import { ReactNode, useEffect, useState } from "react";
 import { AuthContext, type AuthContextType } from "./authContext";
 
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       setLoading(true);
 
       if (currentUser) {

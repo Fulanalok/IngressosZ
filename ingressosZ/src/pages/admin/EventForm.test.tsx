@@ -3,6 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventForm } from "./EventForm";
 import type { Event } from "@/types";
 import { storageService } from "@/services/storage";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 // Mock storageService
 vi.mock("../../services/storage", () => ({
@@ -169,7 +174,7 @@ describe("EventForm Component", () => {
     // Check automatic total inventory update
     // Logic: if totalInventory > 0, set availableTickets and maxTickets (if max < total)
     expect(savedData.availableTickets).toBe(100);
-    expect(savedData.maxTickets).toBeGreaterThan(0); // Should be at least 100 or default 100 depending on logic
+    expect(savedData.maxTickets).toBe(100);
   });
 
   it("na edicao nao recalcula estoque ao alterar apenas o titulo", async () => {
@@ -218,9 +223,11 @@ describe("EventForm Component", () => {
   });
 
   it("valida alteracoes protegidas antes de enviar a imagem", async () => {
+    const protectedMessage =
+      "Preço e estoque exigem uma operação administrativa confiável";
     const onValidate = vi
       .fn()
-      .mockRejectedValue(new Error("Protected event fields changed"));
+      .mockRejectedValue(new Error(protectedMessage));
     const createObjectURL = vi
       .spyOn(URL, "createObjectURL")
       .mockReturnValue("blob:preview");
@@ -242,6 +249,34 @@ describe("EventForm Component", () => {
     await waitFor(() => expect(onValidate).toHaveBeenCalled());
     expect(storageService.uploadEventImage).not.toHaveBeenCalled();
     expect(mockOnSave).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith(protectedMessage);
     createObjectURL.mockRestore();
+  });
+
+  it("mostra erro generico uma unica vez para falha desconhecida", async () => {
+    const onSave = vi.fn().mockRejectedValue({ reason: "unknown" });
+    render(
+      <EventForm {...defaultProps} initialData={initialData} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("Erro ao salvar evento");
+  });
+
+  it("mostra uma unica mensagem de sucesso", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EventForm {...defaultProps} initialData={initialData} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith("Evento salvo com sucesso!");
   });
 });

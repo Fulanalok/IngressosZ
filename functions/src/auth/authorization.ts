@@ -19,7 +19,15 @@ export interface EventAuthorizationReader {
  * @return {string|null} Normalized role.
  */
 export function claimRole(token: AuthClaims): string | null {
-  return typeof token.role === "string" ? token.role.toLowerCase() : null;
+  if (
+    token.role === "user" ||
+    token.role === "organizer" ||
+    token.role === "validator" ||
+    token.role === "admin"
+  ) {
+    return token.role;
+  }
+  return null;
 }
 
 /**

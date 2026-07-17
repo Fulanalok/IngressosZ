@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import AdminPage from "./AdminPage";
 import {
@@ -58,7 +58,11 @@ vi.mock("@/hooks/auth/useAuth", () => ({
 
 // Mocked to avoid rendering event titles in the dashboard (which would cause duplicate text matches)
 vi.mock("../../components/admin/AdminDashboard", () => ({
-  default: () => <div data-testid="admin-dashboard" />,
+  default: ({ totalTickets, totalRevenue }: any) => (
+    <div data-testid="admin-dashboard">
+      {totalTickets}|{totalRevenue}
+    </div>
+  ),
 }));
 
 // Mocked to isolate AdminPage tests from EventForm behavior (tested separately)
@@ -269,7 +273,7 @@ describe("AdminPage Component", () => {
         location: "Updated location",
       });
     });
-    expect(toast.success).toHaveBeenCalledWith("Evento atualizado");
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("evento sem pricing edita somente o titulo", async () => {
@@ -324,12 +328,9 @@ describe("AdminPage Component", () => {
       fireEvent.click(screen.getAllByText("Editar")[0]);
       fireEvent.click(screen.getByText(action));
 
-      await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith(
-          expect.stringContaining("operação administrativa confiável")
-        );
-      });
+      await Promise.resolve();
       expect(eventService.updateEvent).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
       expect(toast.success).not.toHaveBeenCalled();
     }
   );
@@ -356,5 +357,66 @@ describe("AdminPage Component", () => {
     ).toHaveBeenCalledWith("org-a", expect.any(Function), expect.any(Function));
     expect(adminRealtimeService.subscribeToAllTickets).not.toHaveBeenCalled();
     expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
+  });
+
+  it("ignora uma carga antiga do painel do organizer", async () => {
+    (useAuth as any).mockReturnValue({
+      userProfile: { uid: "org-a", role: "organizer" },
+    });
+    let emitEvents: ((events: any[]) => void) | undefined;
+    (adminRealtimeService.subscribeToOrganizerEvents as any).mockImplementation(
+      (_uid: string, onUpdate: (events: any[]) => void) => {
+        emitEvents = onUpdate;
+        return vi.fn();
+      }
+    );
+
+    let resolveOldTickets!: (tickets: any[]) => void;
+    let resolveNewTickets!: (tickets: any[]) => void;
+    let resolveOldPayments!: (payments: any[]) => void;
+    let resolveNewPayments!: (payments: any[]) => void;
+    const oldTickets = new Promise<any[]>((resolve) => {
+      resolveOldTickets = resolve;
+    });
+    const newTickets = new Promise<any[]>((resolve) => {
+      resolveNewTickets = resolve;
+    });
+    const oldPayments = new Promise<any[]>((resolve) => {
+      resolveOldPayments = resolve;
+    });
+    const newPayments = new Promise<any[]>((resolve) => {
+      resolveNewPayments = resolve;
+    });
+    (ticketService.getTicketsByEvent as any).mockImplementation(
+      (eventId: string) => (eventId === "old" ? oldTickets : newTickets)
+    );
+    (paymentService.getPaymentsByEvent as any).mockImplementation(
+      (eventId: string) => (eventId === "old" ? oldPayments : newPayments)
+    );
+
+    render(<AdminPage />);
+    act(() => emitEvents?.([{ ...mockEvents[0], id: "old" }]));
+    act(() => emitEvents?.([{ ...mockEvents[1], id: "new" }]));
+
+    await act(async () => {
+      resolveNewTickets([{ id: "new-ticket", eventId: "new" }]);
+      resolveNewPayments([
+        { id: "new-payment", eventId: "new", totalAmount: 20 },
+      ]);
+      await Promise.all([newTickets, newPayments]);
+    });
+    expect(screen.getByTestId("admin-dashboard")).toHaveTextContent("1|20");
+
+    await act(async () => {
+      resolveOldTickets([
+        { id: "old-ticket-1", eventId: "old" },
+        { id: "old-ticket-2", eventId: "old" },
+      ]);
+      resolveOldPayments([
+        { id: "old-payment", eventId: "old", totalAmount: 99 },
+      ]);
+      await Promise.all([oldTickets, oldPayments]);
+    });
+    expect(screen.getByTestId("admin-dashboard")).toHaveTextContent("1|20");
   });
 });

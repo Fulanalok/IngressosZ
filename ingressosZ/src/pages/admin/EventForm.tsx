@@ -120,7 +120,7 @@ function prepareEventData(
 
   if (totalInventory > 0) {
     dataToSave.availableTickets = totalInventory;
-    dataToSave.maxTickets = Math.max(dataToSave.maxTickets, totalInventory);
+    dataToSave.maxTickets = totalInventory;
   } else {
     dataToSave.availableTickets = dataToSave.maxTickets;
   }
@@ -546,7 +546,7 @@ export function EventForm({
       toast.success("Evento salvo com sucesso!");
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao salvar evento");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar evento");
     } finally {
       setLoading(false);
       setUploadProgress("idle");
