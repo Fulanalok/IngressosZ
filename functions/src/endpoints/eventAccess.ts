@@ -34,13 +34,25 @@ async function requireTargetRole(userId: string, expectedRole: string) {
 
 interface EventValidatorRequest {
   auth?: { uid: string; token: Record<string, unknown> };
-  data: unknown;
+  data?: unknown;
 }
 
 type TargetRoleChecker = (
   userId: string,
   expectedRole: string
 ) => Promise<void>;
+
+/**
+ * Requires a callable payload to be a plain object-like record.
+ * @param {unknown} data Callable payload.
+ * @return {Record<string, unknown>} Valid payload.
+ */
+export function requirePayloadObject(data: unknown): Record<string, unknown> {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new HttpsError("invalid-argument", "Payload inválido.");
+  }
+  return data as Record<string, unknown>;
+}
 
 /**
  * Validates and authorizes one validator assignment change.
@@ -53,7 +65,9 @@ export async function authorizeEventValidatorChange(
   targetRoleChecker: TargetRoleChecker = requireTargetRole
 ) {
   requireAdmin(request);
-  const { eventId, userId, active = true } = request.data as {
+  const { eventId, userId, active = true } = requirePayloadObject(
+    request.data
+  ) as {
     eventId?: string;
     userId?: string;
     active?: boolean;
@@ -73,7 +87,7 @@ export const setEventOrganizer = onCall(
   callableSecurityOptions,
   async (request) => {
     requireAdmin(request);
-    const { eventId, organizerId } = request.data as {
+    const { eventId, organizerId } = requirePayloadObject(request.data) as {
       eventId?: string;
       organizerId?: string | null;
     };
