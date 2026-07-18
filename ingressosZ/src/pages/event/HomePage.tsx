@@ -23,7 +23,8 @@ import type { Event, UserProfile } from "@/types";
 function canAccessValidator(userProfile: UserProfile | null) {
   return (
     userProfile?.role === USER_ROLES.ORGANIZER ||
-    userProfile?.role === USER_ROLES.VALIDATOR
+    userProfile?.role === USER_ROLES.VALIDATOR ||
+    userProfile?.role === USER_ROLES.ADMIN
   );
 }
 
@@ -100,7 +101,9 @@ function FeaturedEventsSection({
 }
 
 function QuickAccessSection({ userProfile }: { userProfile: UserProfile | null }) {
-  const isOrganizer = userProfile?.role === USER_ROLES.ORGANIZER;
+  const canManageEvents =
+    userProfile?.role === USER_ROLES.ORGANIZER ||
+    userProfile?.role === USER_ROLES.ADMIN;
   const canValidate = canAccessValidator(userProfile);
 
   if (!canValidate) return null;
@@ -111,7 +114,7 @@ function QuickAccessSection({ userProfile }: { userProfile: UserProfile | null }
         Acesso rápido
       </h2>
       <div className="grid gap-5 md:grid-cols-2">
-        {isOrganizer && (
+        {canManageEvents && (
           <Link to="/admin" className="group">
             <Card className="group-hover:border-primary group-hover:shadow-md">
               <CardHeader className="flex flex-row items-center gap-4">

@@ -2,367 +2,530 @@ import {
   assertFails,
   assertSucceeds,
   initializeTestEnvironment,
-  RulesTestEnvironment,
+  type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { readFileSync } from "fs";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
 let testEnv: RulesTestEnvironment;
 
-const getRules = () => readFileSync("../firestore.rules", "utf8");
-const getFirestorePort = () => {
-  try {
-    const config = JSON.parse(readFileSync("../firebase.json", "utf8"));
-    return config?.emulators?.firestore?.port ?? 8080;
-  } catch {
-    return 8080;
-  }
-};
-const getFirestoreConfig = () => {
-  const envHost = process.env.FIRESTORE_EMULATOR_HOST;
-  if (envHost) {
-    const [host, port] = envHost.split(":");
-    return { host: host || "127.0.0.1", port: Number(port) || 8080 };
-  }
-  return { host: "127.0.0.1", port: getFirestorePort() };
-};
-const describeEmulator = process.env.FIRESTORE_EMULATOR_HOST
-  ? describe
-  : describe.skip;
+const createdAt = Timestamp.fromDate(new Date("2026-01-01T10:00:00Z"));
 
-describeEmulator("Regras de segurança do Firestore para Ingressos", () => {
-  beforeAll(async () => {
-    const { host, port } = getFirestoreConfig();
-    testEnv = await initializeTestEnvironment({
-      projectId: "zingressos-test",
-      firestore: {
-        rules: getRules(),
-        host,
-        port,
-      },
-    });
-  });
-
-  afterAll(async () => {
-    if (testEnv) {
-      await testEnv.cleanup();
-    }
-  });
-
-  beforeEach(async () => {
-    await testEnv.clearFirestore();
-  });
-
-  const baseEventData = {
-    title: "Evento Teste",
+function eventData(organizerId: string) {
+  return {
+    title: `Evento ${organizerId}`,
     description: "Descricao",
-    date: "2025-01-01",
+    date: "2026-08-01",
     time: "20:00",
     location: "Local",
     address: "Endereco",
     price: 100,
     maxTickets: 100,
     availableTickets: 100,
+    soldTickets: 0,
     category: "Musica",
-    organizerId: "alice",
-    createdBy: "alice",
-    createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-    updatedAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+    organizerId,
+    createdBy: organizerId,
+    createdAt,
+    updatedAt: createdAt,
   };
+}
 
-  it("deve PERMITIR que um usuário leia seu próprio ingresso", async () => {
-    const alice = { uid: "alice" };
-    const aliceContext = testEnv.authenticatedContext(alice.uid);
+async function seed(path: string, data: Record<string, unknown>) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), path), data);
+  });
+}
 
-    // Adicionar um ingresso para a Alice no backend
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "tickets/ticket_da_alice"), {
-        userId: alice.uid,
-      });
+describe("autorizacao do Firestore", () => {
+  beforeAll(async () => {
+    const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+    if (!emulatorHost) {
+      throw new Error(
+        "FIRESTORE_EMULATOR_HOST ausente. Execute os testes com npm run test:rules na raiz."
+      );
+    }
+    const [host, port] = emulatorHost.split(":");
+    testEnv = await initializeTestEnvironment({
+      projectId: "zingressos-rules-test",
+      firestore: {
+        rules: readFileSync("../firestore.rules", "utf8"),
+        host,
+        port: Number(port),
+      },
     });
-
-    // Tentar ler como Alice
-    const ref = doc(aliceContext.firestore(), "tickets/ticket_da_alice");
-    await assertSucceeds(getDoc(ref));
   });
 
-  it("deve BLOQUEAR a leitura do ingresso de outro usuário", async () => {
-    const alice = { uid: "alice" };
-    const bob = { uid: "bob" };
-    const bobContext = testEnv.authenticatedContext(bob.uid);
+  afterAll(async () => testEnv?.cleanup());
+  beforeEach(async () => testEnv.clearFirestore());
 
-    // Adicionar um ingresso para a Alice no backend
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "tickets/ticket_da_alice"), {
-        userId: alice.uid,
-      });
-    });
+  it("permite leitura publica de eventos por usuario anonimo", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const anonymous = testEnv.unauthenticatedContext();
 
-    // Bob tentando ler o ingresso da Alice
-    const ref = doc(bobContext.firestore(), "tickets/ticket_da_alice");
-    await assertFails(getDoc(ref));
-  });
-
-  it("deve BLOQUEAR escrita direta em tickets pelo cliente", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice");
-    const ref = doc(aliceContext.firestore(), "tickets/ticket_direto");
-
-    await assertFails(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        status: "valid",
-      })
-    );
-  });
-
-  it("deve BLOQUEAR update direto em tickets pelo cliente", async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "tickets/ticket_update"), {
-        eventId: "evento_1",
-        userId: "alice",
-        status: "valid",
-      });
-    });
-
-    const aliceContext = testEnv.authenticatedContext("alice");
-    await assertFails(
-      updateDoc(doc(aliceContext.firestore(), "tickets/ticket_update"), {
-        status: "used",
-      })
-    );
-  });
-
-  it("deve PERMITIR criação de evento com dados válidos", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice");
-    const ref = doc(aliceContext.firestore(), "events/evento_1");
-    await assertSucceeds(setDoc(ref, baseEventData));
-  });
-
-  it("deve BLOQUEAR criação de evento com campos extras", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice");
-    const ref = doc(aliceContext.firestore(), "events/evento_2");
-    await assertFails(
-      setDoc(ref, { ...baseEventData, extraField: "nao permitido" })
-    );
-  });
-
-  it("deve PERMITIR update de campos não sensíveis pelo criador", async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "events/evento_3"), baseEventData);
-    });
-    const aliceContext = testEnv.authenticatedContext("alice");
     await assertSucceeds(
-      updateDoc(doc(aliceContext.firestore(), "events/evento_3"), {
-        title: "Novo titulo",
-      })
+      getDoc(doc(anonymous.firestore(), "events/public-event"))
+    );
+    await assertSucceeds(
+      getDocs(collection(anonymous.firestore(), "events"))
     );
   });
 
-  it("deve BLOQUEAR update de estoque por usuário sem role", async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "events/evento_4"), baseEventData);
-    });
-    const aliceContext = testEnv.authenticatedContext("alice");
+  it("permite usuario comum ler eventos", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "events/public-event"))
+    );
+  });
+
+  it("bloqueia anonimo ao criar, editar ou excluir evento", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const anonymous = testEnv.unauthenticatedContext();
+
     await assertFails(
-      updateDoc(doc(aliceContext.firestore(), "events/evento_4"), {
-        availableTickets: 50,
+      setDoc(
+        doc(anonymous.firestore(), "events/new-event"),
+        eventData("anonymous")
+      )
+    );
+    await assertFails(
+      updateDoc(doc(anonymous.firestore(), "events/public-event"), {
+        title: "Tentativa",
       })
+    );
+    await assertFails(
+      deleteDoc(doc(anonymous.firestore(), "events/public-event"))
     );
   });
 
-  it("deve PERMITIR update de estoque por organizer", async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "events/evento_5"), baseEventData);
-    });
-    const organizerContext = testEnv.authenticatedContext("org1", {
+  it("bloqueia usuario comum ao criar evento", async () => {
+    await seed("events/public-event", eventData("org-a"));
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    await assertFails(
+      setDoc(doc(user.firestore(), "events/event-user"), eventData("user-a"))
+    );
+    await assertFails(
+      updateDoc(doc(user.firestore(), "events/public-event"), {
+        title: "Tentativa",
+      })
+    );
+    await assertFails(
+      deleteDoc(doc(user.firestore(), "events/public-event"))
+    );
+  });
+
+  it("permite organizer criar apenas evento proprio", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
     });
     await assertSucceeds(
-      updateDoc(doc(organizerContext.firestore(), "events/evento_5"), {
-        availableTickets: 90,
+      setDoc(doc(organizer.firestore(), "events/event-a"), eventData("org-a"))
+    );
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/event-b"), {
+        ...eventData("org-b"),
+        createdBy: "org-a",
       })
     );
   });
 
-  it("deve PERMITIR criação de paymentSession válida", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+  it("permite criar evento com capacidade inicial valida", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
     });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_1");
+
     await assertSucceeds(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        userEmail: "alice@example.com",
-        ticketType: "standard",
-        quantity: 2,
-        unitPrice: 50,
-        totalAmount: 100,
-        status: "pending",
-        provider: "mercadopago",
-        paymentMethod: "checkout",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      setDoc(doc(organizer.firestore(), "events/valid-event"), eventData("org-a"))
+    );
+  });
+
+  it("bloqueia maxTickets fracionario na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/fractional-max"), {
+        ...eventData("org-a"),
+        maxTickets: 100.5,
+        availableTickets: 100.5,
       })
     );
   });
 
-  it("deve PERMITIR criacao de paymentSession Pix valida", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+  it("bloqueia availableTickets fracionario na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
     });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_pix");
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/fractional-available"), {
+        ...eventData("org-a"),
+        maxTickets: 100,
+        availableTickets: 99.5,
+      })
+    );
+  });
+
+  it("bloqueia soldTickets positivo na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/sold-event"), {
+        ...eventData("org-a"),
+        soldTickets: 1,
+      })
+    );
+  });
+
+  it("bloqueia estoque disponivel diferente da capacidade na criacao", async () => {
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      setDoc(doc(organizer.firestore(), "events/mismatched-stock"), {
+        ...eventData("org-a"),
+        availableTickets: 99,
+      })
+    );
+  });
+
+  it("isola edicao e exclusao entre organizers", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
+    const organizerA = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertSucceeds(getDoc(doc(organizerA.firestore(), "events/event-a")));
     await assertSucceeds(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        userEmail: "alice@example.com",
-        ticketType: "standard",
-        quantity: 1,
-        unitPrice: 50,
-        totalAmount: 50,
-        status: "pending",
-        provider: "mercadopago",
-        paymentMethod: "pix",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-      })
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "events"),
+          where("organizerId", "==", "org-a"),
+          orderBy("date", "desc")
+        )
+      )
     );
-  });
-
-  it("deve BLOQUEAR paymentSession com userId diferente do auth", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
-    });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_userid");
+    await assertSucceeds(getDoc(doc(organizerA.firestore(), "events/event-b")));
     await assertFails(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "bob",
-        userEmail: "alice@example.com",
-        ticketType: "standard",
-        quantity: 1,
-        unitPrice: 50,
-        totalAmount: 50,
-        status: "pending",
-        provider: "mercadopago",
-        paymentMethod: "checkout",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      updateDoc(doc(organizerA.firestore(), "events/event-b"), {
+        title: "Tentativa",
       })
     );
+    await assertFails(deleteDoc(doc(organizerA.firestore(), "events/event-b")));
   });
 
-  it("deve BLOQUEAR paymentSession com userEmail diferente do auth", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+  it("isola tickets e participantes de outros organizers", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
+    await seed("tickets/ticket-b", {
+      eventId: "event-b",
+      userId: "buyer-b",
     });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_email");
-    await assertFails(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        userEmail: "bob@example.com",
-        ticketType: "standard",
-        quantity: 1,
-        unitPrice: 50,
-        totalAmount: 50,
-        status: "pending",
-        provider: "mercadopago",
-        paymentMethod: "checkout",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-      })
-    );
-  });
-
-  it("deve BLOQUEAR criação de paymentSession com paymentMethod inválido", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+    await seed("events/event-b/participants/buyer-b", { userId: "buyer-b" });
+    const organizerA = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
     });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_metodo");
+
+    await assertFails(getDoc(doc(organizerA.firestore(), "tickets/ticket-b")));
     await assertFails(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        userEmail: "alice@example.com",
-        ticketType: "standard",
-        quantity: 2,
-        unitPrice: 50,
-        totalAmount: 100,
-        status: "pending",
-        provider: "mercadopago",
-        paymentMethod: "boleto",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-      })
+      getDoc(
+        doc(
+          organizerA.firestore(),
+          "events/event-b/participants/buyer-b"
+        )
+      )
     );
   });
 
-  it("deve BLOQUEAR criação de paymentSession inválida", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+  it("permite organizer ler tickets somente do proprio evento", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+      purchaseDate: createdAt,
     });
-    const ref = doc(aliceContext.firestore(), "paymentSessions/sessao_2");
+    await seed("tickets/ticket-b", {
+      eventId: "event-b",
+      userId: "buyer-b",
+      purchaseDate: createdAt,
+    });
+    const organizerA = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+    await assertSucceeds(getDoc(doc(organizerA.firestore(), "tickets/ticket-a")));
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "tickets"),
+          where("eventId", "==", "event-a"),
+          orderBy("purchaseDate", "desc")
+        )
+      )
+    );
     await assertFails(
-      setDoc(ref, {
-        eventId: "evento_1",
-        userId: "alice",
-        userEmail: "alice@example.com",
-        ticketType: "standard",
-        quantity: 2,
-        unitPrice: 50,
-        totalAmount: 999,
-        status: "pending",
-        provider: "mercadopago",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
+      getDocs(collection(organizerA.firestore(), "tickets"))
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "tickets"),
+          where("eventId", "==", "event-b")
+        )
+      )
+    );
+  });
+
+  it("permite organizer consultar vendas somente do proprio evento", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
+    await seed("paymentSessions/payment-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+      status: "approved",
+      createdAt,
+    });
+    await seed("paymentSessions/payment-b", {
+      eventId: "event-b",
+      userId: "buyer-b",
+      status: "approved",
+      createdAt,
+    });
+    const organizerA = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "paymentSessions"),
+          where("eventId", "==", "event-a"),
+          where("status", "==", "approved"),
+          orderBy("createdAt", "desc")
+        )
+      )
+    );
+    await assertFails(
+      getDocs(collection(organizerA.firestore(), "paymentSessions"))
+    );
+    await assertFails(
+      getDocs(
+        query(
+          collection(organizerA.firestore(), "paymentSessions"),
+          where("eventId", "==", "event-b")
+        )
+      )
+    );
+  });
+
+  it("restringe validator a propria atribuicao ativa", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+    });
+    await seed("events/event-a/participants/buyer-a", {
+      userId: "buyer-a",
+    });
+    await seed("events/event-a/validators/validator-a", {
+      userId: "validator-a",
+      assignedAt: createdAt,
+      assignedBy: "admin-a",
+      active: true,
+    });
+    await seed("events/event-a/validators/validator-inactive", {
+      userId: "validator-inactive",
+      assignedAt: createdAt,
+      assignedBy: "admin-a",
+      active: false,
+    });
+    const assigned = testEnv.authenticatedContext("validator-a", {
+      role: "validator",
+    });
+    const unassigned = testEnv.authenticatedContext("validator-b", {
+      role: "validator",
+    });
+    const inactive = testEnv.authenticatedContext("validator-inactive", {
+      role: "validator",
+    });
+
+    await assertSucceeds(
+      getDoc(
+        doc(assigned.firestore(), "events/event-a/validators/validator-a")
+      )
+    );
+    await assertFails(
+      getDoc(
+        doc(unassigned.firestore(), "events/event-a/validators/validator-b")
+      )
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          inactive.firestore(),
+          "events/event-a/validators/validator-inactive"
+        )
+      )
+    );
+    await assertFails(getDoc(doc(assigned.firestore(), "tickets/ticket-a")));
+    await assertFails(
+      getDoc(
+        doc(assigned.firestore(), "events/event-a/participants/buyer-a")
+      )
+    );
+  });
+
+  it("valida criacao de purchasedTickets contra o ticket de origem", async () => {
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "user-a",
+    });
+    await seed("tickets/ticket-b", {
+      eventId: "event-b",
+      userId: "user-b",
+    });
+    await seed("tickets/ticket-c", {
+      eventId: "event-a",
+      userId: "user-a",
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    const purchasedTickets = collection(
+      user.firestore(),
+      "users/user-a/purchasedTickets"
+    );
+    const validData = {
+      ticketId: "ticket-a",
+      eventId: "event-a",
+      purchaseDate: createdAt,
+    };
+
+    await assertSucceeds(setDoc(doc(purchasedTickets, "ticket-a"), validData));
+    await assertFails(
+      setDoc(doc(purchasedTickets, "different-id"), validData)
+    );
+    await assertFails(
+      setDoc(doc(purchasedTickets, "ticket-c"), {
+        ...validData,
+        ticketId: "ticket-c",
+        eventId: "event-b",
+      })
+    );
+    await assertFails(
+      setDoc(doc(purchasedTickets, "ticket-b"), {
+        ticketId: "ticket-b",
+        eventId: "event-b",
+        purchaseDate: createdAt,
       })
     );
   });
 
-  it("deve BLOQUEAR leitura e escrita em purchases", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice");
-    const ref = doc(aliceContext.firestore(), "purchases/purchase_1");
-    await assertFails(setDoc(ref, { userId: "alice" }));
-    await assertFails(getDoc(ref));
-  });
-
-  it("deve PERMITIR criação de perfil do usuário válido", async () => {
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
+  it("bloqueia alteracao direta de role por user e organizer", async () => {
+    await seed("users/user-a", {
+      uid: "user-a",
+      email: "user@example.com",
       role: "user",
+      createdAt,
     });
-    const ref = doc(aliceContext.firestore(), "users/alice");
-    await assertSucceeds(
-      setDoc(ref, {
-        uid: "alice",
-        email: "alice@example.com",
-        displayName: "Alice",
-        phone: "11999999999",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-        role: "user",
-        avatarUrl: "",
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+
+    await assertFails(
+      updateDoc(doc(user.firestore(), "users/user-a"), { role: "admin" })
+    );
+    await assertFails(
+      updateDoc(doc(organizer.firestore(), "users/user-a"), {
+        role: "organizer",
       })
     );
   });
 
-  it("deve BLOQUEAR update de role do usuário sem claim", async () => {
-    await testEnv.withSecurityRulesDisabled(async (context) => {
-      await setDoc(doc(context.firestore(), "users/alice"), {
-        uid: "alice",
-        email: "alice@example.com",
-        displayName: "Alice",
-        phone: "11999999999",
-        createdAt: Timestamp.fromDate(new Date("2025-01-01T10:00:00Z")),
-        role: "user",
-        avatarUrl: "",
-      });
-    });
-    const aliceContext = testEnv.authenticatedContext("alice", {
-      email: "alice@example.com",
-      role: "user",
+  it("impede trocar organizerId e createdBy apos a criacao", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
     });
     await assertFails(
-      updateDoc(doc(aliceContext.firestore(), "users/alice"), {
-        role: "admin",
+      updateDoc(doc(organizer.firestore(), "events/event-a"), {
+        organizerId: "org-b",
       })
     );
+    await assertFails(
+      updateDoc(doc(organizer.firestore(), "events/event-a"), {
+        createdBy: "org-b",
+      })
+    );
+  });
+
+  it("bloqueia escrita direta em estoque e campos financeiros", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    const organizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+    const eventRef = doc(organizer.firestore(), "events/event-a");
+
+    for (const update of [
+      { availableTickets: 90 },
+      { soldTickets: 10 },
+      { price: 1 },
+      { pricing: { standard: 1 } },
+      { inventory: { standard: 1 } },
+      { maxTickets: 1 },
+    ]) {
+      await assertFails(updateDoc(eventRef, update));
+    }
+  });
+
+  it("permite admin administrar eventos e atribuicoes de validators", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    const admin = testEnv.authenticatedContext("admin-a", {
+      role: "admin",
+      admin: true,
+    });
+    await assertSucceeds(getDoc(doc(admin.firestore(), "events/event-a")));
+    await assertSucceeds(
+      updateDoc(doc(admin.firestore(), "events/event-a"), { title: "Atualizado" })
+    );
+    await assertSucceeds(
+      setDoc(doc(admin.firestore(), "events/event-a/validators/validator-a"), {
+        userId: "validator-a",
+        assignedAt: createdAt,
+        assignedBy: "admin-a",
+        active: true,
+      })
+    );
+  });
+
+  it("permite usuario ler somente o proprio ticket e perfil", async () => {
+    await seed("tickets/ticket-a", { userId: "user-a", eventId: "event-a" });
+    await seed("tickets/ticket-b", { userId: "user-b", eventId: "event-b" });
+    await seed("users/user-a", { uid: "user-a", role: "user", createdAt });
+    await seed("users/user-b", { uid: "user-b", role: "user", createdAt });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+
+    await assertSucceeds(getDoc(doc(user.firestore(), "tickets/ticket-a")));
+    await assertFails(getDoc(doc(user.firestore(), "tickets/ticket-b")));
+    await assertSucceeds(getDoc(doc(user.firestore(), "users/user-a")));
+    await assertFails(getDoc(doc(user.firestore(), "users/user-b")));
   });
 });

@@ -72,4 +72,29 @@ describe("HomePage", () => {
     expect(screen.queryByText(/Por que IngressosZ/)).not.toBeInTheDocument();
     expect(screen.queryByText("Segurança Total")).not.toBeInTheDocument();
   });
+
+  it.each([
+    ["user", false, false],
+    ["organizer", true, true],
+    ["validator", false, true],
+    ["admin", true, true],
+  ] as const)(
+    "renderiza atalhos corretos para role %s",
+    (role, seesAdmin, seesValidator) => {
+      renderWithAuth({
+        ...mockUser,
+        userProfile: { ...mockUser.userProfile!, role },
+      });
+
+      expect(Boolean(screen.queryByText("Painel Administrativo"))).toBe(
+        seesAdmin
+      );
+      expect(Boolean(screen.queryByText("Validador de Ingressos"))).toBe(
+        seesValidator
+      );
+      if (role === "user") {
+        expect(screen.queryByText("Acesso rápido")).not.toBeInTheDocument();
+      }
+    }
+  );
 });

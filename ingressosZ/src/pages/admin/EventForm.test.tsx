@@ -1,8 +1,13 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventForm } from "./EventForm";
 import type { Event } from "@/types";
 import { storageService } from "@/services/storage";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 // Mock storageService
 vi.mock("../../services/storage", () => ({
@@ -19,6 +24,10 @@ describe("EventForm Component", () => {
     onSave: mockOnSave,
     onCancel: mockOnCancel,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   const initialData: Event = {
     id: "1",
@@ -165,6 +174,109 @@ describe("EventForm Component", () => {
     // Check automatic total inventory update
     // Logic: if totalInventory > 0, set availableTickets and maxTickets (if max < total)
     expect(savedData.availableTickets).toBe(100);
-    expect(savedData.maxTickets).toBeGreaterThan(0); // Should be at least 100 or default 100 depending on logic
+    expect(savedData.maxTickets).toBe(100);
+  });
+
+  it("na edicao nao recalcula estoque ao alterar apenas o titulo", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EventForm
+        {...defaultProps}
+        onSave={onSave}
+        initialData={{ ...initialData, availableTickets: 120 }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Título/i), {
+      target: { value: "Updated title" },
+    });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      title: "Updated title",
+      availableTickets: 120,
+      inventory: initialData.inventory,
+    });
+  });
+
+  it("preserva pricing e inventory ausentes ao editar", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { pricing: _pricing, inventory: _inventory, ...withoutMaps } =
+      initialData;
+    render(
+      <EventForm
+        {...defaultProps}
+        onSave={onSave}
+        initialData={withoutMaps}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/Título/i), {
+      target: { value: "Updated without maps" },
+    });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("pricing");
+    expect(onSave.mock.calls[0][0]).not.toHaveProperty("inventory");
+  });
+
+  it("valida alteracoes protegidas antes de enviar a imagem", async () => {
+    const protectedMessage =
+      "Preço e estoque exigem uma operação administrativa confiável";
+    const onValidate = vi
+      .fn()
+      .mockRejectedValue(new Error(protectedMessage));
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:preview");
+    const { container } = render(
+      <EventForm
+        {...defaultProps}
+        initialData={initialData}
+        onValidate={onValidate}
+      />
+    );
+    const file = new File(["image"], "event.png", { type: "image/png" });
+    const fileInput = container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onValidate).toHaveBeenCalled());
+    expect(storageService.uploadEventImage).not.toHaveBeenCalled();
+    expect(mockOnSave).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith(protectedMessage);
+    createObjectURL.mockRestore();
+  });
+
+  it("mostra erro generico uma unica vez para falha desconhecida", async () => {
+    const onSave = vi.fn().mockRejectedValue({ reason: "unknown" });
+    render(
+      <EventForm {...defaultProps} initialData={initialData} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("Erro ao salvar evento");
+  });
+
+  it("mostra uma unica mensagem de sucesso", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EventForm {...defaultProps} initialData={initialData} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByText("Atualizar Evento"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith("Evento salvo com sucesso!");
   });
 });

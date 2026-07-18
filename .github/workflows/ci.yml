@@ -15,6 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Java 21 for Firebase emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,6 +45,9 @@ jobs:
       - name: Unit Tests (Frontend)
         working-directory: ./ingressosZ
         run: npm run test
+
+      - name: Firestore Rules Tests
+        run: npm run test:rules
 
       - name: Unit Tests (Backend)
         working-directory: ./functions

@@ -1,8 +1,18 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import AdminPage from "./AdminPage";
-import { eventService, adminRealtimeService, paymentService } from "@/services/firestore";
+import {
+  adminRealtimeService,
+  eventService,
+  paymentService,
+  ticketService,
+} from "@/services/firestore";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock("../../services/firestore", () => ({
   eventService: {
@@ -15,11 +25,13 @@ vi.mock("../../services/firestore", () => ({
     getUserTickets: vi.fn(),
     subscribeToUserTickets: vi.fn(() => vi.fn()),
     getTicketById: vi.fn(),
+    getTicketsByEvent: vi.fn().mockResolvedValue([]),
   },
   userService: {
     getUserProfile: vi.fn(),
   },
   paymentService: {
+    getPaymentsByEvent: vi.fn().mockResolvedValue([]),
     subscribeToAllPayments: vi.fn().mockImplementation((onUpdate) => {
       onUpdate([]);
       return vi.fn();
@@ -27,6 +39,10 @@ vi.mock("../../services/firestore", () => ({
   },
   adminRealtimeService: {
     subscribeToAdminEvents: vi.fn().mockImplementation(() => vi.fn()),
+    subscribeToOrganizerEvents: vi.fn().mockImplementation((_uid, onUpdate) => {
+      onUpdate([]);
+      return vi.fn();
+    }),
     subscribeToAllTickets: vi.fn().mockImplementation((onUpdate) => {
       onUpdate([]);
       return vi.fn();
@@ -42,7 +58,11 @@ vi.mock("@/hooks/auth/useAuth", () => ({
 
 // Mocked to avoid rendering event titles in the dashboard (which would cause duplicate text matches)
 vi.mock("../../components/admin/AdminDashboard", () => ({
-  default: () => <div data-testid="admin-dashboard" />,
+  default: ({ totalTickets, totalRevenue }: any) => (
+    <div data-testid="admin-dashboard">
+      {totalTickets}|{totalRevenue}
+    </div>
+  ),
 }));
 
 // Mocked to isolate AdminPage tests from EventForm behavior (tested separately)
@@ -51,6 +71,85 @@ vi.mock("./EventForm", () => ({
     <div data-testid="event-form">
       <h2>{initialData ? "Edit Mode" : "Create Mode"}</h2>
       <button onClick={() => onSave({ title: "New Event" })}>Save Mock</button>
+      {initialData && (
+        <>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                title: "Updated title",
+                location: "Updated location",
+              }).catch(() => undefined)
+            }
+          >
+            Save Editable Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                price: initialData.price + 1,
+              }).catch(() => undefined)
+            }
+          >
+            Save Price Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                inventory: { standard: 1 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Inventory Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                title: "Title without pricing",
+                pricing: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Missing Pricing Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                location: "Location without inventory",
+                inventory: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Missing Inventory Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                description: "Zero maps are canonical",
+                pricing: { standard: 0, vip: 0, premium: 0 },
+                inventory: { standard: 0, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Zero Maps Mock
+          </button>
+          <button
+            onClick={() =>
+              void onSave({
+                ...initialData,
+                pricing: { standard: 10, vip: 0, premium: 0 },
+              }).catch(() => undefined)
+            }
+          >
+            Save Nonzero Pricing Mock
+          </button>
+        </>
+      )}
       <button onClick={onCancel}>Cancel Mock</button>
     </div>
   ),
@@ -160,5 +259,164 @@ describe("AdminPage Component", () => {
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(eventService.deleteEvent).toHaveBeenCalledWith("1");
+  });
+
+  it("edita titulo e local enviando somente campos editaveis alterados", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Editable Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        title: "Updated title",
+        location: "Updated location",
+      });
+    });
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("evento sem pricing edita somente o titulo", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Missing Pricing Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        title: "Title without pricing",
+      });
+    });
+  });
+
+  it("evento sem inventory edita somente o local", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Missing Inventory Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        location: "Location without inventory",
+      });
+    });
+  });
+
+  it("trata mapas ausentes e totalmente zerados como equivalentes", async () => {
+    renderWithEvents();
+    await screen.findByText("Event 1");
+    fireEvent.click(screen.getAllByText("Editar")[0]);
+    fireEvent.click(screen.getByText("Save Zero Maps Mock"));
+
+    await waitFor(() => {
+      expect(eventService.updateEvent).toHaveBeenCalledWith("1", {
+        description: "Zero maps are canonical",
+      });
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Save Price Mock",
+    "Save Inventory Mock",
+    "Save Nonzero Pricing Mock",
+  ])(
+    "recusa explicitamente alteracao protegida por %s sem mostrar sucesso",
+    async (action) => {
+      renderWithEvents();
+      await screen.findByText("Event 1");
+      fireEvent.click(screen.getAllByText("Editar")[0]);
+      fireEvent.click(screen.getByText(action));
+
+      await Promise.resolve();
+      expect(eventService.updateEvent).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+    }
+  );
+
+  it("organizer consulta somente dados dos proprios eventos", async () => {
+    (useAuth as any).mockReturnValue({
+      userProfile: { uid: "org-a", role: "organizer" },
+    });
+    (
+      adminRealtimeService.subscribeToOrganizerEvents as any
+    ).mockImplementation((_uid: string, onUpdate: any) => {
+      onUpdate([mockEvents[0]]);
+      return vi.fn();
+    });
+
+    render(<AdminPage />);
+
+    await waitFor(() => {
+      expect(ticketService.getTicketsByEvent).toHaveBeenCalledWith("1");
+      expect(paymentService.getPaymentsByEvent).toHaveBeenCalledWith("1");
+    });
+    expect(
+      adminRealtimeService.subscribeToOrganizerEvents
+    ).toHaveBeenCalledWith("org-a", expect.any(Function), expect.any(Function));
+    expect(adminRealtimeService.subscribeToAllTickets).not.toHaveBeenCalled();
+    expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
+  });
+
+  it("ignora uma carga antiga do painel do organizer", async () => {
+    (useAuth as any).mockReturnValue({
+      userProfile: { uid: "org-a", role: "organizer" },
+    });
+    let emitEvents: ((events: any[]) => void) | undefined;
+    (adminRealtimeService.subscribeToOrganizerEvents as any).mockImplementation(
+      (_uid: string, onUpdate: (events: any[]) => void) => {
+        emitEvents = onUpdate;
+        return vi.fn();
+      }
+    );
+
+    let resolveOldTickets!: (tickets: any[]) => void;
+    let resolveNewTickets!: (tickets: any[]) => void;
+    let resolveOldPayments!: (payments: any[]) => void;
+    let resolveNewPayments!: (payments: any[]) => void;
+    const oldTickets = new Promise<any[]>((resolve) => {
+      resolveOldTickets = resolve;
+    });
+    const newTickets = new Promise<any[]>((resolve) => {
+      resolveNewTickets = resolve;
+    });
+    const oldPayments = new Promise<any[]>((resolve) => {
+      resolveOldPayments = resolve;
+    });
+    const newPayments = new Promise<any[]>((resolve) => {
+      resolveNewPayments = resolve;
+    });
+    (ticketService.getTicketsByEvent as any).mockImplementation(
+      (eventId: string) => (eventId === "old" ? oldTickets : newTickets)
+    );
+    (paymentService.getPaymentsByEvent as any).mockImplementation(
+      (eventId: string) => (eventId === "old" ? oldPayments : newPayments)
+    );
+
+    render(<AdminPage />);
+    act(() => emitEvents?.([{ ...mockEvents[0], id: "old" }]));
+    act(() => emitEvents?.([{ ...mockEvents[1], id: "new" }]));
+
+    await act(async () => {
+      resolveNewTickets([{ id: "new-ticket", eventId: "new" }]);
+      resolveNewPayments([
+        { id: "new-payment", eventId: "new", totalAmount: 20 },
+      ]);
+      await Promise.all([newTickets, newPayments]);
+    });
+    expect(screen.getByTestId("admin-dashboard")).toHaveTextContent("1|20");
+
+    await act(async () => {
+      resolveOldTickets([
+        { id: "old-ticket-1", eventId: "old" },
+        { id: "old-ticket-2", eventId: "old" },
+      ]);
+      resolveOldPayments([
+        { id: "old-payment", eventId: "old", totalAmount: 99 },
+      ]);
+      await Promise.all([oldTickets, oldPayments]);
+    });
+    expect(screen.getByTestId("admin-dashboard")).toHaveTextContent("1|20");
   });
 });

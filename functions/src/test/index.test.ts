@@ -66,6 +66,8 @@ describe("Cloud Functions", () => {
       "refundPayment",
       "seedDatabase",
       "setAdminRole",
+      "setEventOrganizer",
+      "setEventValidator",
       "setUserRole",
       "validateTicket",
       "verifyRecaptchaV2",

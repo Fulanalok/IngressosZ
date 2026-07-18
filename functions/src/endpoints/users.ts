@@ -2,21 +2,49 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { isAdminClaims } from "../auth/authorization.js";
 import { callableSecurityOptions } from "../config/security.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 
-export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
-  if (request.auth?.token.admin !== true) {
+type AssignableRole = "user" | "organizer" | "validator" | "admin";
+
+/**
+ * Assigns a role in Auth claims and mirrors it for profile display.
+ * @param {string} uid Target user.
+ * @param {AssignableRole} role New role.
+ */
+async function assignRole(uid: string, role: AssignableRole) {
+  const user = await admin.auth().getUser(uid);
+  await admin.auth().setCustomUserClaims(uid, {
+    ...(user.customClaims ?? {}),
+    role,
+    admin: role === "admin",
+  });
+  await admin.auth().revokeRefreshTokens(uid);
+  await getFirestore().collection("users").doc(uid).set(
+    { role },
+    { merge: true }
+  );
+}
+
+/**
+ * Rejects requests that do not carry trusted admin custom claims.
+ * @param {object} request Callable request.
+ */
+function requireAdmin(request: { auth?: { token: Record<string, unknown> } }) {
+  if (!request.auth || !isAdminClaims(request.auth.token)) {
     throw new HttpsError(
       "permission-denied",
       "Apenas administradores podem realizar esta operação."
     );
   }
-  const allowedAdminRole = await checkRateLimit(
-    `role-admin:${request.auth.uid}`,
-    10
-  );
-  if (!allowedAdminRole) {
+}
+
+export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
+  requireAdmin(request);
+  const requesterUid = request.auth!.uid;
+  const allowed = await checkRateLimit(`role-admin:${requesterUid}`, 10);
+  if (!allowed) {
     throw new HttpsError(
       "resource-exhausted",
       "Muitas tentativas. Aguarde um momento e tente novamente."
@@ -24,18 +52,12 @@ export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
   }
 
   const { uid } = request.data as { uid?: string };
-
   if (!uid) {
     throw new HttpsError("invalid-argument", "O UID do usuário é obrigatório.");
   }
 
   try {
-    await admin.auth().setCustomUserClaims(uid, { admin: true, role: "admin" });
-    await admin.auth().revokeRefreshTokens(uid);
-    await getFirestore()
-      .collection("users")
-      .doc(uid)
-      .set({ role: "admin" }, { merge: true });
+    await assignRole(uid, "admin");
     return { success: true, message: `Usuário ${uid} agora é administrador.` };
   } catch (error) {
     logger.error("Erro ao definir admin:", error);
@@ -43,27 +65,11 @@ export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
   }
 });
 
-// eslint-disable-next-line complexity -- legacy role flow
 export const setUserRole = onCall(callableSecurityOptions, async (request) => {
-  const isAdmin = request.auth?.token.admin === true;
-  const isEmulator = process.env.FUNCTIONS_EMULATOR === "true";
-  if (!isAdmin) {
-    if (!isEmulator || !request.auth?.uid) {
-      throw new HttpsError(
-        "permission-denied",
-        "Apenas administradores podem realizar esta operação."
-      );
-    }
-  }
-  const requesterUid = request.auth?.uid;
-  if (!requesterUid) {
-    throw new HttpsError("permission-denied", "Autenticação obrigatória.");
-  }
-  const allowedUserRole = await checkRateLimit(
-    `role-user:${requesterUid}`,
-    20
-  );
-  if (!allowedUserRole) {
+  requireAdmin(request);
+  const requesterUid = request.auth!.uid;
+  const allowed = await checkRateLimit(`role-user:${requesterUid}`, 20);
+  if (!allowed) {
     throw new HttpsError(
       "resource-exhausted",
       "Muitas tentativas. Aguarde um momento e tente novamente."
@@ -72,37 +78,23 @@ export const setUserRole = onCall(callableSecurityOptions, async (request) => {
 
   const { uid, role } = request.data as {
     uid?: string;
-    role?: "organizer" | "validator" | "admin";
+    role?: AssignableRole;
   };
-
-  if (!uid || !role) {
-    throw new HttpsError("invalid-argument", "UID e role são obrigatórios.");
-  }
-
-  if (!isAdmin && request.auth?.uid !== uid) {
+  const validRoles: AssignableRole[] = [
+    "user",
+    "organizer",
+    "validator",
+    "admin",
+  ];
+  if (!uid || !role || !validRoles.includes(role)) {
     throw new HttpsError(
-      "permission-denied",
-      "No emulador, apenas o próprio usuário pode alterar o role."
-    );
-  }
-
-  if (!isAdmin && role === "admin") {
-    throw new HttpsError(
-      "permission-denied",
-      "No emulador, não é permitido promover usuário para admin."
+      "invalid-argument",
+      "UID e role válidos são obrigatórios."
     );
   }
 
   try {
-    await admin.auth().setCustomUserClaims(uid, {
-      role,
-      admin: role === "admin",
-    });
-    await admin.auth().revokeRefreshTokens(uid);
-    await getFirestore().collection("users").doc(uid).set(
-      { role },
-      { merge: true }
-    );
+    await assignRole(uid, role);
     return { success: true, message: `Usuário ${uid} agora é ${role}.` };
   } catch (error) {
     logger.error("Erro ao definir role:", error);

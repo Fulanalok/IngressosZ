@@ -69,12 +69,12 @@ export const eventService = {
   async createEvent(
     eventData: Omit<Event, "id" | "createdAt" | "updatedAt">
   ): Promise<string> {
-    if (!eventData.createdBy && !auth.currentUser) {
+    if (!auth.currentUser) {
       throw new Error("Usuário não autenticado para criar evento.");
     }
     const docRef = await addDoc(collection(db, "events"), {
       ...eventData,
-      createdBy: eventData.createdBy ?? auth.currentUser?.uid,
+      createdBy: auth.currentUser.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -83,7 +83,19 @@ export const eventService = {
 
   async updateEvent(
     eventId: string,
-    eventData: Partial<Omit<Event, "id">>
+    eventData: Partial<
+      Pick<
+        Event,
+        | "title"
+        | "description"
+        | "date"
+        | "time"
+        | "location"
+        | "address"
+        | "image"
+        | "category"
+      >
+    >
   ): Promise<void> {
     await updateDoc(doc(db, "events", eventId), {
       ...eventData,
@@ -230,7 +242,7 @@ export const userService = {
 
   async updateUserProfile(
     userId: string,
-    data: Partial<Omit<UserProfile, "uid">>
+    data: Partial<Omit<UserProfile, "uid" | "createdAt" | "role">>
   ): Promise<void> {
     await updateDoc(doc(db, "users", userId), data);
   },
@@ -326,6 +338,25 @@ export const adminRealtimeService = {
         console.error("Error listening to events:", error);
         onError(error);
       }
+    );
+  },
+
+  subscribeToOrganizerEvents(
+    organizerId: string,
+    onUpdate: (events: Event[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(
+      collection(db, "events"),
+      where("organizerId", "==", organizerId),
+      orderBy("date", "desc")
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        onUpdate(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Event)));
+      },
+      onError
     );
   },
 

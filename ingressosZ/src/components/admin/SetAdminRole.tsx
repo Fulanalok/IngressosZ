@@ -18,7 +18,7 @@ import type { UserProfile } from "@/types";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import React, { useState } from "react";
 
-type AssignableRole = Exclude<UserRole, "user">;
+type AssignableRole = UserRole;
 
 const SetAdminRole: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -42,7 +42,7 @@ const SetAdminRole: React.FC = () => {
       if (user) {
         setFoundUser(user);
         const normalizedRole = normalizeUserRole(user.role);
-        setRole(normalizedRole === "user" ? "validator" : normalizedRole);
+        setRole(normalizedRole);
       } else {
         setMessage({
           type: "error",

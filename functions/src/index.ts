@@ -19,3 +19,7 @@ export {
 } from "./endpoints/system.js";
 export { validateTicket } from "./endpoints/tickets.js";
 export { setAdminRole, setUserRole } from "./endpoints/users.js";
+export {
+  setEventOrganizer,
+  setEventValidator,
+} from "./endpoints/eventAccess.js";

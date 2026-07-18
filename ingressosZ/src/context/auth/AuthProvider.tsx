@@ -4,7 +4,7 @@ import { userService } from "@/services/firestore";
 import { logger } from "@/services/logger";
 import type { UserProfile } from "@/types";
 import type { User } from "firebase/auth";
-import { getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
+import { getRedirectResult, onIdTokenChanged, signOut } from "firebase/auth";
 import { ReactNode, useEffect, useState } from "react";
 import { AuthContext, type AuthContextType } from "./authContext";
 
@@ -27,27 +27,26 @@ async function ensureUserProfile(user: User) {
   return userService.getUserProfile(user.uid);
 }
 
-async function getRoleFromClaims(user: User, fallbackRole: UserProfile["role"]) {
+async function getRoleFromClaims(user: User) {
   try {
     const tokenResult = await user.getIdTokenResult();
     const claimsRole = tokenResult.claims.role;
 
     if (tokenResult.claims.admin === true) return USER_ROLES.ADMIN;
     if (typeof claimsRole === "string") return normalizeUserRole(claimsRole);
-    return normalizeUserRole(fallbackRole);
+    return USER_ROLES.USER;
   } catch {
-    return normalizeUserRole(fallbackRole);
+    return USER_ROLES.USER;
   }
 }
 
 async function syncProfileRole(user: User, profile: UserProfile | null) {
   if (!profile) return null;
 
-  const roleFromClaims = await getRoleFromClaims(user, profile.role);
-  if (profile.role === roleFromClaims) return profile;
-
-  await userService.updateUserProfile(user.uid, { role: roleFromClaims });
-  return { ...profile, role: roleFromClaims };
+  const roleFromClaims = await getRoleFromClaims(user);
+  return profile.role === roleFromClaims
+    ? profile
+    : { ...profile, role: roleFromClaims };
 }
 
 async function getSyncedUserProfile(user: User) {
@@ -61,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
       setLoading(true);
 
       if (currentUser) {

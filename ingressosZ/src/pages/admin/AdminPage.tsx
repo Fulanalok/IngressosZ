@@ -5,20 +5,125 @@ import SetAdminRole from "@/components/admin/SetAdminRole";
 import AdminDashboard, { type EventMetric } from "@/components/admin/AdminDashboard";
 import AttendeeList from "@/components/admin/AttendeeList";
 import { Button } from "@/components/ui/button";
+import { USER_ROLES } from "@/constants/roles";
 import { useAuth } from "@/hooks/auth/useAuth";
-import { adminRealtimeService, eventService, paymentService } from "@/services/firestore";
+import {
+  adminRealtimeService,
+  eventService,
+  paymentService,
+  ticketService,
+} from "@/services/firestore";
 import type { Event, PaymentSession, Ticket } from "@/types";
 import { EventForm } from "./EventForm";
+
+const PROTECTED_EVENT_FIELDS = [
+  "price",
+  "maxTickets",
+  "maxPerPurchase",
+  "availableTickets",
+  "inventory",
+  "pricing",
+] as const;
+
+const EDITABLE_EVENT_FIELDS = [
+  "title",
+  "description",
+  "date",
+  "time",
+  "location",
+  "address",
+  "image",
+  "category",
+] as const;
+
+const PROTECTED_EVENT_MESSAGE =
+  "Preço e estoque exigem uma operação administrativa confiável, " +
+  "que será implementada em outro PR.";
+
+function canonicalTicketMap(value: unknown) {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([key, amount]) => [key, Number(amount)] as const)
+      .filter(([, amount]) => Number.isFinite(amount) && amount > 0)
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
+}
+
+function eventFieldEquals(
+  field: (typeof PROTECTED_EVENT_FIELDS)[number],
+  left: unknown,
+  right: unknown
+) {
+  if (field === "pricing" || field === "inventory") {
+    return (
+      JSON.stringify(canonicalTicketMap(left)) ===
+      JSON.stringify(canonicalTicketMap(right))
+    );
+  }
+  if (typeof left === "object" || typeof right === "object") {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  }
+  return left === right;
+}
+
+function getChangedProtectedEventFields(
+  currentEvent: Event,
+  requestedData: Partial<Event>
+) {
+  return PROTECTED_EVENT_FIELDS.filter(
+    (field) =>
+      field in requestedData &&
+      !eventFieldEquals(field, currentEvent[field], requestedData[field])
+  );
+}
+
+function getEditableEventChanges(
+  currentEvent: Event,
+  requestedData: Partial<Event>
+) {
+  const changes: Partial<
+    Pick<
+      Event,
+      | "title"
+      | "description"
+      | "date"
+      | "time"
+      | "location"
+      | "address"
+      | "image"
+      | "category"
+    >
+  > = {};
+  for (const field of EDITABLE_EVENT_FIELDS) {
+    if (
+      field in requestedData &&
+      currentEvent[field] !== requestedData[field]
+    ) {
+      Object.assign(changes, { [field]: requestedData[field] });
+    }
+  }
+  return changes;
+}
 
 // ─── Event Form Modal ──────────────────────────────────────────────────────────
 
 interface EventFormModalProps {
   currentEvent: Event | null;
+  onValidate: (
+    data: Omit<Event, "id" | "createdAt" | "updatedAt">
+  ) => Promise<void> | void;
   onSave: (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => Promise<void>;
   onClose: () => void;
 }
 
-function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) {
+function EventFormModal({
+  currentEvent,
+  onValidate,
+  onSave,
+  onClose,
+}: EventFormModalProps) {
   const [isFormDirty, setIsFormDirty] = useState(false);
 
   const handleClose = () => {
@@ -81,6 +186,7 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <EventForm
             initialData={currentEvent}
+            onValidate={onValidate}
             onSave={onSave}
             onCancel={handleClose}
             onDirtyChange={setIsFormDirty}
@@ -93,6 +199,7 @@ function EventFormModal({ currentEvent, onSave, onClose }: EventFormModalProps) 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line complexity -- admin and organizer data sources differ by ownership
 export default function AdminPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -109,6 +216,7 @@ export default function AdminPage() {
 
   const unsubscribesRef = useRef<(() => void)[]>([]);
   const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === USER_ROLES.ADMIN;
 
   // Derived stats from live data
   const stats = {
@@ -124,7 +232,60 @@ export default function AdminPage() {
   }));
 
   useEffect(() => {
+    if (!userProfile) return;
+
     setLoading(true);
+    unsubscribesRef.current.forEach((unsubscribe) => unsubscribe());
+    unsubscribesRef.current = [];
+
+    if (!isAdmin) {
+      let cancelled = false;
+      let loadGeneration = 0;
+      const loadOrganizerData = async (ownedEvents: Event[]) => {
+        const generation = ++loadGeneration;
+        setEvents(ownedEvents);
+        try {
+          const [ticketGroups, paymentGroups] = await Promise.all([
+            Promise.all(
+              ownedEvents.map((event) =>
+                ticketService.getTicketsByEvent(event.id)
+              )
+            ),
+            Promise.all(
+              ownedEvents.map((event) =>
+                paymentService.getPaymentsByEvent(event.id)
+              )
+            ),
+          ]);
+          if (!cancelled && generation === loadGeneration) {
+            setTickets(ticketGroups.flat());
+            setPayments(paymentGroups.flat());
+            setLastUpdated(new Date());
+            setLoading(false);
+          }
+        } catch {
+          if (!cancelled && generation === loadGeneration) {
+            toast.error("Erro ao carregar dados dos seus eventos");
+            setLoading(false);
+          }
+        }
+      };
+
+      const unsubscribe = adminRealtimeService.subscribeToOrganizerEvents(
+        userProfile.uid,
+        (ownedEvents) => void loadOrganizerData(ownedEvents),
+        () => {
+          toast.error("Erro ao escutar seus eventos");
+          setLoading(false);
+        }
+      );
+      unsubscribesRef.current = [unsubscribe];
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
     let eventsReady = false;
     let ticketsReady = false;
     let paymentsReady = false;
@@ -168,7 +329,7 @@ export default function AdminPage() {
 
     unsubscribesRef.current = [unsubEvents, unsubTickets, unsubPayments];
     return () => unsubscribesRef.current.forEach((u) => u());
-  }, []);
+  }, [isAdmin, userProfile]);
 
   const handleCreate = () => {
     setCurrentEvent(null);
@@ -196,10 +357,28 @@ export default function AdminPage() {
     }
   };
 
+  const validateProtectedEventChanges = (
+    data: Omit<Event, "id" | "createdAt" | "updatedAt">
+  ) => {
+    if (!currentEvent) return;
+
+    const protectedChanges = getChangedProtectedEventFields(
+      currentEvent,
+      data
+    );
+    if (protectedChanges.length > 0) {
+      throw new Error(PROTECTED_EVENT_MESSAGE);
+    }
+  };
+
   const handleSave = async (data: Omit<Event, "id" | "createdAt" | "updatedAt">) => {
     try {
       if (currentEvent) {
-        await eventService.updateEvent(currentEvent.id, data);
+        validateProtectedEventChanges(data);
+        await eventService.updateEvent(
+          currentEvent.id,
+          getEditableEventChanges(currentEvent, data)
+        );
       } else {
         await eventService.createEvent({
           ...data,
@@ -207,7 +386,6 @@ export default function AdminPage() {
         });
       }
       handleCloseModal();
-      toast.success(currentEvent ? "Evento atualizado" : "Evento criado");
     } catch (error) {
       console.error("Erro ao salvar", error);
       throw error;
@@ -288,17 +466,19 @@ export default function AdminPage() {
               <Calendar className="h-4 w-4" />
               Meus Eventos
             </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`pb-4 text-sm font-semibold transition-colors flex items-center gap-2 border-b-2 ${
-                activeTab === "settings"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Settings className="h-4 w-4" />
-              Configurações
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab("settings")}
+                className={`pb-4 text-sm font-semibold transition-colors flex items-center gap-2 border-b-2 ${
+                  activeTab === "settings"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Settings className="h-4 w-4" />
+                Configurações
+              </button>
+            )}
           </div>
 
           {/* Tab content */}
@@ -420,7 +600,7 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
-          ) : (
+          ) : isAdmin ? (
             <div className="space-y-8">
               <div className="bg-card border rounded-2xl p-6 shadow-sm">
                 <h2 className="text-xl font-bold mb-4">Gerenciamento de Administradores</h2>
@@ -430,7 +610,7 @@ export default function AdminPage() {
                 <SetAdminRole />
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -438,6 +618,7 @@ export default function AdminPage() {
       {isEditing && (
         <EventFormModal
           currentEvent={currentEvent}
+          onValidate={validateProtectedEventChanges}
           onSave={handleSave}
           onClose={handleCloseModal}
         />
