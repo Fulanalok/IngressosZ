@@ -1,12 +1,6 @@
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { eventService } from "../services/firestore";
 import type { Event } from "../types";
 
 // Dados de exemplo para eventos
@@ -117,25 +111,18 @@ export async function seedSampleEvents() {
       throw new Error("Usuário não autenticado para seed de eventos");
     }
 
-    const eventsCollection = collection(db, "events");
     const promises = sampleEvents.map(async (eventData) => {
-      return addDoc(eventsCollection, {
-        ...eventData,
-        organizerId: auth.currentUser!.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        createdBy: auth.currentUser!.uid,
-      });
+      return eventService.createEvent(eventData);
     });
 
     const results = await Promise.all(promises);
     console.log(`${results.length} eventos adicionados com sucesso!`);
 
-    results.forEach((docRef, index) => {
-      console.log(`- ${sampleEvents[index].title}: ${docRef.id}`);
+    results.forEach((eventId, index) => {
+      console.log(`- ${sampleEvents[index].title}: ${eventId}`);
     });
 
-    return results.map((docRef) => docRef.id);
+    return results;
   } catch (error) {
     console.error("Erro ao adicionar eventos de exemplo:", error);
     throw error;

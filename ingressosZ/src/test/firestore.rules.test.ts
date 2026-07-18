@@ -129,11 +129,11 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
-  it("permite organizer criar apenas evento proprio", async () => {
+  it("bloqueia organizer ao criar evento diretamente", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
     });
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(organizer.firestore(), "events/event-a"), eventData("org-a"))
     );
     await assertFails(
@@ -144,12 +144,12 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
-  it("permite criar evento com capacidade inicial valida", async () => {
+  it("bloqueia criacao direta mesmo com capacidade inicial valida", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
     });
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(organizer.firestore(), "events/valid-event"), eventData("org-a"))
     );
   });
@@ -226,6 +226,12 @@ describe("autorizacao do Firestore", () => {
       )
     );
     await assertSucceeds(getDoc(doc(organizerA.firestore(), "events/event-b")));
+    await assertFails(
+      updateDoc(doc(organizerA.firestore(), "events/event-a"), {
+        title: "Tentativa no proprio evento",
+      })
+    );
+    await assertFails(deleteDoc(doc(organizerA.firestore(), "events/event-a")));
     await assertFails(
       updateDoc(doc(organizerA.firestore(), "events/event-b"), {
         title: "Tentativa",
@@ -496,17 +502,21 @@ describe("autorizacao do Firestore", () => {
     }
   });
 
-  it("permite admin administrar eventos e atribuicoes de validators", async () => {
+  it("bloqueia escritas diretas de admin e preserva leitura", async () => {
     await seed("events/event-a", eventData("org-a"));
     const admin = testEnv.authenticatedContext("admin-a", {
       role: "admin",
       admin: true,
     });
     await assertSucceeds(getDoc(doc(admin.firestore(), "events/event-a")));
-    await assertSucceeds(
+    await assertFails(
+      setDoc(doc(admin.firestore(), "events/admin-created"), eventData("admin-a"))
+    );
+    await assertFails(
       updateDoc(doc(admin.firestore(), "events/event-a"), { title: "Atualizado" })
     );
-    await assertSucceeds(
+    await assertFails(deleteDoc(doc(admin.firestore(), "events/event-a")));
+    await assertFails(
       setDoc(doc(admin.firestore(), "events/event-a/validators/validator-a"), {
         userId: "validator-a",
         assignedAt: createdAt,
@@ -514,6 +524,15 @@ describe("autorizacao do Firestore", () => {
         active: true,
       })
     );
+  });
+
+  it("permite ao Admin SDK administrar eventos fora das Rules", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const eventRef = doc(context.firestore(), "events/trusted-event");
+      await setDoc(eventRef, eventData("org-a"));
+      await updateDoc(eventRef, { title: "Atualizado pelo backend" });
+      await deleteDoc(eventRef);
+    });
   });
 
   it("permite usuario ler somente o proprio ticket e perfil", async () => {

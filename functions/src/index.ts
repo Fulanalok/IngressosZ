@@ -23,3 +23,8 @@ export {
   setEventOrganizer,
   setEventValidator,
 } from "./endpoints/eventAccess.js";
+export {
+  createEvent,
+  deleteEvent,
+  updateEvent,
+} from "./endpoints/eventOperations.js";

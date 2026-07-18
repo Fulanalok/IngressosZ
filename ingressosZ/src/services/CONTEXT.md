@@ -30,9 +30,10 @@ Agrupa services por dominio.
 - `createEvent(eventData)`
 - `updateEvent(eventId, eventData)`
 - `deleteEvent(eventId)`
-- `decrementAvailableTickets(eventId, quantity)`
 
-Usa `events`, ordenacao por data e filtros de disponibilidade.
+As leituras usam `events`, ordenacao por data e filtros de disponibilidade. As
+escritas administrativas usam as callables `createEvent`, `updateEvent` e
+`deleteEvent`.
 
 ### `ticketService`
 

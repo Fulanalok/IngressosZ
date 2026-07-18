@@ -1,13 +1,6 @@
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { eventService } from "./firestore";
 
 export class TestDataService {
   static logDev(message: string, data?: unknown) {
@@ -67,8 +60,6 @@ export class TestDataService {
           image:
             "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500",
           organizerId: auth.currentUser!.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         },
         {
           title: "Stand-up Comedy Night",
@@ -85,20 +76,15 @@ export class TestDataService {
           image:
             "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500",
           organizerId: auth.currentUser!.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         },
       ];
 
       const eventIds = [];
       for (const event of events) {
-        const docRef = await addDoc(collection(db, "events"), {
-          ...event,
-          createdBy: auth.currentUser!.uid,
-        });
-        eventIds.push(docRef.id);
+        const eventId = await eventService.createEvent(event);
+        eventIds.push(eventId);
         if (import.meta.env.DEV) {
-          console.log("Evento criado:", docRef.id, event.title);
+          console.log("Evento criado:", eventId, event.title);
         }
       }
 

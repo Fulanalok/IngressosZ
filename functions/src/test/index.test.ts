@@ -53,10 +53,12 @@ describe("Cloud Functions", () => {
     if (!myFunctions) return;
 
     const expectedExports = [
+      "createEvent",
       "createPaymentPreference",
       "createPaymentPreferencePublic",
       "createPixPayment",
       "createPixPaymentPublic",
+      "deleteEvent",
       "expireStalePixSessions",
       "health",
       "logClientError",
@@ -69,6 +71,7 @@ describe("Cloud Functions", () => {
       "setEventOrganizer",
       "setEventValidator",
       "setUserRole",
+      "updateEvent",
       "validateTicket",
       "verifyRecaptchaV2",
     ];

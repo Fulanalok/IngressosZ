@@ -261,6 +261,24 @@ describe("AdminPage Component", () => {
     expect(eventService.deleteEvent).toHaveBeenCalledWith("1");
   });
 
+  it("preserva erro especifico ao excluir evento", async () => {
+    (eventService.deleteEvent as any).mockRejectedValueOnce(
+      new Error("O evento pertence a outro organizador.")
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithEvents();
+    await screen.findByText("Event 1");
+
+    fireEvent.click(screen.getAllByText("Excluir")[0]);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      expect(toast.error).toHaveBeenCalledWith(
+        "O evento pertence a outro organizador."
+      );
+    });
+  });
+
   it("edita titulo e local enviando somente campos editaveis alterados", async () => {
     renderWithEvents();
     await screen.findByText("Event 1");

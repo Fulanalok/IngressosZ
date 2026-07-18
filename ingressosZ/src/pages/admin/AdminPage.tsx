@@ -353,7 +353,9 @@ export default function AdminPage() {
       toast.success("Evento excluído com sucesso");
     } catch (error) {
       console.error("Erro ao excluir", error);
-      toast.error("Erro ao excluir evento");
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao excluir evento"
+      );
     }
   };
 
@@ -380,10 +382,7 @@ export default function AdminPage() {
           getEditableEventChanges(currentEvent, data)
         );
       } else {
-        await eventService.createEvent({
-          ...data,
-          organizerId: userProfile?.uid || "admin",
-        });
+        await eventService.createEvent(data);
       }
       handleCloseModal();
     } catch (error) {
