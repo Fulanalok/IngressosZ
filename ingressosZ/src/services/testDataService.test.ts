@@ -68,6 +68,10 @@ describe("TestDataService", () => {
       const ids = await TestDataService.createTestEvents();
       expect(ids).toHaveLength(2); // 2 events in code
       expect(eventService.createEvent).toHaveBeenCalledTimes(2);
+      for (const [event] of (eventService.createEvent as any).mock.calls) {
+        expect(event).not.toHaveProperty("availableTickets");
+        expect(event).not.toHaveProperty("organizerId");
+      }
     });
 
     it("throws if not authenticated", async () => {

@@ -27,6 +27,16 @@ import type {
 // =============================================================================
 // Event Service
 // =============================================================================
+export type CreateEventData = Omit<
+  Event,
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "availableTickets"
+  | "organizerId"
+  | "createdBy"
+>;
+
 export const eventService = {
   async getEvents(
     pageSize: number,
@@ -65,14 +75,17 @@ export const eventService = {
   },
 
   async createEvent(
-    eventData: Omit<Event, "id" | "createdAt" | "updatedAt">
+    eventData: CreateEventData
   ): Promise<string> {
     const {
       availableTickets: _availableTickets,
       createdBy: _createdBy,
       organizerId: _organizerId,
       ...payload
-    } = eventData;
+    } = eventData as CreateEventData &
+      Partial<
+        Pick<Event, "availableTickets" | "createdBy" | "organizerId">
+      >;
     const callable = httpsCallable<typeof payload, { eventId: string }>(
       functions,
       "createEvent"

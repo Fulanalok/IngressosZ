@@ -12,9 +12,17 @@ interface EventRequest {
 
 export interface EventOperationsRepository {
   create(data: Record<string, unknown>): Promise<string>;
-  get(eventId: string): Promise<Record<string, unknown> | null>;
-  update(eventId: string, data: Record<string, unknown>): Promise<void>;
-  delete(eventId: string): Promise<void>;
+  updateAuthorized(
+    eventId: string,
+    uid: string,
+    isAdmin: boolean,
+    changes: Record<string, unknown>
+  ): Promise<void>;
+  deleteAuthorized(
+    eventId: string,
+    uid: string,
+    isAdmin: boolean
+  ): Promise<void>;
 }
 
 export interface EventOperationsDependencies {
@@ -70,14 +78,43 @@ function requireNonNegativeNumber(value: unknown, field: string) {
   return value;
 }
 
-function normalizeTicketMap(value: unknown, field: string) {
+function requireSafeNonNegativeInteger(value: unknown, field: string) {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} deve ser um inteiro seguro nao negativo.`
+    );
+  }
+  return value;
+}
+
+function normalizeInventory(value: unknown) {
+  if (value === undefined) return undefined;
+  const map = requirePayloadObject(value);
+  rejectUnknownFields(map, new Set(TICKET_TYPES));
+  const inventory = Object.fromEntries(
+    TICKET_TYPES.map((type) => [
+      type,
+      requireSafeNonNegativeInteger(map[type] ?? 0, `inventory.${type}`),
+    ])
+  );
+  return Object.values(inventory).some((value) => value > 0) ?
+    inventory :
+    undefined;
+}
+
+function normalizePricing(value: unknown) {
   if (value === undefined) return undefined;
   const map = requirePayloadObject(value);
   rejectUnknownFields(map, new Set(TICKET_TYPES));
   return Object.fromEntries(
     TICKET_TYPES.map((type) => [
       type,
-      requireNonNegativeNumber(map[type] ?? 0, `${field}.${type}`),
+      requireNonNegativeNumber(map[type] ?? 0, `pricing.${type}`),
     ])
   );
 }
@@ -91,20 +128,39 @@ function validateCreatePayload(payload: Record<string, unknown>) {
     }
   }
   const price = requireNonNegativeNumber(payload.price, "price");
-  const maxTickets = requireNonNegativeNumber(payload.maxTickets, "maxTickets");
-  if (!Number.isInteger(maxTickets)) {
-    throw new HttpsError("invalid-argument", "maxTickets deve ser inteiro.");
-  }
+  const maxTickets = requireSafeNonNegativeInteger(
+    payload.maxTickets,
+    "maxTickets"
+  );
   if (
     payload.maxPerPurchase !== undefined &&
     (typeof payload.maxPerPurchase !== "number" ||
-      !Number.isInteger(payload.maxPerPurchase) ||
+      !Number.isSafeInteger(payload.maxPerPurchase) ||
       payload.maxPerPurchase <= 0)
   ) {
     throw new HttpsError("invalid-argument", "maxPerPurchase deve ser inteiro positivo.");
   }
-  const inventory = normalizeTicketMap(payload.inventory, "inventory");
-  const pricing = normalizeTicketMap(payload.pricing, "pricing");
+  if (
+    typeof payload.maxPerPurchase === "number" &&
+    payload.maxPerPurchase > maxTickets
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "maxPerPurchase nao pode exceder maxTickets."
+    );
+  }
+  const inventory = normalizeInventory(payload.inventory);
+  const pricing = normalizePricing(payload.pricing);
+  if (
+    inventory &&
+    Object.values(inventory).reduce((sum, value) => sum + value, 0) !==
+      maxTickets
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "A soma de inventory deve ser igual a maxTickets."
+    );
+  }
   if (payload.image !== undefined && typeof payload.image !== "string") {
     throw new HttpsError("invalid-argument", "image deve ser uma string.");
   }
@@ -118,20 +174,6 @@ function validateCreatePayload(payload: Record<string, unknown>) {
     pricing?: Record<string, number>;
     organizerId?: unknown;
   };
-}
-
-async function requireOwnedEvent(
-  eventId: string,
-  uid: string,
-  isAdmin: boolean,
-  repository: EventOperationsRepository
-) {
-  const event = await repository.get(eventId);
-  if (!event) throw new HttpsError("not-found", "Evento nao encontrado.");
-  if (!isAdmin && event.organizerId !== uid) {
-    throw new HttpsError("permission-denied", "O evento pertence a outro organizador.");
-  }
-  return event;
 }
 
 // eslint-disable-next-line complexity
@@ -150,18 +192,12 @@ export async function executeCreateEvent(
   ) {
     throw new HttpsError("invalid-argument", "organizerId invalido.");
   }
-  const inventoryTotal = payload.inventory ?
-    Object.values(payload.inventory).reduce((sum, value) => sum + value, 0) :
-    0;
   const timestamp = dependencies.timestamp();
-  const availableTickets = inventoryTotal > 0 ? inventoryTotal : payload.maxTickets;
-  const maxTickets = inventoryTotal > 0 ? inventoryTotal : payload.maxTickets;
   const data = {
     ...payload,
     organizerId: (payload.organizerId as string | undefined) ?? identity.uid,
     createdBy: identity.uid,
-    maxTickets,
-    availableTickets,
+    availableTickets: payload.maxTickets,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -191,10 +227,18 @@ export async function executeUpdateEvent(
         `${field} deve ser uma string.`
       );
     }
+    if (
+      field !== "image" &&
+      REQUIRED_STRINGS.includes(field) &&
+      !value.trim()
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        `${field} nao pode ser vazio.`
+      );
+    }
   }
-  await requireOwnedEvent(eventId, identity.uid, isAdmin, dependencies.repository);
-  if (!Object.keys(changes).length) return { success: true };
-  await dependencies.repository.update(eventId, {
+  await dependencies.repository.updateAuthorized(eventId, identity.uid, isAdmin, {
     ...changes,
     updatedAt: dependencies.timestamp(),
   });
@@ -211,13 +255,11 @@ export async function executeDeleteEvent(
   if (typeof payload.eventId !== "string" || !payload.eventId) {
     throw new HttpsError("invalid-argument", "eventId e obrigatorio.");
   }
-  await requireOwnedEvent(
+  await dependencies.repository.deleteAuthorized(
     payload.eventId,
     identity.uid,
-    isAdmin,
-    dependencies.repository
+    isAdmin
   );
-  await dependencies.repository.delete(payload.eventId);
   return { success: true };
 }
 
@@ -225,15 +267,39 @@ const firestoreRepository: EventOperationsRepository = {
   async create(data) {
     return (await getFirestore().collection("events").add(data)).id;
   },
-  async get(eventId) {
-    const snapshot = await getFirestore().collection("events").doc(eventId).get();
-    return snapshot.exists ? (snapshot.data() ?? {}) : null;
+  async updateAuthorized(eventId, uid, isAdmin, changes) {
+    const db = getFirestore();
+    const eventRef = db.collection("events").doc(eventId);
+    await db.runTransaction(async (transaction) => {
+      const event = await transaction.get(eventRef);
+      if (!event.exists) {
+        throw new HttpsError("not-found", "Evento nao encontrado.");
+      }
+      if (!isAdmin && event.data()?.organizerId !== uid) {
+        throw new HttpsError(
+          "permission-denied",
+          "O evento pertence a outro organizador."
+        );
+      }
+      transaction.update(eventRef, changes);
+    });
   },
-  async update(eventId, data) {
-    await getFirestore().collection("events").doc(eventId).update(data);
-  },
-  async delete(eventId) {
-    await getFirestore().collection("events").doc(eventId).delete();
+  async deleteAuthorized(eventId, uid, isAdmin) {
+    const db = getFirestore();
+    const eventRef = db.collection("events").doc(eventId);
+    await db.runTransaction(async (transaction) => {
+      const event = await transaction.get(eventRef);
+      if (!event.exists) {
+        throw new HttpsError("not-found", "Evento nao encontrado.");
+      }
+      if (!isAdmin && event.data()?.organizerId !== uid) {
+        throw new HttpsError(
+          "permission-denied",
+          "O evento pertence a outro organizador."
+        );
+      }
+      transaction.delete(eventRef);
+    });
   },
 };
 

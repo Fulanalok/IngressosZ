@@ -40,6 +40,10 @@ describe("seedData", () => {
 
       expect(ids).toHaveLength(6); // 6 sample events in file
       expect(createEvent).toHaveBeenCalledTimes(6);
+      for (const [event] of createEvent.mock.calls) {
+        expect(event).not.toHaveProperty("availableTickets");
+        expect(event).not.toHaveProperty("organizerId");
+      }
     });
 
     it("throws if user not authenticated", async () => {

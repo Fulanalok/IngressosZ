@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { HttpsError } from "firebase-functions/v2/https";
 import type {
   EventOperationsDependencies,
   EventOperationsRepository,
@@ -14,19 +15,41 @@ class FakeRepository implements EventOperationsRepository {
   created?: Record<string, unknown>;
   updated?: { eventId: string; data: Record<string, unknown> };
   deleted?: string;
+  updateAuthorizedCalls = 0;
+  deleteAuthorizedCalls = 0;
 
   async create(data: Record<string, unknown>) {
     this.created = data;
     this.events.set("new-event", data);
     return "new-event";
   }
-  async get(eventId: string) {
-    return this.events.get(eventId) ?? null;
-  }
-  async update(eventId: string, data: Record<string, unknown>) {
+  async updateAuthorized(
+    eventId: string,
+    uid: string,
+    isAdmin: boolean,
+    data: Record<string, unknown>
+  ) {
+    this.updateAuthorizedCalls += 1;
+    const event = this.events.get(eventId);
+    if (!event) throw new HttpsError("not-found", "Evento nao encontrado.");
+    if (!isAdmin && event.organizerId !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "O evento pertence a outro organizador."
+      );
+    }
     this.updated = { eventId, data };
   }
-  async delete(eventId: string) {
+  async deleteAuthorized(eventId: string, uid: string, isAdmin: boolean) {
+    this.deleteAuthorizedCalls += 1;
+    const event = this.events.get(eventId);
+    if (!event) throw new HttpsError("not-found", "Evento nao encontrado.");
+    if (!isAdmin && event.organizerId !== uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "O evento pertence a outro organizador."
+      );
+    }
     this.deleted = eventId;
   }
 }
@@ -109,6 +132,8 @@ describe("operacoes administrativas de eventos", () => {
     );
     expect(repository.updated?.data).to.deep.equal({ title: "Novo", updatedAt: "server-time" });
     expect(repository.deleted).to.equal("event-b");
+    expect(repository.updateAuthorizedCalls).to.equal(1);
+    expect(repository.deleteAuthorizedCalls).to.equal(1);
   });
 
   it("organizer edita e exclui somente evento proprio", async () => {
@@ -123,6 +148,8 @@ describe("operacoes administrativas de eventos", () => {
       request("organizer", { eventId: "own" }, "org-a"),
       dependencies(repository)
     );
+    expect(repository.updateAuthorizedCalls).to.equal(1);
+    expect(repository.deleteAuthorizedCalls).to.equal(1);
     await expectCode(
       executeUpdateEvent(
         request("organizer", { eventId: "other", changes: { title: "Nao" } }, "org-a"),
@@ -136,6 +163,28 @@ describe("operacoes administrativas de eventos", () => {
     );
   });
 
+  it("delega ownership e mutacao sem get separado", async () => {
+    const repository = new FakeRepository();
+    repository.events.set("own", { organizerId: "org-a" });
+    expect("get" in repository).to.equal(false);
+
+    await executeUpdateEvent(
+      request(
+        "organizer",
+        { eventId: "own", changes: { title: "Atomico" } },
+        "org-a"
+      ),
+      dependencies(repository)
+    );
+    await executeDeleteEvent(
+      request("organizer", { eventId: "own" }, "org-a"),
+      dependencies(repository)
+    );
+
+    expect(repository.updateAuthorizedCalls).to.equal(1);
+    expect(repository.deleteAuthorizedCalls).to.equal(1);
+  });
+
   it("organizer nao define organizerId", async () => {
     await expectCode(
       executeCreateEvent(
@@ -143,6 +192,91 @@ describe("operacoes administrativas de eventos", () => {
         dependencies(new FakeRepository())
       ),
       "permission-denied"
+    );
+  });
+
+  it("valida inventory inteiro com soma igual a maxTickets", async () => {
+    const repository = new FakeRepository();
+    await executeCreateEvent(
+      request("admin", {
+        ...validEvent,
+        maxTickets: 50,
+        inventory: { standard: 30, vip: 15, premium: 5 },
+      }),
+      dependencies(repository)
+    );
+    expect(repository.created?.inventory).to.deep.equal({
+      standard: 30,
+      vip: 15,
+      premium: 5,
+    });
+    expect(repository.created?.availableTickets).to.equal(50);
+  });
+
+  it("bloqueia inventory fracionario, NaN e Infinity", async () => {
+    for (const invalid of [1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expectCode(
+        executeCreateEvent(
+          request("admin", {
+            ...validEvent,
+            inventory: { standard: invalid, vip: 49, premium: 0 },
+          }),
+          dependencies(new FakeRepository())
+        ),
+        "invalid-argument"
+      );
+    }
+  });
+
+  it("bloqueia inventory cuja soma difere de maxTickets", async () => {
+    await expectCode(
+      executeCreateEvent(
+        request("admin", {
+          ...validEvent,
+          inventory: { standard: 40, vip: 0, premium: 0 },
+        }),
+        dependencies(new FakeRepository())
+      ),
+      "invalid-argument"
+    );
+  });
+
+  it("trata inventory todo zero como nao configurado", async () => {
+    const repository = new FakeRepository();
+    await executeCreateEvent(
+      request("admin", {
+        ...validEvent,
+        inventory: { standard: 0, vip: 0, premium: 0 },
+      }),
+      dependencies(repository)
+    );
+    expect(repository.created).not.to.have.property("inventory");
+    expect(repository.created?.availableTickets).to.equal(50);
+  });
+
+  it("aceita pricing decimal finito", async () => {
+    const repository = new FakeRepository();
+    await executeCreateEvent(
+      request("admin", {
+        ...validEvent,
+        pricing: { standard: 10.5, vip: 20.75, premium: 0 },
+      }),
+      dependencies(repository)
+    );
+    expect(repository.created?.pricing).to.deep.equal({
+      standard: 10.5,
+      vip: 20.75,
+      premium: 0,
+    });
+  });
+
+  it("bloqueia maxPerPurchase maior que maxTickets", async () => {
+    await expectCode(
+      executeCreateEvent(
+        request("admin", { ...validEvent, maxPerPurchase: 51 }),
+        dependencies(new FakeRepository())
+      ),
+      "invalid-argument"
     );
   });
 
@@ -163,6 +297,48 @@ describe("operacoes administrativas de eventos", () => {
       );
       expect(repository.updated).to.equal(undefined);
     }
+  });
+
+  it("bloqueia strings obrigatorias vazias ou somente com espacos", async () => {
+    for (const value of ["", "   "]) {
+      for (const field of [
+        "title", "description", "date", "time", "location", "address",
+        "category",
+      ]) {
+        const repository = new FakeRepository();
+        repository.events.set("own", { organizerId: "org-a" });
+        await expectCode(
+          executeUpdateEvent(
+            request(
+              "organizer",
+              { eventId: "own", changes: { [field]: value } },
+              "org-a"
+            ),
+            dependencies(repository)
+          ),
+          "invalid-argument"
+        );
+        expect(repository.updateAuthorizedCalls).to.equal(0);
+      }
+    }
+  });
+
+  it("aceita atualizacao valida e image vazia", async () => {
+    const repository = new FakeRepository();
+    repository.events.set("own", { organizerId: "org-a" });
+    await executeUpdateEvent(
+      request(
+        "organizer",
+        { eventId: "own", changes: { title: "Evento novo", image: "" } },
+        "org-a"
+      ),
+      dependencies(repository)
+    );
+    expect(repository.updated?.data).to.deep.equal({
+      title: "Evento novo",
+      image: "",
+      updatedAt: "server-time",
+    });
   });
 
   it("user e validator nao gerenciam eventos", async () => {
