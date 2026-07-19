@@ -4,6 +4,7 @@ import {
   Timestamp,
   getFirestore,
 } from "firebase-admin/firestore";
+import { createHash } from "node:crypto";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { callableSecurityOptions } from "../config/security.js";
 import {
@@ -11,8 +12,11 @@ import {
   resolveMaxPerPurchase,
 } from "../domain/purchaseLimits.js";
 import { requirePayloadObject } from "./eventAccess.js";
+import { checkRateLimit } from "../utils/rateLimit.js";
 
 export const PAYMENT_SESSION_TTL_MS = 15 * 60 * 1000;
+export const PROVIDER_CREATING_LEASE_MS = 2 * 60 * 1000;
+export const CREATE_PAYMENT_SESSION_RATE_LIMIT_PER_MINUTE = 10;
 const TICKET_TYPES = ["standard", "vip", "premium"] as const;
 const PAYMENT_METHODS = ["checkout", "pix"] as const;
 
@@ -39,6 +43,7 @@ export interface PaymentSessionData extends CreatePaymentSessionInput {
   status: string;
   provider: string;
   providerState: string;
+  providerStartedAt?: unknown;
   expiresAt: unknown;
 }
 
@@ -214,6 +219,15 @@ function toMillis(value: unknown): number {
   return Number.NaN;
 }
 
+export function buildProviderIdempotencyKey(
+  paymentSessionId: string,
+  paymentMethod: PaymentMethod
+) {
+  return createHash("sha256")
+    .update(`ingressosz:${paymentMethod}:${paymentSessionId}`)
+    .digest("hex");
+}
+
 export function validateProviderSession(
   session: Partial<PaymentSessionData>,
   uid: string,
@@ -235,11 +249,26 @@ export function validateProviderSession(
       "Metodo de pagamento da sessao invalido."
     );
   }
-  if (!Number.isFinite(toMillis(session.expiresAt)) || toMillis(session.expiresAt) <= nowMillis) {
+  const expiresAtMillis = toMillis(session.expiresAt);
+  if (!Number.isFinite(expiresAtMillis) || expiresAtMillis <= nowMillis) {
     throw new HttpsError("failed-precondition", "Sessao de pagamento expirada.");
   }
-  if (session.providerState === "creating" || session.providerState === "created") {
+  if (session.providerState === "created") {
     throw new HttpsError("already-exists", "Pagamento da sessao ja foi iniciado.");
+  }
+  if (session.providerState === "creating") {
+    const providerStartedAtMillis = toMillis(session.providerStartedAt);
+    const leaseCutoff = nowMillis - PROVIDER_CREATING_LEASE_MS;
+    if (
+      Number.isFinite(providerStartedAtMillis) &&
+      providerStartedAtMillis > leaseCutoff
+    ) {
+      throw new HttpsError(
+        "already-exists",
+        "Pagamento da sessao ja esta sendo iniciado."
+      );
+    }
+    return session as PaymentSessionData;
   }
   if (session.providerState !== "ready" && session.providerState !== "failed") {
     throw new HttpsError("failed-precondition", "Estado do provider invalido.");
@@ -280,10 +309,17 @@ export function validateCurrentEventStock(
 export async function executeCreatePaymentSession(
   request: CallableRequest,
   repository: PaymentSessionRepository,
-  nowMillis: number
+  nowMillis: number,
+  allowRequest: (uid: string) => Promise<boolean> = async () => true
 ) {
   const identity = requireIdentity(request);
   const input = validateCreatePaymentSessionPayload(request.data);
+  if (!(await allowRequest(identity.uid))) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "Muitas sessoes criadas. Aguarde um momento e tente novamente."
+    );
+  }
   return repository.createAuthorized(
     input,
     identity,
@@ -429,6 +465,10 @@ export const createPaymentSession = onCall(
   (request) => executeCreatePaymentSession(
     request,
     paymentSessionRepository,
-    Date.now()
+    Date.now(),
+    (uid) => checkRateLimit(
+      `payment-session:${uid}`,
+      CREATE_PAYMENT_SESSION_RATE_LIMIT_PER_MINUTE
+    )
   )
 );

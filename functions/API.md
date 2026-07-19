@@ -41,7 +41,8 @@ usuario ou contexto para reduzir automacao abusiva.
 - **Descricao:** cria no backend uma sessao de pagamento valida por 15 minutos.
 - **Parametros:** somente `eventId`, `ticketType`, `quantity` e `paymentMethod`.
 - **Seguranca:** exige Auth e App Check; calcula identidade, preco, total,
-  estoque e expiracao em uma transacao Firestore.
+  estoque e expiracao em uma transacao Firestore. Limita cada UID a 10 novas
+  sessoes por minuto com um bucket proprio.
 - **Retorno:** `paymentSessionId` e `expiresAt`.
 
 ### `createPaymentPreference`
@@ -52,6 +53,8 @@ usuario ou contexto para reduzir automacao abusiva.
   `paymentMethod: "checkout"`.
 - **Retorno:** `preferenceId`/dados de checkout usados pelo Wallet do Mercado
   Pago.
+- **Idempotencia:** chave SHA-256 deterministica derivada do metodo e do
+  `paymentSessionId`, enviada por `requestOptions.idempotencyKey`.
 
 ### `createPixPayment`
 
@@ -60,6 +63,13 @@ usuario ou contexto para reduzir automacao abusiva.
 - **Pre-condicao:** sessao autenticada, pendente, nao expirada e com
   `paymentMethod: "pix"`.
 - **Retorno:** QR Code Pix, QR Code Base64 e dados de acompanhamento.
+- **Idempotencia:** chave SHA-256 deterministica derivada do metodo e do
+  `paymentSessionId`, enviada por `requestOptions.idempotencyKey`.
+
+As duas operacoes usam um lease de 2 minutos para `providerState: creating`.
+Uma tentativa recente permanece bloqueada; depois do lease, a sessao pode ser
+retomada com a mesma chave de idempotencia, sem chamada externa dentro da
+transacao Firestore.
 
 ### `refundPayment`
 

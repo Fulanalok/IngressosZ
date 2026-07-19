@@ -8,6 +8,7 @@ import { checkRateLimit } from "../utils/rateLimit.js";
 import {
   PaymentEventData,
   PaymentSessionData,
+  buildProviderIdempotencyKey,
   executeProviderPayment,
   paymentSessionRepository,
 } from "./paymentSessions.js";
@@ -76,6 +77,12 @@ async function createPreferenceAtProvider(
           pending: `${webBaseUrl.value()}/pagamento/cancelado`,
         },
         auto_return: "approved",
+      },
+      requestOptions: {
+        idempotencyKey: buildProviderIdempotencyKey(
+          paymentSessionId,
+          "checkout"
+        ),
       },
     });
     if (!result.id) {

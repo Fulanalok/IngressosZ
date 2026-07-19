@@ -8,6 +8,7 @@ import { checkRateLimit } from "../utils/rateLimit.js";
 import {
   PaymentEventData,
   PaymentSessionData,
+  buildProviderIdempotencyKey,
   executeProviderPayment,
   paymentSessionRepository,
 } from "./paymentSessions.js";
@@ -28,6 +29,61 @@ function mockPixResult() {
       qrCode: "MOCK_QR_CODE",
       qrCodeBase64: "",
       ticketUrl: "",
+    },
+  };
+}
+
+export async function createPixWithClient(
+  payment: Pick<Payment, "create">,
+  session: PaymentSessionData,
+  event: PaymentEventData,
+  paymentSessionId: string
+) {
+  const title = `Ingresso ${TYPE_LABELS[session.ticketType]}: ${
+    event.title ?? ""
+  }`;
+  const result = await payment.create({
+    body: {
+      transaction_amount: session.totalAmount,
+      description: title,
+      payment_method_id: "pix",
+      payer: { email: session.userEmail },
+      metadata: {
+        eventId: session.eventId,
+        userId: session.userId,
+        quantity: session.quantity,
+        userEmail: session.userEmail,
+        ticketType: session.ticketType,
+        paymentSessionId,
+      },
+      additional_info: {
+        items: [{
+          id: session.eventId,
+          title,
+          quantity: session.quantity,
+          unit_price: session.unitPrice,
+          currency_id: "BRL",
+        }],
+        payer: { email: session.userEmail },
+      },
+      external_reference: paymentSessionId,
+    },
+    requestOptions: {
+      idempotencyKey: buildProviderIdempotencyKey(paymentSessionId, "pix"),
+    },
+  });
+  const transactionData = result.point_of_interaction?.transaction_data;
+  if (!result.id || !transactionData?.qr_code) {
+    throw new HttpsError("internal", "QR Code Pix nao retornado.");
+  }
+  return {
+    providerId: String(result.id),
+    response: {
+      id: String(result.id),
+      status: result.status,
+      qrCode: transactionData.qr_code,
+      qrCodeBase64: transactionData.qr_code_base64 || "",
+      ticketUrl: transactionData.ticket_url || "",
     },
   };
 }
@@ -57,52 +113,14 @@ async function createPixAtProvider(
     );
   }
 
-  const title = `Ingresso ${TYPE_LABELS[session.ticketType]}: ${
-    event.title ?? ""
-  }`;
   const payment = new Payment(new MercadoPagoConfig({ accessToken }));
   try {
-    const result = await payment.create({
-      body: {
-        transaction_amount: session.totalAmount,
-        description: title,
-        payment_method_id: "pix",
-        payer: { email: session.userEmail },
-        metadata: {
-          eventId: session.eventId,
-          userId: session.userId,
-          quantity: session.quantity,
-          userEmail: session.userEmail,
-          ticketType: session.ticketType,
-          paymentSessionId,
-        },
-        additional_info: {
-          items: [{
-            id: session.eventId,
-            title,
-            quantity: session.quantity,
-            unit_price: session.unitPrice,
-            currency_id: "BRL",
-          }],
-          payer: { email: session.userEmail },
-        },
-        external_reference: paymentSessionId,
-      },
-    });
-    const transactionData = result.point_of_interaction?.transaction_data;
-    if (!result.id || !transactionData?.qr_code) {
-      throw new HttpsError("internal", "QR Code Pix nao retornado.");
-    }
-    return {
-      providerId: String(result.id),
-      response: {
-        id: String(result.id),
-        status: result.status,
-        qrCode: transactionData.qr_code,
-        qrCodeBase64: transactionData.qr_code_base64 || "",
-        ticketUrl: transactionData.ticket_url || "",
-      },
-    };
+    return await createPixWithClient(
+      payment,
+      session,
+      event,
+      paymentSessionId
+    );
   } catch (error) {
     logger.error("Erro ao criar pagamento Pix:", error);
     if (isEmulator) {

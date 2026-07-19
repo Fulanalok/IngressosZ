@@ -36,6 +36,8 @@ flowchart LR
 3. Backend valida estoque, calcula valores e cria a sessao por transacao.
 4. Frontend chama `createPaymentPreference` ou `createPixPayment` somente com o
    ID da sessao.
+   O backend assume um lease de 2 minutos em `providerState: creating` e usa
+   uma chave de idempotencia deterministica por sessao e metodo nos retries.
 5. Mercado Pago processa o pagamento e chama `receiveWebhook`.
 6. Backend valida HMAC, consulta o pagamento e resolve a sessao.
 7. Se aprovado, backend cria compra, decrementa estoque e emite tickets.

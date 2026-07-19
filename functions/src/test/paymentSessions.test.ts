@@ -12,12 +12,16 @@ import {
   MAX_PURCHASE_QUANTITY,
 } from "../../lib/domain/purchaseLimits.js";
 import {
+  CREATE_PAYMENT_SESSION_RATE_LIMIT_PER_MINUTE,
   PAYMENT_SESSION_TTL_MS,
+  PROVIDER_CREATING_LEASE_MS,
   buildPaymentSession,
+  buildProviderIdempotencyKey,
   executeCreatePaymentSession,
   executeProviderPayment,
   validateProviderSession,
 } from "../../lib/endpoints/paymentSessions.js";
+import { createPixWithClient } from "../../lib/endpoints/pix.js";
 
 class FakePaymentSessionRepository implements PaymentSessionRepository {
   events = new Map<string, PaymentEventData>();
@@ -25,6 +29,7 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
   created?: Record<string, unknown>;
   createCalls = 0;
   claimCalls = 0;
+  failMarkProviderCreated = false;
   providerCalls: Array<Record<string, unknown>> = [];
 
   async createAuthorized(
@@ -66,6 +71,7 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
       nowMillis
     );
     session.providerState = "creating";
+    session.providerStartedAt = new Date(nowMillis);
     return { ...validated };
   }
 
@@ -78,6 +84,9 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
     providerIdField: "preferenceId" | "paymentId",
     providerId: string
   ) {
+    if (this.failMarkProviderCreated) {
+      throw new Error("firestore unavailable");
+    }
     const session = this.sessions.get(paymentSessionId)!;
     session.providerState = "created";
     session[providerIdField] = providerId;
@@ -140,17 +149,27 @@ async function expectCode(promise: Promise<unknown>, code: string) {
   }
 }
 
+function expectThrownCode(action: () => unknown, code: string) {
+  try {
+    action();
+    expect.fail(`Esperava erro ${code}`);
+  } catch (error) {
+    expect((error as { code?: string }).code).to.equal(code);
+  }
+}
+
 function providerDependencies<T>(
   repository: FakePaymentSessionRepository,
   createProviderPayment: (
     session: PaymentSessionData,
     event: PaymentEventData,
     paymentSessionId: string
-  ) => Promise<{ providerId: string; response: T }>
+  ) => Promise<{ providerId: string; response: T }>,
+  currentTime: () => number = () => now
 ) {
   return {
     repository,
-    now: () => now,
+    now: currentTime,
     checkRateLimit: async () => true,
     createProviderPayment,
   };
@@ -283,6 +302,27 @@ describe("createPaymentSession", () => {
       createdAt: "server-time",
       updatedAt: "server-time",
     });
+  });
+
+  it("aplica rate limit proprio por usuario autenticado", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.events.set("event-1", event());
+    let checkedUid = "";
+    await expectCode(
+      executeCreatePaymentSession(
+        { auth, data: validInput },
+        repository,
+        now,
+        async (uid) => {
+          checkedUid = uid;
+          return false;
+        }
+      ),
+      "resource-exhausted"
+    );
+    expect(checkedUid).to.equal("user-1");
+    expect(repository.createCalls).to.equal(0);
+    expect(CREATE_PAYMENT_SESSION_RATE_LIMIT_PER_MINUTE).to.equal(10);
   });
 });
 
@@ -431,6 +471,56 @@ describe("pagamentos autenticados por sessao", () => {
     await first;
   });
 
+  it("bloqueia creating recente, recupera creating antigo e bloqueia created", () => {
+    expectThrownCode(() => validateProviderSession(
+      session({
+        providerState: "creating",
+        providerStartedAt: new Date(now - PROVIDER_CREATING_LEASE_MS + 1),
+      }),
+      "user-1",
+      "checkout",
+      now
+    ), "already-exists");
+
+    const recovered = validateProviderSession(
+      session({
+        providerState: "creating",
+        providerStartedAt: new Date(now - PROVIDER_CREATING_LEASE_MS),
+      }),
+      "user-1",
+      "checkout",
+      now
+    );
+    expect(recovered.providerState).to.equal("creating");
+
+    expectThrownCode(() => validateProviderSession(
+      session({ providerState: "created" }),
+      "user-1",
+      "checkout",
+      now
+    ), "already-exists");
+  });
+
+  it("retoma a sessao depois de crash e do fim do lease", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    await repository.claimProvider("session-1", "user-1", "checkout", now);
+    await expectCode(
+      repository.claimProvider("session-1", "user-1", "checkout", now + 1),
+      "already-exists"
+    );
+    await repository.claimProvider(
+      "session-1",
+      "user-1",
+      "checkout",
+      now + PROVIDER_CREATING_LEASE_MS + 1
+    );
+    expect(
+      (repository.sessions.get("session-1")?.providerStartedAt as Date)
+        .getTime()
+    ).to.equal(now + PROVIDER_CREATING_LEASE_MS + 1);
+  });
+
   it("permite retry depois de providerState failed", async () => {
     const repository = new FakePaymentSessionRepository();
     repository.sessions.set("session-1", session());
@@ -465,6 +555,85 @@ describe("pagamentos autenticados por sessao", () => {
     expect(retry).to.deep.equal({ id: "pref-retry" });
   });
 
+  it("retry Pix apos falha reutiliza a mesma chave de idempotencia", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session({ paymentMethod: "pix" }));
+    repository.events.set("event-1", event());
+    const keys: string[] = [];
+    const provider = async (_session: PaymentSessionData, _event: PaymentEventData, id: string) => {
+      keys.push(buildProviderIdempotencyKey(id, "pix"));
+      if (keys.length === 1) throw new Error("provider down");
+      return { providerId: "pix-1", response: { id: "pix-1" } };
+    };
+    const deps = providerDependencies(repository, provider);
+    try {
+      await executeProviderPayment(
+        { auth, data: { paymentSessionId: "session-1" } },
+        "pix",
+        "paymentId",
+        deps
+      );
+    } catch {
+      // Expected provider failure before the controlled retry.
+    }
+    await executeProviderPayment(
+      { auth, data: { paymentSessionId: "session-1" } },
+      "pix",
+      "paymentId",
+      deps
+    );
+    expect(keys).to.have.length(2);
+    expect(keys[0]).to.equal(keys[1]);
+  });
+
+  it("falha ao persistir sucesso fica recuperavel sem Pix duplicado", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session({ paymentMethod: "pix" }));
+    repository.events.set("event-1", event());
+    repository.failMarkProviderCreated = true;
+    const providerIds = new Map<string, string>();
+    const usedKeys: string[] = [];
+    const provider = async (_session: PaymentSessionData, _event: PaymentEventData, id: string) => {
+      const key = buildProviderIdempotencyKey(id, "pix");
+      usedKeys.push(key);
+      const providerId = providerIds.get(key) ?? "pix-stable";
+      providerIds.set(key, providerId);
+      return { providerId, response: { id: providerId } };
+    };
+    let persistenceFailed = false;
+    try {
+      await executeProviderPayment(
+        { auth, data: { paymentSessionId: "session-1" } },
+        "pix",
+        "paymentId",
+        providerDependencies(repository, provider)
+      );
+    } catch {
+      persistenceFailed = true;
+    }
+    expect(persistenceFailed).to.equal(true);
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "creating"
+    );
+
+    repository.failMarkProviderCreated = false;
+    await executeProviderPayment(
+      { auth, data: { paymentSessionId: "session-1" } },
+      "pix",
+      "paymentId",
+      providerDependencies(
+        repository,
+        provider,
+        () => now + PROVIDER_CREATING_LEASE_MS + 1
+      )
+    );
+    expect(usedKeys[0]).to.equal(usedKeys[1]);
+    expect(providerIds.size).to.equal(1);
+    expect(repository.sessions.get("session-1")?.paymentId).to.equal(
+      "pix-stable"
+    );
+  });
+
   it("mock do emulador ainda exige auth e sessao valida", async () => {
     let providerCalled = false;
     const repository = new FakePaymentSessionRepository();
@@ -491,5 +660,43 @@ describe("pagamentos autenticados por sessao", () => {
       deps
     );
     expect(providerCalled).to.equal(true);
+  });
+});
+
+describe("idempotencia do Mercado Pago", () => {
+  it("gera chave deterministica e distinta por sessao", () => {
+    const first = buildProviderIdempotencyKey("session-1", "pix");
+    expect(buildProviderIdempotencyKey("session-1", "pix")).to.equal(first);
+    expect(buildProviderIdempotencyKey("session-2", "pix")).not.to.equal(
+      first
+    );
+  });
+
+  it("envia idempotencyKey ao Payment.create sem alterar metadata", async () => {
+    let received: Record<string, unknown> | undefined;
+    const payment = {
+      create: async (data: Record<string, unknown>) => {
+        received = data;
+        return {
+          id: 123,
+          status: "pending",
+          point_of_interaction: {
+            transaction_data: { qr_code: "pix-code" },
+          },
+        };
+      },
+    };
+    await createPixWithClient(
+      payment as never,
+      session({ paymentMethod: "pix" }),
+      event(),
+      "session-1"
+    );
+    expect(received?.requestOptions).to.deep.equal({
+      idempotencyKey: buildProviderIdempotencyKey("session-1", "pix"),
+    });
+    const body = received?.body as Record<string, unknown>;
+    expect(body.external_reference).to.equal("session-1");
+    expect(body.metadata).to.deep.include({ paymentSessionId: "session-1" });
   });
 });
