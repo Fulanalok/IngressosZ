@@ -1,15 +1,21 @@
-import { addDoc, collection, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkIfEventsExist, seedSampleEvents } from "./seedData";
 
 // Mock firebase
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(),
-  addDoc: vi.fn(),
   getDocs: vi.fn(),
   query: vi.fn(),
   limit: vi.fn(),
   serverTimestamp: vi.fn(),
+}));
+
+const { createEvent } = vi.hoisted(() => ({
+  createEvent: vi.fn().mockResolvedValue("new-doc-id"),
+}));
+vi.mock("../services/firestore", () => ({
+  eventService: { createEvent },
 }));
 
 vi.mock("../firebaseConfig", () => ({
@@ -30,13 +36,14 @@ describe("seedData", () => {
 
   describe("seedSampleEvents", () => {
     it("adds events to firestore", async () => {
-      (addDoc as any).mockResolvedValue({ id: "new-doc-id" });
-
       const ids = await seedSampleEvents();
 
       expect(ids).toHaveLength(6); // 6 sample events in file
-      expect(collection).toHaveBeenCalled();
-      expect(addDoc).toHaveBeenCalledTimes(6);
+      expect(createEvent).toHaveBeenCalledTimes(6);
+      for (const [event] of createEvent.mock.calls) {
+        expect(event).not.toHaveProperty("availableTickets");
+        expect(event).not.toHaveProperty("organizerId");
+      }
     });
 
     it("throws if user not authenticated", async () => {
@@ -54,7 +61,7 @@ describe("seedData", () => {
     });
 
     it("handles errors during addition", async () => {
-      (addDoc as any).mockRejectedValue(new Error("Firestore error"));
+      createEvent.mockRejectedValueOnce(new Error("Firestore error"));
 
       await expect(seedSampleEvents()).rejects.toThrow("Firestore error");
       expect(console.error).toHaveBeenCalled();

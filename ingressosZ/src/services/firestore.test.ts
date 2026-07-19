@@ -1,6 +1,4 @@
 import {
-  addDoc,
-  deleteDoc,
   getDoc,
   getDocs,
   onSnapshot,
@@ -8,6 +6,7 @@ import {
   startAfter,
   updateDoc,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   eventService,
@@ -23,19 +22,18 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn(),
   getDoc: vi.fn(),
   getDocs: vi.fn(),
-  addDoc: vi.fn(),
   setDoc: vi.fn(),
   updateDoc: vi.fn(),
-  deleteDoc: vi.fn(),
   onSnapshot: vi.fn(),
   query: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
   limit: vi.fn(),
   startAfter: vi.fn(),
-  increment: vi.fn(),
   serverTimestamp: vi.fn(),
 }));
+
+vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
 
 // Mock firebaseConfig
 vi.mock("../firebaseConfig", () => ({
@@ -47,6 +45,11 @@ vi.mock("../firebaseConfig", () => ({
 describe("Firestore Services", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (httpsCallable as any).mockImplementation((_functions: unknown, name: string) =>
+      vi.fn().mockResolvedValue({
+        data: name === "createEvent" ? { eventId: "new-id" } : { success: true },
+      })
+    );
   });
 
   describe("eventService", () => {
@@ -96,27 +99,38 @@ describe("Firestore Services", () => {
       expect(event).toBeNull();
     });
 
-    it("createEvent adds doc", async () => {
-      (addDoc as any).mockResolvedValue({ id: "new-id" });
-      const id = await eventService.createEvent({ title: "New Event" } as any);
+    it("createEvent calls the centralized function without protected fields", async () => {
+      const id = await eventService.createEvent({
+        title: "New Event",
+        organizerId: "org-client",
+        createdBy: "client",
+        availableTickets: 10,
+      } as any);
       expect(id).toBe("new-id");
-      expect(addDoc).toHaveBeenCalled();
+      expect(httpsCallable).toHaveBeenCalledWith({}, "createEvent");
+      const callable = (httpsCallable as any).mock.results[0].value;
+      expect(callable).toHaveBeenCalledWith({ title: "New Event" });
     });
 
-    it("updateEvent updates doc", async () => {
+    it("updateEvent calls the centralized function", async () => {
       await eventService.updateEvent("1", { title: "Updated" });
-      expect(updateDoc).toHaveBeenCalled();
+      expect(httpsCallable).toHaveBeenCalledWith({}, "updateEvent");
     });
 
-    it("deleteEvent deletes doc", async () => {
+    it("deleteEvent calls the centralized function", async () => {
       await eventService.deleteEvent("1");
-      expect(deleteDoc).toHaveBeenCalled();
+      expect(httpsCallable).toHaveBeenCalledWith({}, "deleteEvent");
     });
 
-    it("decrementAvailableTickets updates doc", async () => {
-      await eventService.decrementAvailableTickets("1", 2);
-      expect(updateDoc).toHaveBeenCalled();
+    it("preserves the specific callable error", async () => {
+      const specificError = new Error("O evento pertence a outro organizador.");
+      (httpsCallable as any).mockReturnValueOnce(
+        vi.fn().mockRejectedValue(specificError)
+      );
+      await expect(eventService.updateEvent("other", { title: "No" }))
+        .rejects.toBe(specificError);
     });
+
   });
 
   describe("ticketService", () => {

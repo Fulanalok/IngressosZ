@@ -1,16 +1,20 @@
-import { addDoc, getDocs } from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eventService } from "./firestore";
 import { TestDataService } from "./testDataService";
 
 // Mock firebase/firestore
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(),
-  addDoc: vi.fn(),
   getDocs: vi.fn(),
   query: vi.fn(),
   where: vi.fn(),
   limit: vi.fn(),
   serverTimestamp: vi.fn(),
+}));
+
+vi.mock("./firestore", () => ({
+  eventService: { createEvent: vi.fn().mockResolvedValue("event1") },
 }));
 
 // Mock firebaseConfig
@@ -61,10 +65,13 @@ describe("TestDataService", () => {
 
   describe("createTestEvents", () => {
     it("creates events", async () => {
-      (addDoc as any).mockResolvedValue({ id: "event1" });
       const ids = await TestDataService.createTestEvents();
       expect(ids).toHaveLength(2); // 2 events in code
-      expect(addDoc).toHaveBeenCalledTimes(2);
+      expect(eventService.createEvent).toHaveBeenCalledTimes(2);
+      for (const [event] of (eventService.createEvent as any).mock.calls) {
+        expect(event).not.toHaveProperty("availableTickets");
+        expect(event).not.toHaveProperty("organizerId");
+      }
     });
 
     it("throws if not authenticated", async () => {

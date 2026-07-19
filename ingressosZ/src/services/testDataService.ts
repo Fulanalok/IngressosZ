@@ -1,13 +1,6 @@
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
+import { eventService } from "./firestore";
 
 export class TestDataService {
   static logDev(message: string, data?: unknown) {
@@ -62,13 +55,9 @@ export class TestDataService {
           address: "Av. Pedro Álvares Cabral, Vila Mariana, São Paulo - SP",
           price: 150.0,
           maxTickets: 1000,
-          availableTickets: 1000,
           category: "Música",
           image:
             "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500",
-          organizerId: auth.currentUser!.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         },
         {
           title: "Stand-up Comedy Night",
@@ -80,25 +69,18 @@ export class TestDataService {
           address: "Praça Floriano, Centro, Rio de Janeiro - RJ",
           price: 80.0,
           maxTickets: 500,
-          availableTickets: 500,
           category: "Comédia",
           image:
             "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500",
-          organizerId: auth.currentUser!.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
         },
       ];
 
       const eventIds = [];
       for (const event of events) {
-        const docRef = await addDoc(collection(db, "events"), {
-          ...event,
-          createdBy: auth.currentUser!.uid,
-        });
-        eventIds.push(docRef.id);
+        const eventId = await eventService.createEvent(event);
+        eventIds.push(eventId);
         if (import.meta.env.DEV) {
-          console.log("Evento criado:", docRef.id, event.title);
+          console.log("Evento criado:", eventId, event.title);
         }
       }
 

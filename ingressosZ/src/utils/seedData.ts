@@ -1,16 +1,9 @@
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query } from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
-import type { Event } from "../types";
+import { eventService, type CreateEventData } from "../services/firestore";
 
 // Dados de exemplo para eventos
-const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
+const sampleEvents: CreateEventData[] = [
   {
     title: "Show Rock Nacional",
     description:
@@ -21,9 +14,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Rua das Flores, 123 - Vila Madalena, São Paulo - SP",
     price: 85.0,
     maxTickets: 500,
-    availableTickets: 450,
     category: "Música",
-    organizerId: "org_001",
     image:
       "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=600&fit=crop",
   },
@@ -37,9 +28,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Av. Paulista, 1578 - Bela Vista, São Paulo - SP",
     price: 45.0,
     maxTickets: 800,
-    availableTickets: 723,
     category: "Gastronomia",
-    organizerId: "org_002",
     image:
       "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=600&fit=crop",
   },
@@ -53,9 +42,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Av. Olavo Fontoura, 1209 - Santana, São Paulo - SP",
     price: 120.0,
     maxTickets: 1000,
-    availableTickets: 856,
     category: "Tecnologia",
-    organizerId: "org_003",
     image:
       "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop",
   },
@@ -69,9 +56,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Rua Palestra Itália, 500 - Perdizes, São Paulo - SP",
     price: 60.0,
     maxTickets: 300,
-    availableTickets: 45,
     category: "Entretenimento",
-    organizerId: "org_004",
     image:
       "https://images.unsplash.com/photo-1597213835086-048e58dd0e4a?w=800&h=600&fit=crop",
   },
@@ -85,9 +70,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Rua Augusta, 987 - Consolação, São Paulo - SP",
     price: 95.0,
     maxTickets: 25,
-    availableTickets: 8,
     category: "Educação",
-    organizerId: "org_005",
     image:
       "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800&h=600&fit=crop",
   },
@@ -101,9 +84,7 @@ const sampleEvents: Omit<Event, "id" | "createdAt" | "updatedAt">[] = [
     address: "Av. Paulista, 2073 - Consolação, São Paulo - SP",
     price: 75.0,
     maxTickets: 400,
-    availableTickets: 0, // Evento esgotado
     category: "Música",
-    organizerId: "org_006",
     image:
       "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=600&fit=crop",
   },
@@ -117,25 +98,18 @@ export async function seedSampleEvents() {
       throw new Error("Usuário não autenticado para seed de eventos");
     }
 
-    const eventsCollection = collection(db, "events");
     const promises = sampleEvents.map(async (eventData) => {
-      return addDoc(eventsCollection, {
-        ...eventData,
-        organizerId: auth.currentUser!.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        createdBy: auth.currentUser!.uid,
-      });
+      return eventService.createEvent(eventData);
     });
 
     const results = await Promise.all(promises);
     console.log(`${results.length} eventos adicionados com sucesso!`);
 
-    results.forEach((docRef, index) => {
-      console.log(`- ${sampleEvents[index].title}: ${docRef.id}`);
+    results.forEach((eventId, index) => {
+      console.log(`- ${sampleEvents[index].title}: ${eventId}`);
     });
 
-    return results.map((docRef) => docRef.id);
+    return results;
   } catch (error) {
     console.error("Erro ao adicionar eventos de exemplo:", error);
     throw error;

@@ -26,10 +26,6 @@ service cloud.firestore {
       return hasRole('validator');
     }
 
-    function ownsEventData(eventData) {
-      return isOrganizer() && eventData.organizerId == request.auth.uid;
-    }
-
     function ownsEvent(eventId) {
       return isOrganizer()
         && exists(/databases/$(database)/documents/events/$(eventId))
@@ -44,88 +40,6 @@ service cloud.firestore {
       return isValidator()
         && assignment.data.active == true
         && assignment.data.userId == request.auth.uid;
-    }
-
-    function eventFieldsAreValid() {
-      return request.resource.data.keys().hasOnly([
-          'title',
-          'description',
-          'date',
-          'time',
-          'location',
-          'address',
-          'price',
-          'maxTickets',
-          'maxPerPurchase',
-          'availableTickets',
-          'soldTickets',
-          'inventory',
-          'pricing',
-          'image',
-          'category',
-          'organizerId',
-          'createdBy',
-          'createdAt',
-          'updatedAt'
-        ])
-        && request.resource.data.title is string
-        && request.resource.data.description is string
-        && request.resource.data.date is string
-        && request.resource.data.time is string
-        && request.resource.data.location is string
-        && request.resource.data.address is string
-        && request.resource.data.category is string
-        && request.resource.data.organizerId is string
-        && request.resource.data.createdBy is string
-        && request.resource.data.price is number
-        && request.resource.data.maxTickets is int
-        && request.resource.data.availableTickets is int
-        && request.resource.data.price >= 0
-        && request.resource.data.maxTickets >= 0
-        && request.resource.data.availableTickets >= 0
-        && request.resource.data.availableTickets <= request.resource.data.maxTickets
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.updatedAt is timestamp
-        && (!('maxPerPurchase' in request.resource.data)
-          || (request.resource.data.maxPerPurchase is number
-            && request.resource.data.maxPerPurchase > 0))
-        && (!('soldTickets' in request.resource.data)
-          || (request.resource.data.soldTickets is int
-            && request.resource.data.soldTickets >= 0
-            && request.resource.data.soldTickets <= request.resource.data.maxTickets))
-        && (!('inventory' in request.resource.data)
-          || request.resource.data.inventory is map)
-        && (!('pricing' in request.resource.data)
-          || request.resource.data.pricing is map)
-        && (!('image' in request.resource.data)
-          || request.resource.data.image is string);
-    }
-
-    function eventInitialStockIsValid() {
-      return request.resource.data.availableTickets
-          == request.resource.data.maxTickets
-        && (!('soldTickets' in request.resource.data)
-          || request.resource.data.soldTickets == 0);
-    }
-
-    function eventIdentityIsUnchanged() {
-      return request.resource.data.organizerId == resource.data.organizerId
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt;
-    }
-
-    function onlyEditableEventFieldsChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        'title',
-        'description',
-        'date',
-        'time',
-        'location',
-        'address',
-        'image',
-        'category',
-        'updatedAt'
-      ]);
     }
 
     function authEmailMatches(email) {
@@ -176,33 +90,12 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read: if true;
-
-      allow create: if eventFieldsAreValid()
-        && eventInitialStockIsValid()
-        && request.resource.data.createdBy == request.auth.uid
-        && (isAdmin()
-          || (isOrganizer()
-            && request.resource.data.organizerId == request.auth.uid));
-
-      allow update: if eventFieldsAreValid()
-        && eventIdentityIsUnchanged()
-        && onlyEditableEventFieldsChanged()
-        && (isAdmin() || ownsEventData(resource.data));
-
-      allow delete: if isAdmin() || ownsEventData(resource.data);
+      allow create, update, delete: if false;
 
       match /validators/{userId} {
         allow read: if isAdmin()
           || (isAssignedValidator(eventId) && request.auth.uid == userId);
-        allow create, update: if isAdmin()
-          && request.resource.data.keys().hasOnly([
-            'userId', 'assignedAt', 'assignedBy', 'active'
-          ])
-          && request.resource.data.userId == userId
-          && request.resource.data.assignedAt is timestamp
-          && request.resource.data.assignedBy == request.auth.uid
-          && request.resource.data.active is bool;
-        allow delete: if isAdmin();
+        allow create, update, delete: if false;
       }
 
       match /participants/{participantId} {

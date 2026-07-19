@@ -1,11 +1,8 @@
 import {
-  addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
-  increment,
   limit,
   onSnapshot,
   orderBy,
@@ -17,7 +14,8 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../firebaseConfig";
 import type {
   Event,
   PaginatedEvents,
@@ -29,6 +27,16 @@ import type {
 // =============================================================================
 // Event Service
 // =============================================================================
+export type CreateEventData = Omit<
+  Event,
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "availableTickets"
+  | "organizerId"
+  | "createdBy"
+>;
+
 export const eventService = {
   async getEvents(
     pageSize: number,
@@ -67,18 +75,23 @@ export const eventService = {
   },
 
   async createEvent(
-    eventData: Omit<Event, "id" | "createdAt" | "updatedAt">
+    eventData: CreateEventData
   ): Promise<string> {
-    if (!auth.currentUser) {
-      throw new Error("Usuário não autenticado para criar evento.");
-    }
-    const docRef = await addDoc(collection(db, "events"), {
-      ...eventData,
-      createdBy: auth.currentUser.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return docRef.id;
+    const {
+      availableTickets: _availableTickets,
+      createdBy: _createdBy,
+      organizerId: _organizerId,
+      ...payload
+    } = eventData as CreateEventData &
+      Partial<
+        Pick<Event, "availableTickets" | "createdBy" | "organizerId">
+      >;
+    const callable = httpsCallable<typeof payload, { eventId: string }>(
+      functions,
+      "createEvent"
+    );
+    const result = await callable(payload);
+    return result.data.eventId;
   },
 
   async updateEvent(
@@ -97,25 +110,15 @@ export const eventService = {
       >
     >
   ): Promise<void> {
-    await updateDoc(doc(db, "events", eventId), {
-      ...eventData,
-      updatedAt: serverTimestamp(),
-    });
+    const callable = httpsCallable(functions, "updateEvent");
+    await callable({ eventId, changes: eventData });
   },
 
   async deleteEvent(eventId: string): Promise<void> {
-    await deleteDoc(doc(db, "events", eventId));
+    const callable = httpsCallable(functions, "deleteEvent");
+    await callable({ eventId });
   },
 
-  async decrementAvailableTickets(
-    eventId: string,
-    quantity: number
-  ): Promise<void> {
-    const eventRef = doc(db, "events", eventId);
-    await updateDoc(eventRef, {
-      availableTickets: increment(-quantity),
-    });
-  },
 };
 
 // =============================================================================
