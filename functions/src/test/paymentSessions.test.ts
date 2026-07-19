@@ -29,6 +29,7 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
   created?: Record<string, unknown>;
   createCalls = 0;
   claimCalls = 0;
+  attemptSequence = 0;
   failMarkProviderCreated = false;
   providerCalls: Array<Record<string, unknown>> = [];
 
@@ -70,9 +71,11 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
       paymentMethod,
       nowMillis
     );
+    const providerAttemptId = `attempt-${++this.attemptSequence}`;
     session.providerState = "creating";
+    session.providerAttemptId = providerAttemptId;
     session.providerStartedAt = new Date(nowMillis);
-    return { ...validated };
+    return { session: { ...validated }, providerAttemptId };
   }
 
   async getEvent(eventId: string) {
@@ -81,6 +84,7 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
 
   async markProviderCreated(
     paymentSessionId: string,
+    providerAttemptId: string,
     providerIdField: "preferenceId" | "paymentId",
     providerId: string
   ) {
@@ -88,15 +92,34 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
       throw new Error("firestore unavailable");
     }
     const session = this.sessions.get(paymentSessionId)!;
+    if (
+      session.providerState !== "creating" ||
+      session.providerAttemptId !== providerAttemptId
+    ) {
+      this.providerCalls.push({ state: "stale", providerAttemptId });
+      return "stale" as const;
+    }
     session.providerState = "created";
     session[providerIdField] = providerId;
     this.providerCalls.push({ state: "created", providerIdField, providerId });
+    return "updated" as const;
   }
 
-  async markProviderFailed(paymentSessionId: string) {
+  async markProviderFailed(
+    paymentSessionId: string,
+    providerAttemptId: string
+  ) {
     const session = this.sessions.get(paymentSessionId)!;
+    if (
+      session.providerState !== "creating" ||
+      session.providerAttemptId !== providerAttemptId
+    ) {
+      this.providerCalls.push({ state: "stale", providerAttemptId });
+      return "stale" as const;
+    }
     session.providerState = "failed";
     this.providerCalls.push({ state: "failed" });
+    return "updated" as const;
   }
 }
 
@@ -504,21 +527,161 @@ describe("pagamentos autenticados por sessao", () => {
   it("retoma a sessao depois de crash e do fim do lease", async () => {
     const repository = new FakePaymentSessionRepository();
     repository.sessions.set("session-1", session());
-    await repository.claimProvider("session-1", "user-1", "checkout", now);
+    const firstClaim = await repository.claimProvider(
+      "session-1",
+      "user-1",
+      "checkout",
+      now
+    );
+    expect(firstClaim.providerAttemptId).to.be.a("string").and.not.be.empty;
+    expect(repository.sessions.get("session-1")?.providerAttemptId).to.equal(
+      firstClaim.providerAttemptId
+    );
     await expectCode(
       repository.claimProvider("session-1", "user-1", "checkout", now + 1),
       "already-exists"
     );
-    await repository.claimProvider(
+    const recoveredClaim = await repository.claimProvider(
       "session-1",
       "user-1",
       "checkout",
       now + PROVIDER_CREATING_LEASE_MS + 1
     );
+    expect(recoveredClaim.providerAttemptId).not.to.equal(
+      firstClaim.providerAttemptId
+    );
     expect(
       (repository.sessions.get("session-1")?.providerStartedAt as Date)
         .getTime()
     ).to.equal(now + PROVIDER_CREATING_LEASE_MS + 1);
+  });
+
+  it("tentativa antiga nao marca failed depois da nova marcar created", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const attemptA = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    const attemptB = await repository.claimProvider(
+      "session-1",
+      "user-1",
+      "checkout",
+      now + PROVIDER_CREATING_LEASE_MS + 1
+    );
+    expect(await repository.markProviderCreated(
+      "session-1", attemptB.providerAttemptId, "preferenceId", "pref-b"
+    )).to.equal("updated");
+    expect(await repository.markProviderFailed(
+      "session-1", attemptA.providerAttemptId
+    )).to.equal("stale");
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "created"
+    );
+    expect(repository.sessions.get("session-1")?.preferenceId).to.equal(
+      "pref-b"
+    );
+  });
+
+  it("tentativa antiga nao marca created sobre a nova tentativa", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const attemptA = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    const attemptB = await repository.claimProvider(
+      "session-1",
+      "user-1",
+      "checkout",
+      now + PROVIDER_CREATING_LEASE_MS + 1
+    );
+    expect(await repository.markProviderCreated(
+      "session-1", attemptA.providerAttemptId, "preferenceId", "pref-a"
+    )).to.equal("stale");
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "creating"
+    );
+    expect(repository.sessions.get("session-1")?.providerAttemptId).to.equal(
+      attemptB.providerAttemptId
+    );
+    expect(repository.sessions.get("session-1")?.preferenceId).to.equal(
+      undefined
+    );
+  });
+
+  it("markProviderFailed nunca rebaixa providerState created", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const claim = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    await repository.markProviderCreated(
+      "session-1", claim.providerAttemptId, "preferenceId", "pref-1"
+    );
+    expect(await repository.markProviderFailed(
+      "session-1", claim.providerAttemptId
+    )).to.equal("stale");
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "created"
+    );
+  });
+
+  it("execucoes A e B fora de ordem preservam a tentativa atual", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const attemptA = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    const attemptB = await repository.claimProvider(
+      "session-1",
+      "user-1",
+      "checkout",
+      now + PROVIDER_CREATING_LEASE_MS + 1
+    );
+    await repository.markProviderCreated(
+      "session-1", attemptA.providerAttemptId, "preferenceId", "pref-a"
+    );
+    await repository.markProviderCreated(
+      "session-1", attemptB.providerAttemptId, "preferenceId", "pref-b"
+    );
+    await repository.markProviderFailed(
+      "session-1", attemptA.providerAttemptId
+    );
+    expect(repository.sessions.get("session-1")).to.include({
+      providerState: "created",
+      providerAttemptId: attemptB.providerAttemptId,
+      preferenceId: "pref-b",
+    });
+  });
+
+  it("mantem o fluxo normal ready para creating para created", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const claim = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "creating"
+    );
+    expect(await repository.markProviderCreated(
+      "session-1", claim.providerAttemptId, "preferenceId", "pref-1"
+    )).to.equal("updated");
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "created"
+    );
+  });
+
+  it("mantem o fluxo normal ready para creating para failed", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    const claim = await repository.claimProvider(
+      "session-1", "user-1", "checkout", now
+    );
+    expect(await repository.markProviderFailed(
+      "session-1", claim.providerAttemptId
+    )).to.equal("updated");
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "failed"
+    );
   });
 
   it("permite retry depois de providerState failed", async () => {

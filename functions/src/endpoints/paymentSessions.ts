@@ -4,7 +4,7 @@ import {
   Timestamp,
   getFirestore,
 } from "firebase-admin/firestore";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { callableSecurityOptions } from "../config/security.js";
 import {
@@ -43,9 +43,17 @@ export interface PaymentSessionData extends CreatePaymentSessionInput {
   status: string;
   provider: string;
   providerState: string;
+  providerAttemptId?: string;
   providerStartedAt?: unknown;
   expiresAt: unknown;
 }
+
+export interface ProviderClaim {
+  session: PaymentSessionData;
+  providerAttemptId: string;
+}
+
+export type ProviderTransitionResult = "updated" | "stale";
 
 export interface PaymentEventData {
   title?: string;
@@ -67,14 +75,18 @@ export interface PaymentSessionRepository {
     uid: string,
     paymentMethod: PaymentMethod,
     nowMillis: number
-  ): Promise<PaymentSessionData>;
+  ): Promise<ProviderClaim>;
   getEvent(eventId: string): Promise<PaymentEventData | null>;
   markProviderCreated(
     paymentSessionId: string,
+    providerAttemptId: string,
     providerIdField: "preferenceId" | "paymentId",
     providerId: string
-  ): Promise<void>;
-  markProviderFailed(paymentSessionId: string): Promise<void>;
+  ): Promise<ProviderTransitionResult>;
+  markProviderFailed(
+    paymentSessionId: string,
+    providerAttemptId: string
+  ): Promise<ProviderTransitionResult>;
 }
 
 interface CallableRequest {
@@ -355,13 +367,16 @@ export async function executeProviderPayment<T>(
   const paymentSessionId = payload.paymentSessionId.trim();
   let claimed = false;
   let providerCompleted = false;
+  let providerAttemptId: string | undefined;
   try {
-    const session = await dependencies.repository.claimProvider(
+    const claim = await dependencies.repository.claimProvider(
       paymentSessionId,
       identity.uid,
       paymentMethod,
       dependencies.now()
     );
+    const session = claim.session;
+    providerAttemptId = claim.providerAttemptId;
     claimed = true;
     validatePersistedSessionData(session);
     const event = await dependencies.repository.getEvent(session.eventId);
@@ -375,14 +390,18 @@ export async function executeProviderPayment<T>(
     providerCompleted = true;
     await dependencies.repository.markProviderCreated(
       paymentSessionId,
+      providerAttemptId,
       providerIdField,
       result.providerId
     );
     return result.response;
   } catch (error) {
-    if (claimed && !providerCompleted) {
+    if (claimed && providerAttemptId && !providerCompleted) {
       try {
-        await dependencies.repository.markProviderFailed(paymentSessionId);
+        await dependencies.repository.markProviderFailed(
+          paymentSessionId,
+          providerAttemptId
+        );
       } catch {
         // Preserve the original provider or validation failure.
       }
@@ -418,6 +437,7 @@ export const paymentSessionRepository: PaymentSessionRepository = {
   async claimProvider(paymentSessionId, uid, paymentMethod, nowMillis) {
     const db = getFirestore();
     const sessionRef = db.collection("paymentSessions").doc(paymentSessionId);
+    const providerAttemptId = randomUUID();
     return db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(sessionRef);
       if (!snapshot.exists) {
@@ -431,10 +451,11 @@ export const paymentSessionRepository: PaymentSessionRepository = {
       );
       transaction.update(sessionRef, {
         providerState: "creating",
+        providerAttemptId,
         providerStartedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
-      return session;
+      return { session, providerAttemptId };
     });
   },
 
@@ -443,19 +464,56 @@ export const paymentSessionRepository: PaymentSessionRepository = {
     return event.exists ? (event.data() as PaymentEventData) : null;
   },
 
-  async markProviderCreated(paymentSessionId, providerIdField, providerId) {
-    await getFirestore().collection("paymentSessions").doc(paymentSessionId).update({
-      providerState: "created",
-      [providerIdField]: providerId,
-      providerCreatedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+  async markProviderCreated(
+    paymentSessionId,
+    providerAttemptId,
+    providerIdField,
+    providerId
+  ) {
+    const db = getFirestore();
+    const sessionRef = db.collection("paymentSessions").doc(paymentSessionId);
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(sessionRef);
+      if (!snapshot.exists) {
+        throw new HttpsError("not-found", "Sessao de pagamento nao encontrada.");
+      }
+      const data = snapshot.data();
+      if (
+        data?.providerState !== "creating" ||
+        data?.providerAttemptId !== providerAttemptId
+      ) {
+        return "stale";
+      }
+      transaction.update(sessionRef, {
+        providerState: "created",
+        [providerIdField]: providerId,
+        providerCreatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return "updated";
     });
   },
 
-  async markProviderFailed(paymentSessionId) {
-    await getFirestore().collection("paymentSessions").doc(paymentSessionId).update({
-      providerState: "failed",
-      updatedAt: FieldValue.serverTimestamp(),
+  async markProviderFailed(paymentSessionId, providerAttemptId) {
+    const db = getFirestore();
+    const sessionRef = db.collection("paymentSessions").doc(paymentSessionId);
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(sessionRef);
+      if (!snapshot.exists) {
+        throw new HttpsError("not-found", "Sessao de pagamento nao encontrada.");
+      }
+      const data = snapshot.data();
+      if (
+        data?.providerState !== "creating" ||
+        data?.providerAttemptId !== providerAttemptId
+      ) {
+        return "stale";
+      }
+      transaction.update(sessionRef, {
+        providerState: "failed",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return "updated";
     });
   },
 };
