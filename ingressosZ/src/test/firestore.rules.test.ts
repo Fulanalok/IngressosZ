@@ -343,6 +343,82 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
+  it("bloqueia escrita cliente em paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      createdAt,
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    const sessionRef = doc(user.firestore(), "paymentSessions/session-a");
+    await assertFails(
+      setDoc(doc(user.firestore(), "paymentSessions/new-session"), {
+        eventId: "event-a",
+        userId: "user-a",
+        status: "pending",
+        createdAt,
+      })
+    );
+    await assertFails(updateDoc(sessionRef, { providerState: "created" }));
+    await assertFails(deleteDoc(sessionRef));
+  });
+
+  it("usuario le somente as proprias paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      createdAt,
+    });
+    await seed("paymentSessions/session-b", {
+      eventId: "event-b",
+      userId: "user-b",
+      status: "pending",
+      createdAt,
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "paymentSessions/session-a"))
+    );
+    await assertFails(
+      getDoc(doc(user.firestore(), "paymentSessions/session-b"))
+    );
+  });
+
+  it("admin preserva leitura de paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      createdAt,
+    });
+    const admin = testEnv.authenticatedContext("admin-a", {
+      role: "admin",
+      admin: true,
+    });
+    await assertSucceeds(
+      getDoc(doc(admin.firestore(), "paymentSessions/session-a"))
+    );
+  });
+
+  it("Admin SDK administra paymentSessions fora das Rules", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const sessionRef = doc(
+        context.firestore(),
+        "paymentSessions/trusted-session"
+      );
+      await setDoc(sessionRef, {
+        eventId: "event-a",
+        userId: "user-a",
+        status: "pending",
+        createdAt,
+      });
+      await updateDoc(sessionRef, { providerState: "created" });
+      await deleteDoc(sessionRef);
+    });
+  });
+
   it("restringe validator a propria atribuicao ativa", async () => {
     await seed("events/event-a", eventData("org-a"));
     await seed("tickets/ticket-a", {

@@ -53,8 +53,8 @@ Campos principais:
 ### Fluxo Checkout
 
 1. Usuario escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `paymentMethod: "checkout"`.
-3. Frontend chama `createPaymentPreference`.
+2. Frontend chama `createPaymentSession` com `paymentMethod: "checkout"`.
+3. Frontend chama `createPaymentPreference` somente com o ID da sessao.
 4. Mercado Pago processa Checkout Pro.
 5. `receiveWebhook` confirma pagamento aprovado.
 6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.
@@ -62,8 +62,8 @@ Campos principais:
 ### Fluxo Pix
 
 1. Usuario escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `paymentMethod: "pix"`.
-3. Frontend chama `createPixPayment`.
+2. Frontend chama `createPaymentSession` com `paymentMethod: "pix"`.
+3. Frontend chama `createPixPayment` somente com o ID da sessao.
 4. Frontend exibe QR Code Pix retornado pelo Mercado Pago.
 5. `receiveWebhook` confirma pagamento aprovado.
 6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.

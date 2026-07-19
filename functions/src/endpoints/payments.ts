@@ -1,6 +1,4 @@
-export {
-  createPaymentPreference,
-  createPaymentPreferencePublic,
-} from "./checkout.js";
-export { createPixPayment, createPixPaymentPublic } from "./pix.js";
+export { createPaymentPreference } from "./checkout.js";
+export { createPaymentSession } from "./paymentSessions.js";
+export { createPixPayment } from "./pix.js";
 export { receiveWebhook } from "./webhook.js";

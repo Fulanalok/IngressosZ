@@ -82,10 +82,9 @@ Definidas em `routing/AppRoutes.tsx`.
 
 1. `TicketPurchase` recebe evento, tipo e quantidade.
 2. `useMercadoPagoCheckout` calcula valores.
-3. Hook cria `paymentSessions` com `paymentMethod: "checkout"` ou `"pix"`.
-4. Hook chama callable `createPaymentPreference` ou `createPixPayment`.
-5. Se necessario, usa fallback HTTP `createPaymentPreferencePublic` ou
-   `createPixPaymentPublic`.
+3. Hook chama `createPaymentSession` com evento, tipo, quantidade e metodo.
+4. Hook envia somente o ID retornado para `createPaymentPreference` ou
+   `createPixPayment`.
 6. Checkout exibe Wallet Mercado Pago ou QR Code Pix.
 7. Retorno vai para paginas de sucesso/cancelamento.
 

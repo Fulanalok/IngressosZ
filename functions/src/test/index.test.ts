@@ -55,9 +55,8 @@ describe("Cloud Functions", () => {
     const expectedExports = [
       "createEvent",
       "createPaymentPreference",
-      "createPaymentPreferencePublic",
+      "createPaymentSession",
       "createPixPayment",
-      "createPixPaymentPublic",
       "deleteEvent",
       "expireStalePixSessions",
       "health",
@@ -79,5 +78,11 @@ describe("Cloud Functions", () => {
     for (const exportName of expectedExports) {
       expect(myFunctions[exportName], exportName).to.exist;
     }
+  });
+
+  it("should not export public HTTP payment fallbacks", () => {
+    if (!myFunctions) return;
+    expect(myFunctions.createPaymentPreferencePublic).to.equal(undefined);
+    expect(myFunctions.createPixPaymentPublic).to.equal(undefined);
   });
 });

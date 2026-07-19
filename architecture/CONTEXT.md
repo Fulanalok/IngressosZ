@@ -54,12 +54,10 @@ pagamento rastreavel via Mercado Pago.
 ## Fluxo de Pagamento
 
 1. Usuario autenticado escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `eventId`, `userId`,
-   `userEmail`, `ticketType`, `quantity`, `unitPrice`, `totalAmount`,
-   `status: "pending"`, `provider: "mercadopago"` e `paymentMethod`.
-3. Frontend chama `createPaymentPreference` ou `createPixPayment`.
-4. Se callable falhar e `VITE_API_URL` estiver configurado, o frontend usa as
-   variantes HTTP publicas.
+2. Frontend chama `createPaymentSession` com evento, tipo, quantidade e metodo.
+3. Backend calcula valores e cria `paymentSessions/{id}` por transacao.
+4. Frontend envia somente o ID para `createPaymentPreference` ou
+   `createPixPayment`.
 5. Mercado Pago confirma via `receiveWebhook`.
 6. Function valida assinatura, consulta o pagamento, atualiza a sessao, cria a
    compra, decrementa estoque, emite tickets JWT e dispara e-mail.
@@ -121,6 +119,7 @@ functions/src/
 |   |-- email.ts
 |   |-- maintenance.ts
 |   |-- payments.ts
+|   |-- paymentSessions.ts
 |   |-- pix.ts
 |   |-- refunds.ts
 |   |-- seed.ts
@@ -137,9 +136,8 @@ functions/src/
 Exports publicos atuais:
 
 - `createPaymentPreference`
-- `createPaymentPreferencePublic`
+- `createPaymentSession`
 - `createPixPayment`
-- `createPixPaymentPublic`
 - `receiveWebhook`
 - `refundPayment`
 - `validateTicket`

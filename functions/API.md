@@ -9,8 +9,9 @@ Firestore, Mercado Pago, Nodemailer, Sharp e Sentry.
 handlers vivem em `functions/src/endpoints/`:
 
 - `payments.ts`: Checkout Pro, Pix e webhook Mercado Pago.
-- `checkout.ts`: callables/endpoints HTTP de Checkout Pro.
-- `pix.ts`: callables/endpoints HTTP de Pix.
+- `paymentSessions.ts`: criacao e claim confiavel de sessoes de pagamento.
+- `checkout.ts`: callable de Checkout Pro.
+- `pix.ts`: callable de Pix.
 - `webhook.ts`: webhook Mercado Pago, emissao de compra e tickets.
 - `tickets.ts`: validacao de ingressos.
 - `email.ts`: trigger de ticket e envio de e-mails.
@@ -35,12 +36,19 @@ usuario ou contexto para reduzir automacao abusiva.
 - **Acesso:** desabilitada fora do emulador.
 - **Retorno:** status da operacao e IDs criados.
 
+### `createPaymentSession`
+
+- **Descricao:** cria no backend uma sessao de pagamento valida por 15 minutos.
+- **Parametros:** somente `eventId`, `ticketType`, `quantity` e `paymentMethod`.
+- **Seguranca:** exige Auth e App Check; calcula identidade, preco, total,
+  estoque e expiracao em uma transacao Firestore.
+- **Retorno:** `paymentSessionId` e `expiresAt`.
+
 ### `createPaymentPreference`
 
 - **Descricao:** cria uma preferencia de Checkout Pro no Mercado Pago.
-- **Parametros:** `eventId`, `ticketType`, `quantity` e dados do usuario
-  autenticado.
-- **Pre-condicao:** o frontend cria uma `paymentSession` no Firestore com
+- **Parametros:** somente `paymentSessionId`.
+- **Pre-condicao:** sessao autenticada, pendente, nao expirada e com
   `paymentMethod: "checkout"`.
 - **Retorno:** `preferenceId`/dados de checkout usados pelo Wallet do Mercado
   Pago.
@@ -48,9 +56,8 @@ usuario ou contexto para reduzir automacao abusiva.
 ### `createPixPayment`
 
 - **Descricao:** cria pagamento Pix no Mercado Pago.
-- **Parametros:** `eventId`, `ticketType`, `quantity` e dados do usuario
-  autenticado.
-- **Pre-condicao:** o frontend cria uma `paymentSession` com
+- **Parametros:** somente `paymentSessionId`.
+- **Pre-condicao:** sessao autenticada, pendente, nao expirada e com
   `paymentMethod: "pix"`.
 - **Retorno:** QR Code Pix, QR Code Base64 e dados de acompanhamento.
 
@@ -80,15 +87,6 @@ usuario ou contexto para reduzir automacao abusiva.
   6. Em oversell ou erro operacional, registra o estado para auditoria e evita
      duplicidade.
 
-### `createPaymentPreferencePublic` e `createPixPaymentPublic`
-
-- **Descricao:** variantes HTTP publicas para criacao de checkout/Pix quando o
-  fluxo precisa chamar endpoint direto.
-- **Seguranca:** exigem header `X-Firebase-AppCheck`, validam
-  `paymentSessionId` e aplicam rate limit por IP.
-- **Observacao:** devem manter o mesmo contrato de `paymentSessions` usado pelas
-  callables.
-
 ### `validateTicket`
 
 - **Metodo:** `POST`
@@ -109,12 +107,8 @@ usuario ou contexto para reduzir automacao abusiva.
 
 ## Regras Relacionadas
 
-- `paymentSessions` aceita criacao pelo usuario autenticado quando:
-  - `userId` corresponde a `request.auth.uid`;
-  - `userEmail` corresponde ao email autenticado quando presente no token;
-  - `status` e `provider` sao `pending` e `mercadopago`;
-  - `paymentMethod` e opcional, mas quando presente deve ser `checkout` ou
-    `pix`.
+- `paymentSessions` nega create/update/delete pelo cliente. Criacao e estados
+  do provider sao controlados exclusivamente pelas Functions/Admin SDK.
 - `purchases` e `tickets` continuam protegidos contra escrita direta do cliente;
   a emissao acontece via Functions.
 

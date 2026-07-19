@@ -4,9 +4,8 @@ export { onTicketCreated } from "./endpoints/email.js";
 export { expireStalePixSessions } from "./endpoints/maintenance.js";
 export {
   createPaymentPreference,
-  createPaymentPreferencePublic,
+  createPaymentSession,
   createPixPayment,
-  createPixPaymentPublic,
   receiveWebhook,
 } from "./endpoints/payments.js";
 export { refundPayment } from "./endpoints/refunds.js";
