@@ -81,9 +81,10 @@ Definidas em `routing/AppRoutes.tsx`.
 ## Fluxo de Compra no Frontend
 
 1. `TicketPurchase` recebe evento, tipo e quantidade.
-2. `useMercadoPagoCheckout` calcula valores.
-3. Hook chama `createPaymentSession` com evento, tipo, quantidade e metodo.
-4. Hook envia somente o ID retornado para `createPaymentPreference` ou
+2. `useMercadoPagoCheckout` calcula apenas estimativas para exibicao.
+3. Hook chama `createPaymentSession`; o backend calcula e persiste precos e
+   totais confiaveis na sessao.
+4. Hook envia somente o `paymentSessionId` para `createPaymentPreference` ou
    `createPixPayment`.
 5. Checkout exibe Wallet Mercado Pago ou QR Code Pix.
 6. Retorno vai para paginas de sucesso/cancelamento.

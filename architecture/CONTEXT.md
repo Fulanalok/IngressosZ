@@ -62,7 +62,8 @@ pagamento rastreavel via Mercado Pago.
 5. Mercado Pago confirma via `receiveWebhook`.
 6. Function valida assinatura, consulta o pagamento, atualiza a sessao, cria a
    compra, decrementa estoque, emite tickets JWT e dispara e-mail.
-7. Oversell, falha e reembolso ficam registrados para auditoria.
+7. Oversell e falhas ficam registrados para auditoria; o reembolso automatico
+   no Mercado Pago apos oversell ainda e trabalho futuro.
 
 ## Organizacao do Frontend
 
