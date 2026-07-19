@@ -4,6 +4,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { mercadopagoAccessToken } from "../config/params.js";
 import { callableSecurityOptions } from "../config/security.js";
+import { TICKET_TYPE_LABELS } from "../domain/ticketTypes.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 import {
   PaymentEventData,
@@ -12,12 +13,6 @@ import {
   executeProviderPayment,
   paymentSessionRepository,
 } from "./paymentSessions.js";
-
-const TYPE_LABELS: Record<string, string> = {
-  standard: "Padrao",
-  vip: "VIP",
-  premium: "Premium",
-};
 
 function mockPixResult() {
   const id = `pix_mock_${Date.now()}`;
@@ -39,7 +34,7 @@ export async function createPixWithClient(
   event: PaymentEventData,
   paymentSessionId: string
 ) {
-  const title = `Ingresso ${TYPE_LABELS[session.ticketType]}: ${
+  const title = `Ingresso ${TICKET_TYPE_LABELS[session.ticketType]}: ${
     event.title ?? ""
   }`;
   const result = await payment.create({

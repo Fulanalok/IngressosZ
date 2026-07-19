@@ -32,7 +32,8 @@ pagamento rastreavel via Mercado Pago.
 ### Security by Default
 
 - Firestore Rules por collection.
-- `paymentSessions` e criada pelo cliente autenticado e validada por regras.
+- `paymentSessions` e criada exclusivamente pela callable no backend.
+- Firestore Rules negam create, update e delete de `paymentSessions` ao cliente.
 - `paymentMethod` aceita apenas `checkout` ou `pix`.
 - `purchases` e `tickets` nao aceitam escrita direta do cliente.
 - Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
@@ -154,8 +155,9 @@ Exports publicos atuais:
 ## Regras Firestore Relevantes
 
 - `events`: leitura publica; escrita por owner, organizer ou admin.
-- `paymentSessions`: criacao pelo usuario autenticado; leitura pelo dono ou
-  por owner/admin; sem update/delete pelo cliente.
+- `paymentSessions`: create/update/delete negados ao cliente; leitura pelo dono,
+  organizer responsavel ou admin. O frontend envia apenas o ID da sessao para
+  iniciar Checkout ou Pix.
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
 - `purchases`: sem acesso direto pelo cliente.
 - `users`: usuario gerencia dados proprios, mas `role` e protegida.

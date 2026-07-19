@@ -26,6 +26,12 @@ service cloud.firestore {
       return hasRole('validator');
     }
 
+    function authEmailMatches(email) {
+      return !(email is string)
+        || !request.auth.token.keys().hasAny(['email'])
+        || email == request.auth.token.email;
+    }
+
     function ownsEvent(eventId) {
       return isOrganizer()
         && exists(/databases/$(database)/documents/events/$(eventId))

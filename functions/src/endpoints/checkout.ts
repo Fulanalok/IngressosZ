@@ -4,6 +4,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import { mercadopagoAccessToken, webBaseUrl } from "../config/params.js";
 import { callableSecurityOptions } from "../config/security.js";
+import { TICKET_TYPE_LABELS } from "../domain/ticketTypes.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 import {
   PaymentEventData,
@@ -12,12 +13,6 @@ import {
   executeProviderPayment,
   paymentSessionRepository,
 } from "./paymentSessions.js";
-
-const TYPE_LABELS: Record<string, string> = {
-  standard: "Padrao",
-  vip: "VIP",
-  premium: "Premium",
-};
 
 async function createPreferenceAtProvider(
   session: PaymentSessionData,
@@ -48,7 +43,7 @@ async function createPreferenceAtProvider(
     );
   }
 
-  const title = `Ingresso ${TYPE_LABELS[session.ticketType]}: ${
+  const title = `Ingresso ${TICKET_TYPE_LABELS[session.ticketType]}: ${
     event.title ?? ""
   }`;
   const preference = new Preference(new MercadoPagoConfig({ accessToken }));

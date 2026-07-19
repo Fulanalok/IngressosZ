@@ -5,6 +5,7 @@ import {
   getFirestore,
 } from "firebase-admin/firestore";
 import { createHash, randomUUID } from "node:crypto";
+import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { callableSecurityOptions } from "../config/security.js";
 import {
@@ -366,8 +367,11 @@ export async function executeProviderPayment<T>(
   }
   const paymentSessionId = payload.paymentSessionId.trim();
   let claimed = false;
-  let providerCompleted = false;
   let providerAttemptId: string | undefined;
+  let providerResult: {
+    providerId: string;
+    response: T;
+  };
   try {
     const claim = await dependencies.repository.claimProvider(
       paymentSessionId,
@@ -382,21 +386,13 @@ export async function executeProviderPayment<T>(
     const event = await dependencies.repository.getEvent(session.eventId);
     if (!event) throw new HttpsError("not-found", "Evento nao encontrado.");
     validateCurrentEventStock(session, event);
-    const result = await dependencies.createProviderPayment(
+    providerResult = await dependencies.createProviderPayment(
       session,
       event,
       paymentSessionId
     );
-    providerCompleted = true;
-    await dependencies.repository.markProviderCreated(
-      paymentSessionId,
-      providerAttemptId,
-      providerIdField,
-      result.providerId
-    );
-    return result.response;
   } catch (error) {
-    if (claimed && providerAttemptId && !providerCompleted) {
+    if (claimed && providerAttemptId) {
       try {
         await dependencies.repository.markProviderFailed(
           paymentSessionId,
@@ -408,6 +404,34 @@ export async function executeProviderPayment<T>(
     }
     throw error;
   }
+
+  try {
+    const transition = await dependencies.repository.markProviderCreated(
+      paymentSessionId,
+      providerAttemptId!,
+      providerIdField,
+      providerResult.providerId
+    );
+    if (transition === "stale") {
+      logger.warn("Persistencia stale apos sucesso do provedor.", {
+        paymentSessionId,
+        providerAttemptId,
+        providerId: providerResult.providerId,
+      });
+    }
+  } catch (error) {
+    logger.error("Falha ao persistir sucesso do provedor.", {
+      paymentSessionId,
+      providerAttemptId,
+      providerId: providerResult.providerId,
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      } : error,
+    });
+  }
+  return providerResult.response;
 }
 
 export const paymentSessionRepository: PaymentSessionRepository = {

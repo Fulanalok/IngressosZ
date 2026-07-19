@@ -17,12 +17,14 @@ functions/
 |   |   `-- sentry.ts
 |   |-- domain/
 |   |   |-- inventory.ts
-|   |   `-- purchaseLimits.ts
+|   |   |-- purchaseLimits.ts
+|   |   `-- ticketTypes.ts
 |   |-- endpoints/
 |   |   |-- checkout.ts
 |   |   |-- email.ts
 |   |   |-- maintenance.ts
 |   |   |-- payments.ts
+|   |   |-- paymentSessions.ts
 |   |   |-- pix.ts
 |   |   |-- refunds.ts
 |   |   |-- seed.ts

@@ -31,6 +31,7 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
   claimCalls = 0;
   attemptSequence = 0;
   failMarkProviderCreated = false;
+  forceMarkProviderCreatedStale = false;
   providerCalls: Array<Record<string, unknown>> = [];
 
   async createAuthorized(
@@ -90,6 +91,10 @@ class FakePaymentSessionRepository implements PaymentSessionRepository {
   ) {
     if (this.failMarkProviderCreated) {
       throw new Error("firestore unavailable");
+    }
+    if (this.forceMarkProviderCreatedStale) {
+      this.providerCalls.push({ state: "stale", providerAttemptId });
+      return "stale" as const;
     }
     const session = this.sessions.get(paymentSessionId)!;
     if (
@@ -164,21 +169,25 @@ function session(
 }
 
 async function expectCode(promise: Promise<unknown>, code: string) {
+  let caught: unknown;
   try {
     await promise;
-    expect.fail(`Esperava erro ${code}`);
   } catch (error) {
-    expect((error as { code?: string }).code).to.equal(code);
+    caught = error;
   }
+  expect(caught, `Esperava erro ${code}`).to.exist;
+  expect((caught as { code?: string }).code).to.equal(code);
 }
 
 function expectThrownCode(action: () => unknown, code: string) {
+  let caught: unknown;
   try {
     action();
-    expect.fail(`Esperava erro ${code}`);
   } catch (error) {
-    expect((error as { code?: string }).code).to.equal(code);
+    caught = error;
   }
+  expect(caught, `Esperava erro ${code}`).to.exist;
+  expect((caught as { code?: string }).code).to.equal(code);
 }
 
 function providerDependencies<T>(
@@ -393,7 +402,7 @@ describe("pagamentos autenticados por sessao", () => {
     }
   });
 
-  it("usa somente os dados persistidos na sessao", async () => {
+  it("usa dados persistidos e devolve resultado quando mark retorna updated", async () => {
     const repository = new FakePaymentSessionRepository();
     repository.sessions.set("session-1", session());
     repository.events.set("event-1", event());
@@ -420,6 +429,83 @@ describe("pagamentos autenticados por sessao", () => {
     expect(repository.sessions.get("session-1")?.providerState).to.equal(
       "created"
     );
+    expect(repository.providerCalls.some(
+      (call) => call.state === "created"
+    )).to.equal(true);
+  });
+
+  it("devolve resultado quando markProviderCreated retorna stale", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    repository.events.set("event-1", event());
+    repository.forceMarkProviderCreatedStale = true;
+    const result = await executeProviderPayment(
+      { auth, data: { paymentSessionId: "session-1" } },
+      "checkout",
+      "preferenceId",
+      providerDependencies(repository, async () => ({
+        providerId: "pref-stale",
+        response: { id: "pref-stale" },
+      }))
+    );
+    expect(result).to.deep.equal({ id: "pref-stale" });
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "creating"
+    );
+    expect(repository.providerCalls.some(
+      (call) => call.state === "stale"
+    )).to.equal(true);
+    expect(repository.providerCalls.some(
+      (call) => call.state === "failed"
+    )).to.equal(false);
+  });
+
+  it("devolve resultado quando markProviderCreated lanca erro", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    repository.events.set("event-1", event());
+    repository.failMarkProviderCreated = true;
+    const result = await executeProviderPayment(
+      { auth, data: { paymentSessionId: "session-1" } },
+      "checkout",
+      "preferenceId",
+      providerDependencies(repository, async () => ({
+        providerId: "pref-created",
+        response: { id: "pref-created" },
+      }))
+    );
+    expect(result).to.deep.equal({ id: "pref-created" });
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "creating"
+    );
+    expect(repository.providerCalls.some(
+      (call) => call.state === "failed"
+    )).to.equal(false);
+  });
+
+  it("falha do provedor marca failed e propaga o erro", async () => {
+    const repository = new FakePaymentSessionRepository();
+    repository.sessions.set("session-1", session());
+    repository.events.set("event-1", event());
+    const providerError = new Error("provider down");
+    let caught: unknown;
+    try {
+      await executeProviderPayment(
+        { auth, data: { paymentSessionId: "session-1" } },
+        "checkout",
+        "preferenceId",
+        providerDependencies(repository, async () => {
+          throw providerError;
+        })
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).to.equal(providerError);
+    expect(repository.sessions.get("session-1")?.providerState).to.equal(
+      "failed"
+    );
+    expect(repository.providerCalls).to.deep.include({ state: "failed" });
   });
 
   it("processa sessao Pix valida e persiste paymentId", async () => {
@@ -763,18 +849,13 @@ describe("pagamentos autenticados por sessao", () => {
       providerIds.set(key, providerId);
       return { providerId, response: { id: providerId } };
     };
-    let persistenceFailed = false;
-    try {
-      await executeProviderPayment(
-        { auth, data: { paymentSessionId: "session-1" } },
-        "pix",
-        "paymentId",
-        providerDependencies(repository, provider)
-      );
-    } catch {
-      persistenceFailed = true;
-    }
-    expect(persistenceFailed).to.equal(true);
+    const firstResult = await executeProviderPayment(
+      { auth, data: { paymentSessionId: "session-1" } },
+      "pix",
+      "paymentId",
+      providerDependencies(repository, provider)
+    );
+    expect(firstResult).to.deep.equal({ id: "pix-stable" });
     expect(repository.sessions.get("session-1")?.providerState).to.equal(
       "creating"
     );

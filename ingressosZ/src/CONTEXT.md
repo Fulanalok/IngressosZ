@@ -85,8 +85,8 @@ Definidas em `routing/AppRoutes.tsx`.
 3. Hook chama `createPaymentSession` com evento, tipo, quantidade e metodo.
 4. Hook envia somente o ID retornado para `createPaymentPreference` ou
    `createPixPayment`.
-6. Checkout exibe Wallet Mercado Pago ou QR Code Pix.
-7. Retorno vai para paginas de sucesso/cancelamento.
+5. Checkout exibe Wallet Mercado Pago ou QR Code Pix.
+6. Retorno vai para paginas de sucesso/cancelamento.
 
 ## Qualidade
 
