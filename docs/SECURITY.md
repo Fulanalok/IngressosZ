@@ -17,14 +17,15 @@ Roles atuais:
 ## Firestore
 
 - `events`: leitura publica; escrita restrita a owner, organizer ou admin.
-- `paymentSessions`: criacao pelo usuario autenticado e validada pelas rules.
+- `paymentSessions`: escrita negada ao cliente; criacao exclusiva por Function
+  autenticada e validada no backend.
 - `purchases`: sem acesso direto pelo cliente.
 - `tickets`: leitura pelo dono/admin; escrita direta bloqueada.
 - `users`: dados proprios permitidos, mas `role` protegido.
 
 ## Pagamentos
 
-- O cliente cria uma intencao rastreavel em `paymentSessions`.
+- O cliente solicita ao backend uma intencao rastreavel em `paymentSessions`.
 - A emissao de tickets acontece apenas apos webhook aprovado.
 - O webhook `receiveWebhook` valida assinatura HMAC com `MP_WEBHOOK_SECRET`.
 - O backend consulta o pagamento no Mercado Pago antes de consolidar compra.

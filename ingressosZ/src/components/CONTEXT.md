@@ -64,7 +64,7 @@ Responsabilidade: descoberta, detalhe e compra de eventos.
 - `TicketPurchase.tsx`
 
 `TicketPurchase` integra `useMercadoPagoCheckout`, alterna entre Checkout e Pix,
-cria `paymentSessions` e exibe Wallet/QR Pix.
+solicita `paymentSessions` ao backend e exibe Wallet/QR Pix.
 
 Datas de eventos exibidas em `EventCard` devem usar `formatDisplayDate` para
 evitar formato `YYYY-MM-DD` na UI.

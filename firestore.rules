@@ -26,6 +26,12 @@ service cloud.firestore {
       return hasRole('validator');
     }
 
+    function authEmailMatches(email) {
+      return !(email is string)
+        || !request.auth.token.keys().hasAny(['email'])
+        || email == request.auth.token.email;
+    }
+
     function ownsEvent(eventId) {
       return isOrganizer()
         && exists(/databases/$(database)/documents/events/$(eventId))
@@ -40,46 +46,6 @@ service cloud.firestore {
       return isValidator()
         && assignment.data.active == true
         && assignment.data.userId == request.auth.uid;
-    }
-
-    function authEmailMatches(email) {
-      return !(email is string)
-        || !request.auth.token.keys().hasAny(['email'])
-        || email == request.auth.token.email;
-    }
-
-    function isValidPaymentSessionCreate() {
-      return request.resource.data.keys().hasOnly([
-          'eventId',
-          'userId',
-          'userEmail',
-          'ticketType',
-          'quantity',
-          'unitPrice',
-          'totalAmount',
-          'status',
-          'provider',
-          'paymentMethod',
-          'createdAt'
-        ])
-        && request.resource.data.eventId is string
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.userEmail is string
-        && authEmailMatches(request.resource.data.userEmail)
-        && request.resource.data.ticketType is string
-        && request.resource.data.quantity is number
-        && request.resource.data.quantity > 0
-        && request.resource.data.unitPrice is number
-        && request.resource.data.unitPrice >= 0
-        && request.resource.data.totalAmount is number
-        && request.resource.data.totalAmount
-          == request.resource.data.unitPrice * request.resource.data.quantity
-        && request.resource.data.status == 'pending'
-        && request.resource.data.provider == 'mercadopago'
-        && (!('paymentMethod' in request.resource.data)
-          || request.resource.data.paymentMethod == 'pix'
-          || request.resource.data.paymentMethod == 'checkout')
-        && request.resource.data.createdAt is timestamp;
     }
 
     function ticketBelongsToUser(userId, ticketId) {
@@ -113,12 +79,11 @@ service cloud.firestore {
     }
 
     match /paymentSessions/{sessionId} {
-      allow create: if isAuthenticated() && isValidPaymentSessionCreate();
       allow read: if isAuthenticated()
         && (resource.data.userId == request.auth.uid
           || isAdmin()
           || ownsEvent(resource.data.eventId));
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     match /purchases/{purchaseId} {

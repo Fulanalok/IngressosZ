@@ -53,8 +53,8 @@ Campos principais:
 ### Fluxo Checkout
 
 1. Usuario escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `paymentMethod: "checkout"`.
-3. Frontend chama `createPaymentPreference`.
+2. Frontend chama `createPaymentSession` com `paymentMethod: "checkout"`.
+3. Frontend chama `createPaymentPreference` somente com o ID da sessao.
 4. Mercado Pago processa Checkout Pro.
 5. `receiveWebhook` confirma pagamento aprovado.
 6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.
@@ -62,8 +62,8 @@ Campos principais:
 ### Fluxo Pix
 
 1. Usuario escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `paymentMethod: "pix"`.
-3. Frontend chama `createPixPayment`.
+2. Frontend chama `createPaymentSession` com `paymentMethod: "pix"`.
+3. Frontend chama `createPixPayment` somente com o ID da sessao.
 4. Frontend exibe QR Code Pix retornado pelo Mercado Pago.
 5. `receiveWebhook` confirma pagamento aprovado.
 6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.
@@ -93,8 +93,15 @@ Campos esperados:
   status: "pending" | "approved" | "failed" | "cancelled" | "expired";
   provider: "mercadopago";
   paymentMethod: "checkout" | "pix";
+  expiresAt: Timestamp;
+  providerState: "ready" | "creating" | "created" | "failed";
+  providerAttemptId?: string;
+  providerStartedAt?: Timestamp;
+  providerCreatedAt?: Timestamp;
+  preferenceId?: string;
   paymentId?: string;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
   completedAt?: Timestamp;
   expiredAt?: Timestamp;
 }
@@ -102,11 +109,12 @@ Campos esperados:
 
 Regras:
 
-- Cliente autenticado pode criar apenas sua propria sessao.
-- `userId` deve bater com `request.auth.uid`.
-- `userEmail` deve bater com o e-mail autenticado quando presente no token.
+- Somente `createPaymentSession` cria sessoes, usando UID e e-mail do token.
+- Cliente nao cria, atualiza nem deleta sessoes diretamente.
 - `paymentMethod` deve ser `checkout` ou `pix`.
-- Cliente nao atualiza nem deleta sessoes diretamente.
+- `status` representa o ciclo do pagamento e permanece separado de
+  `providerState`, que representa a tentativa no provedor.
+- `providerAttemptId` protege as transicoes finais contra execucoes antigas.
 
 ## Tickets e QR Code
 
@@ -147,7 +155,8 @@ QR Code:
 
 - `events`: leitura publica; escrita por owner/organizer/admin.
 - `users`: usuario gerencia dados proprios; role protegida.
-- `paymentSessions`: criacao controlada pelo usuario autenticado.
+- `paymentSessions`: create/update/delete negados ao cliente; criacao exclusiva
+  pelo backend.
 - `purchases`: sem acesso direto do cliente.
 - `tickets`: sem escrita direta do cliente.
 - Storage: imagens de eventos devem passar por regras e otimizacao.

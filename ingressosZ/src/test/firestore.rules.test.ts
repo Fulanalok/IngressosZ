@@ -343,6 +343,152 @@ describe("autorizacao do Firestore", () => {
     );
   });
 
+  it("bloqueia escrita cliente em paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      createdAt,
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    const sessionRef = doc(user.firestore(), "paymentSessions/session-a");
+    await assertFails(
+      setDoc(doc(user.firestore(), "paymentSessions/new-session"), {
+        eventId: "event-a",
+        userId: "user-a",
+        status: "pending",
+        createdAt,
+      })
+    );
+    await assertFails(updateDoc(sessionRef, { providerState: "created" }));
+    await assertFails(deleteDoc(sessionRef));
+  });
+
+  it("usuario comum le somente as proprias paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      providerState: "ready",
+      createdAt,
+    });
+    await seed("paymentSessions/session-b", {
+      eventId: "event-b",
+      userId: "user-b",
+      status: "pending",
+      providerState: "ready",
+      createdAt,
+    });
+    const user = testEnv.authenticatedContext("user-a", { role: "user" });
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "paymentSessions/session-a"))
+    );
+    await assertFails(
+      getDoc(doc(user.firestore(), "paymentSessions/session-b"))
+    );
+  });
+
+  it("organizer le paymentSessions somente do proprio evento", async () => {
+    await seed("events/event-a", eventData("org-a"));
+    await seed("events/event-b", eventData("org-b"));
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+      status: "pending",
+      providerState: "ready",
+      createdAt,
+    });
+    const owner = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+    });
+    const otherOrganizer = testEnv.authenticatedContext("org-b", {
+      role: "organizer",
+    });
+    await assertSucceeds(
+      getDoc(doc(owner.firestore(), "paymentSessions/session-a"))
+    );
+    await assertFails(
+      getDoc(doc(otherOrganizer.firestore(), "paymentSessions/session-a"))
+    );
+  });
+
+  it("admin preserva leitura de paymentSessions", async () => {
+    await seed("paymentSessions/session-a", {
+      eventId: "event-a",
+      userId: "user-a",
+      status: "pending",
+      createdAt,
+    });
+    const admin = testEnv.authenticatedContext("admin-a", {
+      role: "admin",
+      admin: true,
+    });
+    await assertSucceeds(
+      getDoc(doc(admin.firestore(), "paymentSessions/session-a"))
+    );
+  });
+
+  it("Admin SDK administra paymentSessions fora das Rules", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const sessionRef = doc(
+        context.firestore(),
+        "paymentSessions/trusted-session"
+      );
+      await setDoc(sessionRef, {
+        eventId: "event-a",
+        userId: "user-a",
+        status: "pending",
+        createdAt,
+      });
+      await updateDoc(sessionRef, { providerState: "created" });
+      await deleteDoc(sessionRef);
+    });
+  });
+
+  it("cria perfil com email igual ao token", async () => {
+    const user = testEnv.authenticatedContext("user-email", {
+      role: "user",
+      email: "user@example.com",
+    });
+    await assertSucceeds(
+      setDoc(doc(user.firestore(), "users/user-email"), {
+        uid: "user-email",
+        email: "user@example.com",
+        role: "user",
+        createdAt,
+      })
+    );
+  });
+
+  it("rejeita perfil com email diferente do token", async () => {
+    const user = testEnv.authenticatedContext("user-email", {
+      role: "user",
+      email: "token@example.com",
+    });
+    await assertFails(
+      setDoc(doc(user.firestore(), "users/user-email"), {
+        uid: "user-email",
+        email: "other@example.com",
+        role: "user",
+        createdAt,
+      })
+    );
+  });
+
+  it("cria perfil valido sem o campo opcional email", async () => {
+    const user = testEnv.authenticatedContext("user-no-email", {
+      role: "user",
+      email: "token@example.com",
+    });
+    await assertSucceeds(
+      setDoc(doc(user.firestore(), "users/user-no-email"), {
+        uid: "user-no-email",
+        role: "user",
+        createdAt,
+      })
+    );
+  });
+
   it("restringe validator a propria atribuicao ativa", async () => {
     await seed("events/event-a", eventData("org-a"));
     await seed("tickets/ticket-a", {

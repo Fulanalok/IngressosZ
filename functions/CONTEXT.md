@@ -17,12 +17,14 @@ functions/
 |   |   `-- sentry.ts
 |   |-- domain/
 |   |   |-- inventory.ts
-|   |   `-- purchaseLimits.ts
+|   |   |-- purchaseLimits.ts
+|   |   `-- ticketTypes.ts
 |   |-- endpoints/
 |   |   |-- checkout.ts
 |   |   |-- email.ts
 |   |   |-- maintenance.ts
 |   |   |-- payments.ts
+|   |   |-- paymentSessions.ts
 |   |   |-- pix.ts
 |   |   |-- refunds.ts
 |   |   |-- seed.ts
@@ -98,10 +100,9 @@ config legado para novos fluxos.
 
 Pagamentos:
 
+- `createPaymentSession`: callable autenticada para criar sessao confiavel.
 - `createPaymentPreference`: callable de Checkout Pro.
-- `createPaymentPreferencePublic`: HTTP fallback de Checkout Pro.
 - `createPixPayment`: callable de Pix.
-- `createPixPaymentPublic`: HTTP fallback de Pix.
 - `receiveWebhook`: HTTP webhook Mercado Pago.
 - `refundPayment`: callable administrativo de reembolso.
 
@@ -123,13 +124,13 @@ Sistema e operacao:
 
 ## Fluxo Checkout/Pix
 
-1. Frontend cria `paymentSessions/{id}`.
-2. Callable/HTTP valida usuario, evento, tipo de ingresso, estoque e limite por
-   compra.
-3. Function cria pagamento/preferencia no Mercado Pago.
-4. Resultado volta ao frontend.
-5. `receiveWebhook` confirma pagamento aprovado.
-6. Backend atualiza `paymentSessions`, cria/atualiza `purchases`, decrementa
+1. Frontend chama `createPaymentSession`.
+2. Function valida usuario, evento, tipo, estoque e valores e cria a sessao.
+3. Frontend envia somente `paymentSessionId` para Checkout/Pix.
+4. Function faz claim atomico de `providerState` e chama o Mercado Pago.
+5. Resultado volta ao frontend.
+6. `receiveWebhook` confirma pagamento aprovado.
+7. Backend atualiza `paymentSessions`, cria/atualiza `purchases`, decrementa
    estoque e emite `tickets`.
 
 ## Webhook Mercado Pago

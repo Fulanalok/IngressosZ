@@ -66,17 +66,18 @@ Hook central do fluxo Checkout/Pix no frontend.
 Responsabilidades:
 
 - receber evento, tipo de ingresso, quantidade, userId e userEmail;
-- calcular `unitPrice` e `totalAmount`;
-- criar `paymentSessions` no Firestore;
-- marcar `paymentMethod` como `checkout` ou `pix`;
-- chamar `createPaymentPreference` ou `createPixPayment`;
-- usar fallback HTTP quando `VITE_API_URL` estiver configurado;
+- calcular `totalAmount` somente para exibicao na UI;
+- chamar `createPaymentSession` antes de iniciar o provider;
+- enviar somente `paymentSessionId` para `createPaymentPreference` ou
+  `createPixPayment`;
+- impedir duas operacoes simultaneas para a mesma acao;
 - expor `preferenceId`, `pixData`, `isLoading`, `error` e `totalAmount`.
 
 Atencoes:
 
-- Exige usuario autenticado e e-mail normalizado.
-- App Check e enviado no fallback HTTP quando disponivel.
+- Exige usuario autenticado; identidade e e-mail confiaveis vem do token no
+  backend.
+- App Check permanece habilitado nas callables.
 - `VITE_MERCADOPAGO_PUBLIC_KEY` inicializa o SDK Mercado Pago.
 
 ## `validator/useTicketValidator.ts`

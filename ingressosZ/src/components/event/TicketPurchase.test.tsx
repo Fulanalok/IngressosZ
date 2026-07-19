@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { User } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,6 +83,33 @@ describe("TicketPurchase Component", () => {
     expect(screen.getByText(/R\$\s*300\.00/)).toBeTruthy();
   });
 
+  it("usa preco-base na opcao e no total quando pricing do tipo esta ausente", () => {
+    const basePriceEvent = {
+      ...mockEvent,
+      pricing: { standard: 125 },
+    };
+    render(
+      <TicketPurchase
+        event={basePriceEvent}
+        user={mockUser}
+        onClose={vi.fn()}
+      />
+    );
+    const radios = screen.getAllByRole("radio");
+    const vipOption = radios[1].closest("label")!;
+    const premiumOption = radios[2].closest("label")!;
+    expect(within(vipOption).getByText(/R\$\s*100\.00/)).toBeInTheDocument();
+    expect(
+      within(premiumOption).getByText(/R\$\s*100\.00/)
+    ).toBeInTheDocument();
+
+    const totalSection = screen.getByText("Total:").closest("div")!;
+    fireEvent.click(radios[1]);
+    expect(within(totalSection).getByText(/100\.00/)).toBeInTheDocument();
+    fireEvent.click(radios[2]);
+    expect(within(totalSection).getByText(/100\.00/)).toBeInTheDocument();
+  });
+
   it("handles sold out ticket types", () => {
     render(<TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />);
     expect(screen.getAllByText("(Esgotado)")).toHaveLength(1);
@@ -97,6 +130,56 @@ describe("TicketPurchase Component", () => {
     render(<TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Ir para Pagamento" }));
     expect(mockCheckout.createPreference).toHaveBeenCalled();
+  });
+
+  it("bloqueia clique duplo somente enquanto a operacao esta em andamento", async () => {
+    vi.stubEnv("VITE_MERCADOPAGO_PUBLIC_KEY", "test-public-key");
+    let resolveRequest!: () => void;
+    mockCheckout.createPreference.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveRequest = resolve; })
+    );
+    render(
+      <TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />
+    );
+    const button = screen.getByRole("button", { name: "Ir para Pagamento" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(mockCheckout.createPreference).toHaveBeenCalledTimes(1);
+    resolveRequest();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Ir para Pagamento" })
+      ).toBeEnabled();
+    });
+  });
+
+  it("habilita nova tentativa depois de erro", async () => {
+    vi.stubEnv("VITE_MERCADOPAGO_PUBLIC_KEY", "test-public-key");
+    mockCheckout.createPreference
+      .mockRejectedValueOnce(new Error("provider down"))
+      .mockResolvedValueOnce(undefined);
+    render(
+      <TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ir para Pagamento" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Ir para Pagamento" })
+      ).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ir para Pagamento" }));
+    await waitFor(() => {
+      expect(mockCheckout.createPreference).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("continua exibindo Wallet depois do sucesso", () => {
+    vi.stubEnv("VITE_MERCADOPAGO_PUBLIC_KEY", "test-public-key");
+    mockCheckout.preferenceId = "pref-1";
+    render(
+      <TicketPurchase event={mockEvent} user={mockUser} onClose={vi.fn()} />
+    );
+    expect(screen.getByTestId("wallet")).toBeInTheDocument();
   });
 
   it("exibe mensagem de login quando usuário não está autenticado", () => {

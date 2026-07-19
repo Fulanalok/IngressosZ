@@ -32,7 +32,8 @@ pagamento rastreavel via Mercado Pago.
 ### Security by Default
 
 - Firestore Rules por collection.
-- `paymentSessions` e criada pelo cliente autenticado e validada por regras.
+- `paymentSessions` e criada exclusivamente pela callable no backend.
+- Firestore Rules negam create, update e delete de `paymentSessions` ao cliente.
 - `paymentMethod` aceita apenas `checkout` ou `pix`.
 - `purchases` e `tickets` nao aceitam escrita direta do cliente.
 - Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
@@ -54,16 +55,15 @@ pagamento rastreavel via Mercado Pago.
 ## Fluxo de Pagamento
 
 1. Usuario autenticado escolhe evento, tipo de ingresso e quantidade.
-2. Frontend cria `paymentSessions/{id}` com `eventId`, `userId`,
-   `userEmail`, `ticketType`, `quantity`, `unitPrice`, `totalAmount`,
-   `status: "pending"`, `provider: "mercadopago"` e `paymentMethod`.
-3. Frontend chama `createPaymentPreference` ou `createPixPayment`.
-4. Se callable falhar e `VITE_API_URL` estiver configurado, o frontend usa as
-   variantes HTTP publicas.
+2. Frontend chama `createPaymentSession` com evento, tipo, quantidade e metodo.
+3. Backend calcula valores e cria `paymentSessions/{id}` por transacao.
+4. Frontend envia somente o ID para `createPaymentPreference` ou
+   `createPixPayment`.
 5. Mercado Pago confirma via `receiveWebhook`.
 6. Function valida assinatura, consulta o pagamento, atualiza a sessao, cria a
    compra, decrementa estoque, emite tickets JWT e dispara e-mail.
-7. Oversell, falha e reembolso ficam registrados para auditoria.
+7. Oversell e falhas ficam registrados para auditoria; o reembolso automatico
+   no Mercado Pago apos oversell ainda e trabalho futuro.
 
 ## Organizacao do Frontend
 
@@ -121,6 +121,7 @@ functions/src/
 |   |-- email.ts
 |   |-- maintenance.ts
 |   |-- payments.ts
+|   |-- paymentSessions.ts
 |   |-- pix.ts
 |   |-- refunds.ts
 |   |-- seed.ts
@@ -137,9 +138,8 @@ functions/src/
 Exports publicos atuais:
 
 - `createPaymentPreference`
-- `createPaymentPreferencePublic`
+- `createPaymentSession`
 - `createPixPayment`
-- `createPixPaymentPublic`
 - `receiveWebhook`
 - `refundPayment`
 - `validateTicket`
@@ -156,8 +156,9 @@ Exports publicos atuais:
 ## Regras Firestore Relevantes
 
 - `events`: leitura publica; escrita por owner, organizer ou admin.
-- `paymentSessions`: criacao pelo usuario autenticado; leitura pelo dono ou
-  por owner/admin; sem update/delete pelo cliente.
+- `paymentSessions`: create/update/delete negados ao cliente; leitura pelo dono,
+  organizer responsavel ou admin. O frontend envia apenas o ID da sessao para
+  iniciar Checkout ou Pix.
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
 - `purchases`: sem acesso direto pelo cliente.
 - `users`: usuario gerencia dados proprios, mas `role` e protegida.

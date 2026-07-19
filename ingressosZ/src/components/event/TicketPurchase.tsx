@@ -6,7 +6,7 @@ import type { Event } from "@/types";
 import { StatusScreen, Wallet } from "@mercadopago/sdk-react";
 import type { User } from "firebase/auth";
 import { X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type TicketType = "standard" | "vip" | "premium";
@@ -52,7 +52,7 @@ function getQuantityError(
 }
 
 function getTicketPrice(event: Event, type: TicketType) {
-  return event.pricing?.[type] ?? event.price * TICKET_TYPES[type].multiplier;
+  return event.pricing?.[type] ?? event.price;
 }
 
 function getTicketAvailability(event: Event, type: TicketType) {
@@ -444,6 +444,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   >("idle");
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("checkout");
+  const paymentRequestInFlight = useRef(false);
   const hasPublicKey = Boolean(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
   const buyerEmail = user?.email || "";
 
@@ -471,7 +472,7 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
   const maxQuantity = getTicketAvailability(event, selectedTicketType);
 
   const requestPayment = async (request: () => Promise<unknown>) => {
-    if (paymentStatus === "processing" || checkoutLoading) return;
+    if (paymentRequestInFlight.current || checkoutLoading) return;
 
     const quantityError = getQuantityError(
       quantity,
@@ -483,8 +484,16 @@ export function TicketPurchase({ event, user, onClose }: TicketPurchaseProps) {
       return;
     }
 
+    paymentRequestInFlight.current = true;
     setPaymentStatus("processing");
-    await request();
+    try {
+      await request();
+    } catch {
+      // O hook de checkout preserva a mensagem e o toast da falha.
+    } finally {
+      paymentRequestInFlight.current = false;
+      setPaymentStatus("idle");
+    }
   };
 
   if (paymentStatus === "succeeded") {

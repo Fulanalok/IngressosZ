@@ -53,8 +53,8 @@ flowchart LR
 Fluxo principal:
 
 1. Usuario escolhe evento e quantidade.
-2. Frontend cria `paymentSessions/{id}` no Firestore.
-3. Frontend chama Checkout ou Pix.
+2. Frontend solicita `paymentSessions/{id}` a uma callable autenticada.
+3. Frontend envia somente o ID da sessao para Checkout ou Pix.
 4. Mercado Pago confirma via webhook.
 5. Backend valida a assinatura, consolida compra e emite tickets.
 6. QR Code e validado por usuario com role permitida.
