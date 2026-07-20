@@ -19,6 +19,8 @@ Roles atuais:
 - `events`: leitura publica; escrita restrita a owner, organizer ou admin.
 - `paymentSessions`: escrita negada ao cliente; criacao exclusiva por Function
   autenticada e validada no backend.
+- `paymentWebhookEvents`: leitura e escrita negadas a usuario, organizer e admin
+  no cliente; somente Functions/Admin SDK acessam.
 - `purchases`: sem acesso direto pelo cliente.
 - `tickets`: leitura pelo dono/admin; escrita direta bloqueada.
 - `users`: dados proprios permitidos, mas `role` protegido.
@@ -29,8 +31,12 @@ Roles atuais:
 - A emissao de tickets acontece apenas apos webhook aprovado.
 - O webhook `receiveWebhook` valida assinatura HMAC com `MP_WEBHOOK_SECRET`.
 - O backend consulta o pagamento no Mercado Pago antes de consolidar compra.
-- Estoque e emissao sao tratados no backend para reduzir risco de manipulacao
-  pelo cliente.
+- `paymentSessions` e a unica autoridade de usuario, evento, quantidade e valores;
+  metadata atual ou legado serve somente para localizar a sessao.
+- Compra, estoque, tickets, sessao e trava idempotente sao confirmados na mesma
+  transacao, sem estado antecipado `processing`.
+- Oversell, duplicidade e incompatibilidades sao terminais e auditaveis como
+  `refund_required_*`; o reembolso automatico permanece fora deste fluxo.
 
 ## QR Code
 

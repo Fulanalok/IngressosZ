@@ -33,6 +33,8 @@ functions/
 |   |   |-- tickets.ts
 |   |   |-- users.ts
 |   |   `-- webhook.ts
+|   |-- domain/paymentFulfillment.ts
+|   |-- infrastructure/paymentFulfillmentFirestore.ts
 |   |-- test/
 |   |-- utils/
 |   `-- index.ts
@@ -129,9 +131,9 @@ Sistema e operacao:
 3. Frontend envia somente `paymentSessionId` para Checkout/Pix.
 4. Function faz claim atomico de `providerState` e chama o Mercado Pago.
 5. Resultado volta ao frontend.
-6. `receiveWebhook` confirma pagamento aprovado.
-7. Backend atualiza `paymentSessions`, cria/atualiza `purchases`, decrementa
-   estoque e emite `tickets`.
+6. `receiveWebhook` confirma o pagamento contra a `paymentSession`.
+7. Uma transacao atomica cria `paymentWebhookEvents`, compra e tickets,
+   decrementa estoque e conclui a sessao, sem estado `processing`.
 
 ## Webhook Mercado Pago
 
@@ -140,8 +142,11 @@ Requisitos:
 - Exige `MP_WEBHOOK_SECRET`.
 - Valida HMAC dos headers Mercado Pago.
 - Consulta API Mercado Pago antes de atualizar Firestore.
-- Deve ser idempotente.
-- Deve registrar falhas operacionais e oversell.
+- `paymentSessions` e a unica autoridade dos dados da compra; metadata atual e
+  legado apenas localizam a sessao.
+- `paymentWebhookEvents/{paymentId}` torna replays e concorrencia idempotentes.
+- Deve registrar oversell, duplicidade e incompatibilidades como
+  `refund_required_*`, sem afirmar ou executar reembolso automatico.
 - Deve rejeitar webhook forjado.
 
 ## QR Code e Validacao
@@ -164,11 +169,12 @@ Requisitos:
 
 ## Testes
 
-Testes atuais cobrem exports, limites de compra, inventario/webhook e E2E de
-webhook quando emuladores estao ativos.
+Testes unitarios cobrem helpers e decisao do fulfillment. A integracao do webhook
+e obrigatoria no Firestore Emulator e cobre atomicidade, concorrencia e outcomes.
 
 ```bash
 npm --prefix functions run test
+npm run test:webhook
 ```
 
-O E2E do webhook pode ficar pendente sem emuladores Firebase.
+O script de integracao inicia o emulador e falha se ele ou a suite nao iniciar.

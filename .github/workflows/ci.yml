@@ -51,7 +51,10 @@ jobs:
 
       - name: Unit Tests (Backend)
         working-directory: ./functions
-        run: npm run test
+        run: npm run test:unit
+
+      - name: Webhook Integration Tests
+        run: npm run test:webhook
 
       - name: E2E (Cypress)
         uses: cypress-io/github-action@v6

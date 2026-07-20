@@ -56,8 +56,9 @@ Campos principais:
 2. Frontend chama `createPaymentSession` com `paymentMethod: "checkout"`.
 3. Frontend chama `createPaymentPreference` somente com o ID da sessao.
 4. Mercado Pago processa Checkout Pro.
-5. `receiveWebhook` confirma pagamento aprovado.
-6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.
+5. `receiveWebhook` confirma pagamento aprovado contra a `paymentSession`.
+6. Backend conclui sessao, compra, estoque, tickets e trava idempotente em uma
+   transacao.
 
 ### Fluxo Pix
 
@@ -73,8 +74,11 @@ Campos principais:
 
 - Webhook valida `x-signature` e `x-request-id` com `MP_WEBHOOK_SECRET`.
 - Backend consulta a API do Mercado Pago antes de confiar no pagamento.
-- Processamento deve ser idempotente para evitar ticket duplicado.
-- Oversell deve gerar estado rastreavel, sem emissao indevida.
+- A sessao e a unica fonte de evento, usuario, tipo, quantidade e valores.
+- Metadata atual ou legado apenas localiza `paymentSessionId`.
+- `paymentWebhookEvents/{paymentId}` impede compra, estoque e ticket duplicados.
+- Nao existe estado intermediario `processing` no fulfillment.
+- Oversell e incompatibilidades geram `refund_required_*`, sem executar reembolso.
 
 ## `paymentSessions`
 
@@ -150,6 +154,8 @@ QR Code:
 - Reembolso chama Mercado Pago quando a compra e elegivel.
 - Estado interno deve ser atualizado para auditoria.
 - Reembolso nao deve apagar tickets/compra sem trilha historica.
+- Outcomes `refund_required_*` registram trabalho financeiro pendente e nao
+  significam que `refundPayment` ou a API do Mercado Pago foi executada.
 
 ## Firestore e Storage
 
@@ -157,6 +163,7 @@ QR Code:
 - `users`: usuario gerencia dados proprios; role protegida.
 - `paymentSessions`: create/update/delete negados ao cliente; criacao exclusiva
   pelo backend.
+- `paymentWebhookEvents`: read/create/update/delete negados a todos os clientes.
 - `purchases`: sem acesso direto do cliente.
 - `tickets`: sem escrita direta do cliente.
 - Storage: imagens de eventos devem passar por regras e otimizacao.

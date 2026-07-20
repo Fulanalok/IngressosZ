@@ -39,10 +39,13 @@ flowchart LR
    O backend assume um lease de 2 minutos em `providerState: creating` e usa
    uma chave de idempotencia deterministica por sessao e metodo nos retries.
 5. Mercado Pago processa o pagamento e chama `receiveWebhook`.
-6. Backend valida HMAC, consulta o pagamento e resolve a sessao.
-7. Se aprovado, backend cria compra, decrementa estoque e emite tickets.
-8. Ticket recebe QR Code JWT assinado e o e-mail transacional e enviado.
-9. Validador le o QR Code e chama `validateTicket`.
+6. Backend valida HMAC, consulta o pagamento e localiza a sessao por
+   `external_reference` ou metadata compativel.
+7. `paymentSessions` fornece exclusivamente os dados confiaveis da compra.
+8. Uma transacao atomica cria compra e tickets, decrementa estoque e grava
+   `paymentWebhookEvents/{paymentId}`; nao ha `status: processing`.
+9. Ticket recebe QR Code JWT assinado e o e-mail best-effort ocorre apos commit.
+10. Validador le o QR Code e chama `validateTicket`.
 
 ## Colecoes Firestore relevantes
 
@@ -50,6 +53,7 @@ flowchart LR
 | --- | --- |
 | `events` | Eventos publicos e estoque disponivel. |
 | `paymentSessions` | Sessao rastreavel antes e depois do pagamento. |
+| `paymentWebhookEvents` | Resultado terminal idempotente por pagamento. |
 | `purchases` | Compra consolidada pelo backend. |
 | `tickets` | Ingressos emitidos com QR Code. |
 | `users` | Perfil e role do usuario. |
@@ -75,6 +79,10 @@ flowchart LR
 - Backend modularizado por dominio em `functions/src/endpoints/`.
 - Cliente solicita a intencao de pagamento ao backend; nao escreve sessoes ou
   valores diretamente. A emissao final fica no backend apos webhook.
+- Metadata do provedor e apenas um localizador; campos antigos sao aceitos para
+  localizar a sessao, mas nunca como fonte de usuario, quantidade ou preco.
+- `refund_required_*` registra reconciliacao/reembolso pendente; nao significa
+  que a API de reembolso do Mercado Pago foi chamada.
 - QR Code usa assinatura JWT para reduzir risco de falsificacao.
 - Validacao presencial depende do backend para bloquear reuso.
 

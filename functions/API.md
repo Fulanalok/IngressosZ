@@ -12,7 +12,9 @@ handlers vivem em `functions/src/endpoints/`:
 - `paymentSessions.ts`: criacao e claim confiavel de sessoes de pagamento.
 - `checkout.ts`: callable de Checkout Pro.
 - `pix.ts`: callable de Pix.
-- `webhook.ts`: webhook Mercado Pago, emissao de compra e tickets.
+- `webhook.ts`: camada HTTP fina do webhook Mercado Pago.
+- `domain/paymentFulfillment.ts`: validacao e orquestracao testavel do fulfillment.
+- `infrastructure/paymentFulfillmentFirestore.ts`: transacao atomica Firestore.
 - `tickets.ts`: validacao de ingressos.
 - `email.ts`: trigger de ticket e envio de e-mails.
 - `refunds.ts`: reembolso administrativo.
@@ -91,11 +93,17 @@ transacao Firestore.
   1. Recebe notificacao de pagamento.
   2. Valida `x-signature` e `x-request-id`.
   3. Consulta o pagamento na API do Mercado Pago.
-  4. Resolve `paymentSessionId`, usuario, evento, tipo e quantidade.
-  5. Se aprovado, atualiza `paymentSessions`, cria `purchases`, desconta
-     estoque, gera `tickets` com QR Code JWT e envia e-mail.
-  6. Em oversell ou erro operacional, registra o estado para auditoria e evita
-     duplicidade.
+  4. Resolve `paymentSessionId` por `external_reference`,
+     `metadata.paymentSessionId` ou `metadata.payment_session_id` legado.
+  5. Valida valor em centavos, BRL, provider e referencia contra a sessao.
+  6. Em uma transacao, grava `paymentWebhookEvents/{paymentId}`, sessao, compra,
+     estoque e tickets. Nao usa `status: processing`.
+  7. Envia e-mail best-effort somente apos um novo commit aprovado.
+
+Metadata nunca fornece usuario, evento, tipo, quantidade ou valores. Outcomes
+`refund_required_oversold`, `refund_required_duplicate`,
+`refund_required_invalid_session` e `refund_required_amount_mismatch` registram
+necessidade de reconciliacao/reembolso, sem chamar automaticamente a API.
 
 ### `validateTicket`
 
@@ -121,6 +129,7 @@ transacao Firestore.
   do provider sao controlados exclusivamente pelas Functions/Admin SDK.
 - `purchases` e `tickets` continuam protegidos contra escrita direta do cliente;
   a emissao acontece via Functions.
+- `paymentWebhookEvents` nega toda leitura e escrita do cliente.
 
 ## Testes
 
@@ -130,8 +139,8 @@ npm run build
 npm run test
 ```
 
-O teste E2E do webhook simula assinatura HMAC e fica pendente quando os
-emuladores Firebase nao estao rodando.
+`npm run test:webhook` na raiz inicia o Firestore Emulator e executa a integracao
+obrigatoria. A ausencia do emulador faz o teste falhar, nunca ser pulado.
 
 ## Deploy
 

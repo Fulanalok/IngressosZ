@@ -445,6 +445,70 @@ describe("autorizacao do Firestore", () => {
     });
   });
 
+  it("nega leitura de paymentWebhookEvents para todos os clientes", async () => {
+    await seed("paymentWebhookEvents/payment-1", {
+      paymentId: "payment-1",
+      paymentSessionId: "session-1",
+      outcome: "processed",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    const contexts = [
+      testEnv.authenticatedContext("user-a", { role: "user" }),
+      testEnv.authenticatedContext("organizer-a", { role: "organizer" }),
+      testEnv.authenticatedContext("admin-a", {
+        role: "admin",
+        admin: true,
+      }),
+    ];
+    for (const context of contexts) {
+      await assertFails(
+        getDoc(doc(context.firestore(), "paymentWebhookEvents/payment-1"))
+      );
+    }
+  });
+
+  it("nega escrita em paymentWebhookEvents para todos os clientes", async () => {
+    await seed("paymentWebhookEvents/payment-1", {
+      paymentId: "payment-1",
+      outcome: "processed",
+      createdAt,
+      updatedAt: createdAt,
+    });
+    const contexts = [
+      testEnv.authenticatedContext("user-a", { role: "user" }),
+      testEnv.authenticatedContext("organizer-a", { role: "organizer" }),
+      testEnv.authenticatedContext("admin-a", {
+        role: "admin",
+        admin: true,
+      }),
+    ];
+    for (const context of contexts) {
+      const existing = doc(
+        context.firestore(),
+        "paymentWebhookEvents/payment-1"
+      );
+      await assertFails(setDoc(
+        doc(context.firestore(), "paymentWebhookEvents/payment-new"),
+        { outcome: "processed" }
+      ));
+      await assertFails(updateDoc(existing, { outcome: "ignored_not_approved" }));
+      await assertFails(deleteDoc(existing));
+    }
+  });
+
+  it("Admin SDK administra paymentWebhookEvents fora das Rules", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const eventRef = doc(
+        context.firestore(),
+        "paymentWebhookEvents/trusted-payment"
+      );
+      await setDoc(eventRef, { outcome: "processed" });
+      await updateDoc(eventRef, { outcome: "ignored_not_approved" });
+      await deleteDoc(eventRef);
+    });
+  });
+
   it("cria perfil com email igual ao token", async () => {
     const user = testEnv.authenticatedContext("user-email", {
       role: "user",
