@@ -48,6 +48,7 @@ export interface PersistedPaymentSession {
   expiresAt?: unknown;
   expiredAt?: unknown;
   expirationReason?: unknown;
+  approvedAt?: unknown;
   approvedAfterInitiationExpiry?: unknown;
 }
 
@@ -57,6 +58,7 @@ export interface LegacyPurchase {
   eventId?: unknown;
   userId?: unknown;
   paymentSessionId?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
 }
 
 export type WebhookGateResult =
@@ -339,12 +341,28 @@ export function classifyLegacyPurchases(input: {
     };
   }
   if (purchase.status === "approved") {
+    if (input.session.status !== "pending" && input.session.status !== "expired") {
+      return {
+        kind: "conflict",
+        outcome: "refund_required_invalid_session",
+        reason: "legacy_approved_session_status_invalid",
+      };
+    }
     return { kind: "processed", purchaseId: purchase.id };
   }
   if (
     purchase.status === "refunded_oversold" ||
     purchase.status === "refund_required_oversold"
   ) {
+    if (!["pending", "expired", "refund_required"].includes(
+      String(input.session.status)
+    )) {
+      return {
+        kind: "conflict",
+        outcome: "refund_required_invalid_session",
+        reason: "legacy_oversold_session_status_invalid",
+      };
+    }
     return { kind: "oversold", purchaseId: purchase.id };
   }
   return {

@@ -26,6 +26,8 @@ export interface PaymentSessionLifecycleData {
   providerState?: unknown;
   expiresAt?: unknown;
   providerStartedAt?: unknown;
+  approvedAt?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
 }
 
 export function timestampToMillis(value: unknown): number | undefined {
@@ -106,5 +108,24 @@ export function isApprovedAfterInitiationExpiry(
 ) {
   if (session.status === "expired") return true;
   const expiresAtMillis = timestampToMillis(session.expiresAt);
-  return expiresAtMillis !== undefined && expiresAtMillis < nowMillis;
+  return expiresAtMillis !== undefined && expiresAtMillis <= nowMillis;
+}
+
+export function isPersistedApprovalAfterInitiationExpiry(
+  session: Pick<
+    PaymentSessionLifecycleData,
+    "approvedAt" | "expiresAt" | "approvedAfterInitiationExpiry"
+  >,
+  purchase?: { approvedAfterInitiationExpiry?: unknown }
+) {
+  if (
+    session.approvedAfterInitiationExpiry === true ||
+    purchase?.approvedAfterInitiationExpiry === true
+  ) {
+    return true;
+  }
+  const approvedAtMillis = timestampToMillis(session.approvedAt);
+  const expiresAtMillis = timestampToMillis(session.expiresAt);
+  return approvedAtMillis !== undefined && expiresAtMillis !== undefined &&
+    approvedAtMillis >= expiresAtMillis;
 }

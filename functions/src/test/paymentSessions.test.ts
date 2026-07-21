@@ -380,6 +380,7 @@ describe("pagamentos autenticados por sessao", () => {
       [null, "not-found"],
       [{ userId: "other" }, "permission-denied"],
       [{ expiresAt: new Date(now - 1) }, "failed-precondition"],
+      [{ expiresAt: new Date(now) }, "failed-precondition"],
       [{ status: "approved" }, "failed-precondition"],
       [{ provider: "other" }, "failed-precondition"],
       [{ paymentMethod: "pix" }, "failed-precondition"],

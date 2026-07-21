@@ -4,6 +4,7 @@ import {
   PROVIDER_CREATING_LEASE_MS,
   classifyPaymentSessionExpiration,
   isApprovedAfterInitiationExpiry,
+  isPersistedApprovalAfterInitiationExpiry,
 } from "../../lib/domain/paymentSessionLifecycle.js";
 import { classifyFulfillmentSessionStatus } from
   "../../lib/domain/paymentFulfillment.js";
@@ -34,6 +35,13 @@ describe("payment session maintenance classifier", () => {
 
   it("expira ready depois de expiresAt", () => {
     expect(classify("ready")).to.deep.equal({
+      result: "expire_provider_not_started",
+      expirationReason: "provider_not_started",
+    });
+  });
+
+  it("expira ready exatamente em expiresAt", () => {
+    expect(classify("ready", new Date(nowMillis))).to.deep.equal({
       result: "expire_provider_not_started",
       expirationReason: "provider_not_started",
     });
@@ -105,6 +113,37 @@ describe("approved after initiation expiry", () => {
       status: "expired",
       expiresAt: undefined,
     }, nowMillis)).to.equal(true);
+  });
+
+  it("considera expiresAt igual ao instante da aprovacao como vencido", () => {
+    expect(isApprovedAfterInitiationExpiry({
+      status: "pending",
+      expiresAt: new Date(nowMillis),
+    }, nowMillis)).to.equal(true);
+  });
+
+  it("usa approvedAt, e nao o relogio do replay, para sessao approved", () => {
+    expect(isPersistedApprovalAfterInitiationExpiry({
+      approvedAt: new Date(nowMillis - 2000),
+      expiresAt: new Date(nowMillis - 1000),
+    })).to.equal(false);
+    expect(isPersistedApprovalAfterInitiationExpiry({
+      approvedAt: new Date(nowMillis),
+      expiresAt: new Date(nowMillis - 1000),
+    })).to.equal(true);
+    expect(isPersistedApprovalAfterInitiationExpiry({
+      approvedAt: undefined,
+      expiresAt: new Date(nowMillis - 1000),
+    })).to.equal(false);
+  });
+
+  it("preserva indicador persistido na sessao ou compra", () => {
+    expect(isPersistedApprovalAfterInitiationExpiry({
+      approvedAfterInitiationExpiry: true,
+    })).to.equal(true);
+    expect(isPersistedApprovalAfterInitiationExpiry({}, {
+      approvedAfterInitiationExpiry: true,
+    })).to.equal(true);
   });
 
   for (const providerState of ["created", "creating", "failed"]) {

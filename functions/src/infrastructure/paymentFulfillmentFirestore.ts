@@ -18,8 +18,10 @@ import {
   moneyToCents,
   ticketExpirySeconds,
 } from "../domain/paymentFulfillment.js";
-import { isApprovedAfterInitiationExpiry } from
-  "../domain/paymentSessionLifecycle.js";
+import {
+  isApprovedAfterInitiationExpiry,
+  isPersistedApprovalAfterInitiationExpiry,
+} from "../domain/paymentSessionLifecycle.js";
 
 type EventData = {
   availableTickets?: unknown;
@@ -122,12 +124,6 @@ export function createFirestorePaymentFulfillmentRepository(
         }
 
         const session = sessionSnapshot.data() as PersistedPaymentSession;
-        const approvedAfterInitiationExpiry =
-          session.approvedAfterInitiationExpiry === true ||
-          isApprovedAfterInitiationExpiry(session, command.nowMillis);
-        const approvalAuditFields = approvedAfterInitiationExpiry ? {
-          approvedAfterInitiationExpiry: true,
-        } : {};
         if (session.status === "approved") {
           const compatibility = classifyPaymentCompatibility({
             paymentId: command.paymentId,
@@ -154,6 +150,14 @@ export function createFirestorePaymentFulfillmentRepository(
             db.collection("purchases").doc(compatibility.purchaseId) : undefined;
           const purchaseSnapshot = purchaseRef ?
             await transaction.get(purchaseRef) : undefined;
+          const approvedAfterInitiationExpiry =
+            isPersistedApprovalAfterInitiationExpiry(
+              session,
+              purchaseSnapshot?.data()
+            );
+          const approvalAuditFields = approvedAfterInitiationExpiry ? {
+            approvedAfterInitiationExpiry: true,
+          } : {};
           if (approvedAfterInitiationExpiry) {
             transaction.update(sessionRef, approvalAuditFields);
             if (purchaseSnapshot?.exists && purchaseRef) {
@@ -178,23 +182,6 @@ export function createFirestorePaymentFulfillmentRepository(
           };
         }
 
-        const statusCompatibility = classifyFulfillmentSessionStatus(session);
-        if (statusCompatibility.kind === "permanent") {
-          transaction.create(
-            webhookRef,
-            terminalEventData(
-              command,
-              statusCompatibility.outcome,
-              statusCompatibility.reason,
-              undefined
-            )
-          );
-          return {
-            outcome: statusCompatibility.outcome,
-            newlyProcessed: true,
-          };
-        }
-
         const legacyPurchasesSnapshot = await transaction.get(
           db.collection("purchases")
             .where("paymentId", "==", command.paymentId)
@@ -210,6 +197,18 @@ export function createFirestorePaymentFulfillmentRepository(
             ...document.data(),
           } as LegacyPurchase)) ?? [],
         });
+        const usesCurrentApprovalTime =
+          session.status === "pending" || session.status === "expired";
+        const approvedAfterInitiationExpiry =
+          session.approvedAfterInitiationExpiry === true ||
+          (usesCurrentApprovalTime &&
+            isApprovedAfterInitiationExpiry(session, command.nowMillis)) ||
+          legacyPurchasesSnapshot.docs.some((document) =>
+            document.data().approvedAfterInitiationExpiry === true
+          );
+        const approvalAuditFields = approvedAfterInitiationExpiry ? {
+          approvedAfterInitiationExpiry: true,
+        } : {};
         if (legacyPurchaseResult.kind === "processed") {
           const legacyPurchaseRef = db.collection("purchases")
             .doc(legacyPurchaseResult.purchaseId);
@@ -288,6 +287,23 @@ export function createFirestorePaymentFulfillmentRepository(
           return {
             outcome: legacyPurchaseResult.outcome,
             newlyProcessed: false,
+          };
+        }
+
+        const statusCompatibility = classifyFulfillmentSessionStatus(session);
+        if (statusCompatibility.kind === "permanent") {
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              statusCompatibility.outcome,
+              statusCompatibility.reason,
+              undefined
+            )
+          );
+          return {
+            outcome: statusCompatibility.outcome,
+            newlyProcessed: true,
           };
         }
 

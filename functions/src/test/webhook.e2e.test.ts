@@ -56,10 +56,12 @@ describe("Webhook Integration Tests", () => {
     }
   });
 
-  function dependencies(): PaymentFulfillmentDependencies {
+  function dependencies(
+    processedAtMillis = nowMillis
+  ): PaymentFulfillmentDependencies {
     return {
       repository: createFirestorePaymentFulfillmentRepository(getFirestore()),
-      now: () => nowMillis,
+      now: () => processedAtMillis,
       createPurchaseId: (paymentId) =>
         stableWebhookDocumentId("purchase", paymentId),
       createTicketId: (paymentId, index) =>
@@ -132,12 +134,13 @@ describe("Webhook Integration Tests", () => {
   async function invoke(
     paymentId: string,
     sessionId = "session-1",
-    overrides: Partial<ProviderPayment> = {}
+    overrides: Partial<ProviderPayment> = {},
+    processedAtMillis = nowMillis
   ) {
     return processProviderPayment(
       paymentId,
       payment(paymentId, sessionId, overrides),
-      dependencies()
+      dependencies(processedAtMillis)
     );
   }
 
@@ -763,12 +766,42 @@ describe("Webhook Integration Tests", () => {
     }
   });
 
-  it("reconcilia compra legada tardia sem duplicar efeitos", async () => {
+  it("nao cria falso atraso ao reconstruir replay depois de expiresAt", async () => {
+    const db = getFirestore();
+    const expiresAtMillis = nowMillis + 1000;
+    await seed({
+      session: { expiresAt: Timestamp.fromMillis(expiresAtMillis) },
+    });
+    await invoke("payment-on-time-replay");
+    await db.collection("paymentWebhookEvents")
+      .doc("payment-on-time-replay").delete();
+
+    const replay = await invoke(
+      "payment-on-time-replay",
+      "session-1",
+      {},
+      expiresAtMillis + 1000
+    );
+    expect(replay).to.include({ outcome: "processed", newlyProcessed: false });
+    const purchase = (await db.collection("purchases").get()).docs[0];
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      purchase.data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-on-time-replay").get()).data(),
+    ]) {
+      expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+    }
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("reconcilia expired ready com compra legada approved", async () => {
     await seed({
       availableTickets: 8,
       session: {
         status: "expired",
-        providerState: "created",
+        providerState: "ready",
         expiresAt: Timestamp.fromMillis(nowMillis - 1000),
       },
     });
@@ -794,7 +827,77 @@ describe("Webhook Integration Tests", () => {
     expect(emailCalls).to.equal(0);
   });
 
-  it("reconstroi auditoria tardia de sessao ja approved", async () => {
+  it("reconcilia refund_required com compra legada oversold", async () => {
+    await seed({
+      session: {
+        status: "refund_required",
+        providerState: "created",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-refund-oversold").set({
+      paymentId: "payment-refund-oversold",
+      status: "refunded_oversold",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+
+    const result = await invoke("payment-refund-oversold");
+    expect(result).to.include({
+      outcome: "refund_required_oversold",
+      purchaseId: "legacy-refund-oversold",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({ status: "refund_required", refundReason: "oversold" });
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("purchases").doc("legacy-refund-oversold").get())
+      .data()?.status).to.equal("refund_required_oversold");
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+    expect(emailCalls).to.equal(0);
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      (await db.collection("purchases").doc("legacy-refund-oversold").get())
+        .data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-refund-oversold").get()).data(),
+    ]) {
+      expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+    }
+  });
+
+  it("nao reativa refund_required com compra legada approved", async () => {
+    await seed({
+      session: { status: "refund_required", providerState: "created" },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-refund-approved").set({
+      paymentId: "payment-refund-approved",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+
+    const result = await invoke("payment-refund-approved");
+    expect(result).to.include({
+      outcome: "refund_required_invalid_session",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.status).to.equal("refund_required");
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("purchases").doc("legacy-refund-approved").get())
+      .data()?.status).to.equal("approved");
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("reconstroi atraso comprovado por approvedAt", async () => {
     await seed({
       session: {
         status: "approved",
@@ -802,6 +905,7 @@ describe("Webhook Integration Tests", () => {
         paymentId: "payment-approved-late",
         purchaseId: "purchase-approved-late",
         expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+        approvedAt: Timestamp.fromMillis(nowMillis - 500),
       },
     });
     const db = getFirestore();
@@ -820,6 +924,68 @@ describe("Webhook Integration Tests", () => {
     expect((await db.collection("paymentWebhookEvents")
       .doc("payment-approved-late").get()).data()
       ?.approvedAfterInitiationExpiry).to.equal(true);
+  });
+
+  it("nao infere atraso para sessao approved legada sem approvedAt", async () => {
+    await seed({
+      session: {
+        status: "approved",
+        providerState: "created",
+        paymentId: "payment-approved-legacy",
+        purchaseId: "purchase-approved-legacy",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("purchase-approved-legacy").set({
+      paymentId: "payment-approved-legacy",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+
+    const result = await invoke("payment-approved-legacy");
+    expect(result).to.include({ outcome: "processed", newlyProcessed: false });
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      (await db.collection("purchases").doc("purchase-approved-legacy").get())
+        .data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-approved-legacy").get()).data(),
+    ]) {
+      expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+    }
+  });
+
+  it("preserva indicador existente ao reconstruir sessao approved", async () => {
+    await seed({
+      session: {
+        status: "approved",
+        providerState: "created",
+        paymentId: "payment-approved-audit",
+        purchaseId: "purchase-approved-audit",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("purchase-approved-audit").set({
+      paymentId: "payment-approved-audit",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+      approvedAfterInitiationExpiry: true,
+    });
+
+    await invoke("payment-approved-audit");
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      (await db.collection("purchases").doc("purchase-approved-audit").get())
+        .data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-approved-audit").get()).data(),
+    ]) {
+      expect(data?.approvedAfterInitiationExpiry).to.equal(true);
+    }
   });
 
   it("falha antes do commit deixa a sessao repetivel e sem processing", async () => {
