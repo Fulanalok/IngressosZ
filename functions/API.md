@@ -105,6 +105,16 @@ Metadata nunca fornece usuario, evento, tipo, quantidade ou valores. Outcomes
 `refund_required_invalid_session` e `refund_required_amount_mismatch` registram
 necessidade de reconciliacao/reembolso, sem chamar automaticamente a API.
 
+`paymentWebhookEvents` contem somente outcomes terminais. Para `pending`,
+`rejected` ou outro estado nao aprovado, a resposta logica e
+`ignored_not_approved`, sem criar evento ou alterar sessao, compra, tickets e
+estoque. Uma notificacao posterior `approved` permanece processavel.
+
+Antes de um novo fulfillment aprovado, a transacao consulta compras pelo mesmo
+`paymentId`. Uma compra legada compativel repara sessao e evento idempotente;
+oversell legado vira `refund_required_oversold`; multiplos resultados ou dados
+conflitantes geram outcome terminal sem modificar os registros existentes.
+
 ### `validateTicket`
 
 - **Metodo:** `POST`

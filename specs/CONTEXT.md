@@ -77,6 +77,10 @@ Campos principais:
 - A sessao e a unica fonte de evento, usuario, tipo, quantidade e valores.
 - Metadata atual ou legado apenas localiza `paymentSessionId`.
 - `paymentWebhookEvents/{paymentId}` impede compra, estoque e ticket duplicados.
+- A colecao contem somente resultados terminais. `ignored_not_approved` nao e
+  persistido e estados nao aprovados podem chegar posteriormente como approved.
+- Compras legadas pelo mesmo `paymentId` sao reconciliadas antes do fluxo novo;
+  conflitos geram outcome terminal sem sobrescrever os registros existentes.
 - Nao existe estado intermediario `processing` no fulfillment.
 - Oversell e incompatibilidades geram `refund_required_*`, sem executar reembolso.
 

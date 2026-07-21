@@ -7,7 +7,9 @@ import type {
   ProviderPayment,
 } from "../../lib/domain/paymentFulfillment.js";
 import {
+  classifyLegacyPurchases,
   classifyPaymentCompatibility,
+  classifyWebhookGate,
   extractPaymentSessionId,
   isApprovedProviderPayment,
   moneyToCents,
@@ -72,10 +74,82 @@ describe("payment fulfillment helpers", () => {
     expect(moneyToCents(Number.NaN)).to.equal(undefined);
   });
 
-  it("ignora pagamento que ainda nao foi aprovado", () => {
+  it("trata pagamento nao aprovado como observacao transitoria", () => {
     expect(isApprovedProviderPayment(payment())).to.equal(true);
-    expect(isApprovedProviderPayment(payment({ status: "pending" })))
-      .to.equal(false);
+    expect(classifyWebhookGate(undefined, payment({ status: "pending" })))
+      .to.deep.equal({ kind: "transient_not_approved" });
+    expect(classifyWebhookGate(undefined, payment({ status: "rejected" })))
+      .to.deep.equal({ kind: "transient_not_approved" });
+    expect(classifyWebhookGate(undefined, payment()))
+      .to.deep.equal({ kind: "continue" });
+  });
+
+  it("preserva outcome terminal mesmo com notificacao posterior pending", () => {
+    expect(classifyWebhookGate("processed", payment({ status: "pending" })))
+      .to.deep.equal({ kind: "terminal" });
+    expect(classifyWebhookGate(
+      "refund_required_oversold",
+      payment({ status: "rejected" })
+    )).to.deep.equal({ kind: "terminal" });
+  });
+
+  it("classifica compra legada approved e oversold compativeis", () => {
+    const persistedSession = session();
+    expect(classifyLegacyPurchases({
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-approved",
+        status: "approved",
+        eventId: "event-1",
+        userId: "user-1",
+      }],
+    })).to.deep.equal({
+      kind: "processed",
+      purchaseId: "purchase-approved",
+    });
+    expect(classifyLegacyPurchases({
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-oversold",
+        status: "refunded_oversold",
+        eventId: "event-1",
+        userId: "user-1",
+        paymentSessionId: "session-1",
+      }],
+    })).to.deep.equal({
+      kind: "oversold",
+      purchaseId: "purchase-oversold",
+    });
+  });
+
+  it("classifica compras legadas multiplas ou conflitantes", () => {
+    const persistedSession = session();
+    expect(classifyLegacyPurchases({
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [
+        { id: "purchase-1", status: "approved" },
+        { id: "purchase-2", status: "approved" },
+      ],
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_duplicate",
+    });
+    expect(classifyLegacyPurchases({
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-conflict",
+        status: "approved",
+        eventId: "other-event",
+        userId: "user-1",
+      }],
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_invalid_session",
+    });
   });
 
   it("aceita valor correto e estados de tentativa recuperaveis", () => {

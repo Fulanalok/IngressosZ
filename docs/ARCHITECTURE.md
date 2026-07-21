@@ -83,6 +83,10 @@ flowchart LR
   localizar a sessao, mas nunca como fonte de usuario, quantidade ou preco.
 - `refund_required_*` registra reconciliacao/reembolso pendente; nao significa
   que a API de reembolso do Mercado Pago foi chamada.
+- `ignored_not_approved` e transitorio e nao e gravado em
+  `paymentWebhookEvents`; o mesmo pagamento pode chegar depois como aprovado.
+- Antes do fulfillment novo, a transacao consulta compras legadas pelo
+  `paymentId` e repara sessao/evento sem repetir estoque, tickets ou e-mail.
 - QR Code usa assinatura JWT para reduzir risco de falsificacao.
 - Validacao presencial depende do backend para bloquear reuso.
 

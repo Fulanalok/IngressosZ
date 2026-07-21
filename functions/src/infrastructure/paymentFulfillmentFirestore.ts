@@ -7,11 +7,13 @@ import {
 import {
   FulfillmentCommand,
   FulfillmentResult,
+  LegacyPurchase,
   PaymentFulfillmentRepository,
   PersistedPaymentSession,
   WebhookOutcome,
+  classifyLegacyPurchases,
   classifyPaymentCompatibility,
-  isApprovedProviderPayment,
+  classifyWebhookGate,
   moneyToCents,
 } from "../domain/paymentFulfillment.js";
 
@@ -85,17 +87,18 @@ export function createFirestorePaymentFulfillmentRepository(
       // eslint-disable-next-line complexity
       return db.runTransaction(async (transaction) => {
         const webhookSnapshot = await transaction.get(webhookRef);
-        if (webhookSnapshot.exists) {
+        const gate = classifyWebhookGate(
+          webhookSnapshot.data()?.outcome,
+          command.providerPayment
+        );
+        if (gate.kind === "terminal") {
           return existingResult(webhookSnapshot.data() ?? {});
         }
-
-        if (!isApprovedProviderPayment(command.providerPayment)) {
-          const outcome: WebhookOutcome = "ignored_not_approved";
-          transaction.create(
-            webhookRef,
-            terminalEventData(command, outcome, "payment_not_approved", undefined)
-          );
-          return { outcome, newlyProcessed: true };
+        if (gate.kind === "transient_not_approved") {
+          return {
+            outcome: "ignored_not_approved",
+            newlyProcessed: false,
+          };
         }
 
         if (!sessionRef) {
@@ -126,6 +129,13 @@ export function createFirestorePaymentFulfillmentRepository(
         const eventId = asNonEmptyString(session.eventId);
         const eventRef = eventId ? db.collection("events").doc(eventId) : undefined;
         const eventSnapshot = eventRef ? await transaction.get(eventRef) : undefined;
+        const legacyPurchasesSnapshot = session.status === "approved" ?
+          undefined :
+          await transaction.get(
+            db.collection("purchases")
+              .where("paymentId", "==", command.paymentId)
+              .limit(2)
+          );
 
         const compatibility = classifyPaymentCompatibility({
           paymentId: command.paymentId,
@@ -169,6 +179,85 @@ export function createFirestorePaymentFulfillmentRepository(
             });
           }
           return { outcome: compatibility.outcome, newlyProcessed: true };
+        }
+
+        const legacyPurchaseResult = classifyLegacyPurchases({
+          paymentSessionId: sessionRef.id,
+          session,
+          purchases: legacyPurchasesSnapshot?.docs.map((document) => ({
+            id: document.id,
+            ...document.data(),
+          } as LegacyPurchase)) ?? [],
+        });
+        if (legacyPurchaseResult.kind === "processed") {
+          transaction.update(sessionRef, {
+            status: "approved",
+            providerState: "created",
+            paymentId: command.paymentId,
+            purchaseId: legacyPurchaseResult.purchaseId,
+            approvedAt: Timestamp.fromMillis(command.nowMillis),
+            updatedAt: Timestamp.fromMillis(command.nowMillis),
+            errorMessage: FieldValue.delete(),
+          });
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              "processed",
+              "legacy_purchase_reconciled",
+              legacyPurchaseResult.purchaseId
+            )
+          );
+          return {
+            outcome: "processed",
+            purchaseId: legacyPurchaseResult.purchaseId,
+            newlyProcessed: false,
+          };
+        }
+        if (legacyPurchaseResult.kind === "oversold") {
+          const legacyPurchaseRef = db.collection("purchases")
+            .doc(legacyPurchaseResult.purchaseId);
+          transaction.update(legacyPurchaseRef, {
+            status: "refund_required_oversold",
+            updatedAt: Timestamp.fromMillis(command.nowMillis),
+          });
+          transaction.update(sessionRef, {
+            status: "refund_required",
+            refundReason: "oversold",
+            providerState: "created",
+            paymentId: command.paymentId,
+            purchaseId: legacyPurchaseResult.purchaseId,
+            updatedAt: Timestamp.fromMillis(command.nowMillis),
+          });
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              "refund_required_oversold",
+              "legacy_refunded_oversold_reconciled",
+              legacyPurchaseResult.purchaseId
+            )
+          );
+          return {
+            outcome: "refund_required_oversold",
+            purchaseId: legacyPurchaseResult.purchaseId,
+            newlyProcessed: false,
+          };
+        }
+        if (legacyPurchaseResult.kind === "conflict") {
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              legacyPurchaseResult.outcome,
+              legacyPurchaseResult.reason,
+              undefined
+            )
+          );
+          return {
+            outcome: legacyPurchaseResult.outcome,
+            newlyProcessed: false,
+          };
         }
 
         const quantity = session.quantity as number;

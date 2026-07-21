@@ -145,6 +145,10 @@ Requisitos:
 - `paymentSessions` e a unica autoridade dos dados da compra; metadata atual e
   legado apenas localizam a sessao.
 - `paymentWebhookEvents/{paymentId}` torna replays e concorrencia idempotentes.
+- A colecao contem somente resultados terminais; `ignored_not_approved` e
+  retornado sem persistencia, permitindo `approved` posterior.
+- A mesma transacao consulta compras legadas pelo `paymentId` antes de criar um
+  fulfillment e repara sessoes compativeis sem repetir efeitos.
 - Deve registrar oversell, duplicidade e incompatibilidades como
   `refund_required_*`, sem afirmar ou executar reembolso automatico.
 - Deve rejeitar webhook forjado.

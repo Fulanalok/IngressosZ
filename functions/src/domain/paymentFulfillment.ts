@@ -12,6 +12,14 @@ export const WEBHOOK_OUTCOMES = [
 
 export type WebhookOutcome = (typeof WEBHOOK_OUTCOMES)[number];
 
+const TERMINAL_WEBHOOK_OUTCOMES = new Set<WebhookOutcome>([
+  "processed",
+  "refund_required_oversold",
+  "refund_required_duplicate",
+  "refund_required_invalid_session",
+  "refund_required_amount_mismatch",
+]);
+
 export interface ProviderPayment {
   id?: string | number | null;
   status?: string | null;
@@ -37,6 +45,30 @@ export interface PersistedPaymentSession {
   purchaseId?: unknown;
   refundReason?: unknown;
 }
+
+export interface LegacyPurchase {
+  id: string;
+  status?: unknown;
+  eventId?: unknown;
+  userId?: unknown;
+  paymentSessionId?: unknown;
+}
+
+export type WebhookGateResult =
+  | { kind: "terminal" }
+  | { kind: "transient_not_approved" }
+  | { kind: "continue" };
+
+export type LegacyPurchaseResult =
+  | { kind: "none" }
+  | { kind: "processed"; purchaseId: string }
+  | { kind: "oversold"; purchaseId: string }
+  | {
+    kind: "conflict";
+    outcome: "refund_required_duplicate" |
+      "refund_required_invalid_session";
+    reason: string;
+  };
 
 export type CompatibilityResult =
   | { kind: "valid" }
@@ -161,6 +193,66 @@ export function moneyToCents(value: unknown): number | undefined {
 
 export function isApprovedProviderPayment(payment: ProviderPayment) {
   return payment.status === "approved";
+}
+
+export function classifyWebhookGate(
+  existingOutcome: unknown,
+  payment: ProviderPayment
+): WebhookGateResult {
+  if (
+    typeof existingOutcome === "string" &&
+    TERMINAL_WEBHOOK_OUTCOMES.has(existingOutcome as WebhookOutcome)
+  ) {
+    return { kind: "terminal" };
+  }
+  if (!isApprovedProviderPayment(payment)) {
+    return { kind: "transient_not_approved" };
+  }
+  return { kind: "continue" };
+}
+
+export function classifyLegacyPurchases(input: {
+  paymentSessionId: string;
+  session: PersistedPaymentSession;
+  purchases: LegacyPurchase[];
+}): LegacyPurchaseResult {
+  if (!input.purchases.length) return { kind: "none" };
+  if (input.purchases.length > 1) {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_duplicate",
+      reason: "multiple_legacy_purchases",
+    };
+  }
+
+  const purchase = input.purchases[0];
+  const identityMatches =
+    trimmedString(purchase.eventId) === trimmedString(input.session.eventId) &&
+    trimmedString(purchase.userId) === trimmedString(input.session.userId);
+  const purchaseSessionId = trimmedString(purchase.paymentSessionId);
+  const sessionMatches = !purchaseSessionId ||
+    purchaseSessionId === input.paymentSessionId;
+  if (!identityMatches || !sessionMatches) {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_invalid_session",
+      reason: "legacy_purchase_identity_mismatch",
+    };
+  }
+  if (purchase.status === "approved") {
+    return { kind: "processed", purchaseId: purchase.id };
+  }
+  if (
+    purchase.status === "refunded_oversold" ||
+    purchase.status === "refund_required_oversold"
+  ) {
+    return { kind: "oversold", purchaseId: purchase.id };
+  }
+  return {
+    kind: "conflict",
+    outcome: "refund_required_invalid_session",
+    reason: "legacy_purchase_status_invalid",
+  };
 }
 
 // This pure decision table intentionally enumerates permanent incompatibilities.

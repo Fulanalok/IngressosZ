@@ -66,6 +66,11 @@ repetidas, enquanto resultados terminais ficam em `paymentWebhookEvents`. Estado
 `refund_required_*` registram necessidade de compensacao; nao executam reembolso
 automatico no Mercado Pago.
 
+Notificacoes ainda nao aprovadas retornam `ignored_not_approved` sem persistir
+uma trava, podendo ser reenviadas depois como `approved`. Antes de um novo
+fulfillment, compras legadas pelo mesmo `paymentId` sao reconciliadas para evitar
+novo desconto de estoque, compra, ticket ou e-mail.
+
 ## Estrutura do repositorio
 
 ```text

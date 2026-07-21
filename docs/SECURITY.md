@@ -37,6 +37,10 @@ Roles atuais:
   transacao, sem estado antecipado `processing`.
 - Oversell, duplicidade e incompatibilidades sao terminais e auditaveis como
   `refund_required_*`; o reembolso automatico permanece fora deste fluxo.
+- `paymentWebhookEvents` contem somente resultados terminais. Pending, rejected
+  e outros estados nao aprovados retornam `ignored_not_approved` sem escrita.
+- A reconciliacao de compras legadas valida evento, usuario e sessao antes de
+  reparar o estado, sem repetir efeitos financeiros ou emissao.
 
 ## QR Code
 

@@ -68,6 +68,10 @@ pagamento rastreavel via Mercado Pago.
    estoque. Nao existe estado intermediario `processing`.
 8. Oversell, duplicidade e incompatibilidades recebem estados `refund_required_*`
    para auditoria. O reembolso automatico no Mercado Pago continua futuro.
+9. Estados nao aprovados sao observacoes transitorias: `ignored_not_approved`
+   nao e persistido e uma notificacao posterior `approved` continua processavel.
+10. Compras legadas pelo mesmo `paymentId` sao reconciliadas dentro da transacao
+    antes de criar qualquer novo fulfillment.
 
 ## Organizacao do Frontend
 
@@ -165,6 +169,7 @@ Exports publicos atuais:
   iniciar Checkout ou Pix.
 - `paymentWebhookEvents`: todo acesso do cliente e negado; Functions registram um
   resultado terminal por `paymentId` na mesma transacao do fulfillment.
+  `ignored_not_approved` nao e armazenado nessa colecao.
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
 - `purchases`: sem acesso direto pelo cliente.
 - `users`: usuario gerencia dados proprios, mas `role` e protegida.
