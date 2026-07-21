@@ -68,7 +68,8 @@ Campos principais:
 4. Frontend exibe QR Code Pix retornado pelo Mercado Pago.
 5. `receiveWebhook` confirma pagamento aprovado.
 6. Backend atualiza sessao/compra, decrementa estoque e emite tickets.
-7. `expireStalePixSessions` expira sessoes Pix pendentes antigas.
+7. `expireStalePaymentSessions` expira sessoes pendentes que nao iniciaram uma
+   operacao valida no provider dentro do prazo.
 
 ### Seguranca
 
@@ -171,6 +172,18 @@ QR Code:
 - `purchases`: sem acesso direto do cliente.
 - `tickets`: sem escrita direta do cliente.
 - Storage: imagens de eventos devem passar por regras e otimizacao.
+
+## Expiracao de Payment Sessions
+
+- `expiresAt` define somente o limite para iniciar a operacao no provider.
+- Sessoes `pending` e `ready` ou `failed` podem expirar no prazo; `creating`
+  expira apenas depois do lease, e `created` nunca e expirado pela manutencao.
+- A expiracao registra `expiredAt` e `expirationReason`, preservando
+  `providerStartedAt`, `providerAttemptId`, `preferenceId` ou `paymentId`.
+- Uma aprovacao valida tardia segue pelo fulfillment e registra
+  `approvedAfterInitiationExpiry: true` na sessao, compra e evento terminal.
+- O job nao cancela a operacao no provider, nao representa expiracao financeira
+  e nao executa reembolso automatico.
 
 ## Performance
 

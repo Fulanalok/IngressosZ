@@ -622,6 +622,206 @@ describe("Webhook Integration Tests", () => {
     expect(result.outcome).to.equal("processed");
   });
 
+  it("processa expired created e registra aprovacao depois do prazo", async () => {
+    const expiredAt = Timestamp.fromMillis(nowMillis - 5000);
+    await seed({
+      session: {
+        status: "expired",
+        providerState: "created",
+        expiresAt: Timestamp.fromMillis(nowMillis - 10000),
+        expiredAt,
+        expirationReason: "provider_not_started",
+      },
+    });
+    const first = await invoke("payment-late-created");
+    const replay = await invoke("payment-late-created");
+    expect(first.outcome).to.equal("processed");
+    expect(replay).to.include({ outcome: "processed", newlyProcessed: false });
+
+    const db = getFirestore();
+    const sessionData = (await db.collection("paymentSessions")
+      .doc("session-1").get()).data();
+    const purchase = (await db.collection("purchases").get()).docs[0].data();
+    const webhookEvent = (await db.collection("paymentWebhookEvents")
+      .doc("payment-late-created").get()).data();
+    expect(sessionData).to.include({
+      status: "approved",
+      approvedAfterInitiationExpiry: true,
+      expirationReason: "provider_not_started",
+    });
+    expect(sessionData?.expiredAt.toMillis()).to.equal(expiredAt.toMillis());
+    expect(purchase.approvedAfterInitiationExpiry).to.equal(true);
+    expect(webhookEvent?.approvedAfterInitiationExpiry).to.equal(true);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("marca pending created aprovado depois de expiresAt", async () => {
+    await seed({
+      session: {
+        expiresAt: Timestamp.fromMillis(nowMillis - 1),
+        providerState: "created",
+      },
+    });
+    expect((await invoke("payment-late-pending")).outcome).to.equal("processed");
+    const db = getFirestore();
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.approvedAfterInitiationExpiry).to.equal(true);
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-late-pending").get()).data()
+      ?.approvedAfterInitiationExpiry).to.equal(true);
+  });
+
+  for (const providerState of ["failed", "creating"]) {
+    it(`processa expired ${providerState} quando o webhook e valido`, async () => {
+      await seed({
+        session: {
+          status: "expired",
+          providerState,
+          expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+          ...(providerState === "creating" ? {
+            providerStartedAt: Timestamp.fromMillis(nowMillis - 10000),
+          } : {}),
+        },
+      });
+      expect((await invoke(`payment-expired-${providerState}`)).outcome)
+        .to.equal("processed");
+      const db = getFirestore();
+      expect((await db.collection("paymentSessions").doc("session-1").get())
+        .data()).to.include({
+        status: "approved",
+        approvedAfterInitiationExpiry: true,
+      });
+      expect((await db.collection("tickets").get()).size).to.equal(2);
+    });
+  }
+
+  it("rejeita expired ready sem alterar estoque ou criar efeitos", async () => {
+    await seed({
+      session: {
+        status: "expired",
+        providerState: "ready",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const result = await invoke("payment-expired-ready");
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-expired-ready").get()).data()).to.include({
+      outcome: "refund_required_invalid_session",
+      reason: "expired_without_provider_attempt",
+    });
+  });
+
+  it("marca aprovacao tardia com oversell", async () => {
+    await seed({
+      availableTickets: 1,
+      session: {
+        status: "expired",
+        providerState: "created",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    expect((await invoke("payment-late-oversold")).outcome)
+      .to.equal("refund_required_oversold");
+    const db = getFirestore();
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({
+      status: "refund_required",
+      approvedAfterInitiationExpiry: true,
+    });
+    expect((await db.collection("purchases").get()).docs[0].data())
+      .to.include({
+        status: "refund_required_oversold",
+        approvedAfterInitiationExpiry: true,
+      });
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-late-oversold").get()).data()
+      ?.approvedAfterInitiationExpiry).to.equal(true);
+  });
+
+  it("nao grava indicador para aprovacao dentro do prazo", async () => {
+    await seed({
+      session: { expiresAt: Timestamp.fromMillis(nowMillis + 1000) },
+    });
+    await invoke("payment-on-time");
+    const db = getFirestore();
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      (await db.collection("purchases").get()).docs[0].data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-on-time").get()).data(),
+    ]) {
+      expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+    }
+  });
+
+  it("reconcilia compra legada tardia sem duplicar efeitos", async () => {
+    await seed({
+      availableTickets: 8,
+      session: {
+        status: "expired",
+        providerState: "created",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-late").set({
+      paymentId: "payment-legacy-late",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    const result = await invoke("payment-legacy-late");
+    expect(result).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-late",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("purchases").doc("legacy-late").get())
+      .data()?.approvedAfterInitiationExpiry).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("reconstroi auditoria tardia de sessao ja approved", async () => {
+    await seed({
+      session: {
+        status: "approved",
+        providerState: "created",
+        paymentId: "payment-approved-late",
+        purchaseId: "purchase-approved-late",
+        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("purchase-approved-late").set({
+      paymentId: "payment-approved-late",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    const result = await invoke("payment-approved-late");
+    expect(result).to.include({ outcome: "processed", newlyProcessed: false });
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.approvedAfterInitiationExpiry).to.equal(true);
+    expect((await db.collection("purchases").doc("purchase-approved-late").get())
+      .data()?.approvedAfterInitiationExpiry).to.equal(true);
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-approved-late").get()).data()
+      ?.approvedAfterInitiationExpiry).to.equal(true);
+  });
+
   it("falha antes do commit deixa a sessao repetivel e sem processing", async () => {
     await seed();
     const failingDependencies = dependencies();

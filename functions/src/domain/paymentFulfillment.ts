@@ -45,6 +45,10 @@ export interface PersistedPaymentSession {
   paymentId?: unknown;
   purchaseId?: unknown;
   refundReason?: unknown;
+  expiresAt?: unknown;
+  expiredAt?: unknown;
+  expirationReason?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
 }
 
 export interface LegacyPurchase {
@@ -79,6 +83,14 @@ export type CompatibilityResult =
     kind: "permanent";
     outcome: Exclude<WebhookOutcome, "processed" | "ignored_not_approved">;
     reason: string;
+  };
+
+export type FulfillmentSessionStatusResult =
+  | { kind: "valid" }
+  | {
+    kind: "permanent";
+    outcome: "refund_required_invalid_session";
+    reason: "expired_without_provider_attempt" | "invalid_session_status";
   };
 
 export interface SessionReference {
@@ -219,6 +231,31 @@ export function isApprovedProviderPayment(payment: ProviderPayment) {
   return payment.status === "approved";
 }
 
+export function classifyFulfillmentSessionStatus(
+  session: Pick<PersistedPaymentSession, "status" | "providerState">
+): FulfillmentSessionStatusResult {
+  if (session.status === "pending" || session.status === "approved") {
+    return { kind: "valid" };
+  }
+  if (session.status === "expired") {
+    if (["created", "creating", "failed"].includes(
+      String(session.providerState)
+    )) {
+      return { kind: "valid" };
+    }
+    return {
+      kind: "permanent",
+      outcome: "refund_required_invalid_session",
+      reason: "expired_without_provider_attempt",
+    };
+  }
+  return {
+    kind: "permanent",
+    outcome: "refund_required_invalid_session",
+    reason: "invalid_session_status",
+  };
+}
+
 export function classifyWebhookGate(
   existingOutcome: unknown,
   payment: ProviderPayment
@@ -339,6 +376,10 @@ export function classifyPaymentCompatibility(input: {
       outcome: "refund_required_duplicate",
       reason: "session_already_approved",
     };
+  }
+  const statusCompatibility = classifyFulfillmentSessionStatus(session);
+  if (statusCompatibility.kind === "permanent") {
+    return statusCompatibility;
   }
   if (persistedPaymentId && persistedPaymentId !== paymentId) {
     return {

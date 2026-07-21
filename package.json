@@ -16,6 +16,7 @@
     "build:backend": "npm --prefix functions run build",
     "test:rules": "firebase emulators:exec --project demo-ingressosz --only firestore \"npm --prefix ingressosZ run test:rules\"",
     "test:webhook": "firebase emulators:exec --project demo-ingressosz --only firestore \"npm --prefix functions run test:webhook\"",
+    "test:maintenance": "firebase emulators:exec --project demo-ingressosz --only firestore \"npm --prefix functions run test:maintenance\"",
     "test:emulator": "npm run test:rules"
   },
   "devDependencies": {

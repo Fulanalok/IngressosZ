@@ -11,12 +11,15 @@ import {
   PaymentFulfillmentRepository,
   PersistedPaymentSession,
   WebhookOutcome,
+  classifyFulfillmentSessionStatus,
   classifyLegacyPurchases,
   classifyPaymentCompatibility,
   classifyWebhookGate,
   moneyToCents,
   ticketExpirySeconds,
 } from "../domain/paymentFulfillment.js";
+import { isApprovedAfterInitiationExpiry } from
+  "../domain/paymentSessionLifecycle.js";
 
 type EventData = {
   availableTickets?: unknown;
@@ -34,7 +37,8 @@ function terminalEventData(
   command: FulfillmentCommand,
   outcome: WebhookOutcome,
   reason: string | undefined,
-  purchaseId: string | undefined
+  purchaseId: string | undefined,
+  approvedAfterInitiationExpiry = false
 ) {
   const amountInCents = moneyToCents(
     command.providerPayment.transaction_amount
@@ -45,6 +49,9 @@ function terminalEventData(
     outcome,
     ...(purchaseId ? { purchaseId } : {}),
     ...(reason ? { reason } : {}),
+    ...(approvedAfterInitiationExpiry ? {
+      approvedAfterInitiationExpiry: true,
+    } : {}),
     providerStatus: command.providerPayment.status ?? "",
     amountInCents: amountInCents ?? null,
     currency: command.providerPayment.currency_id ?? "",
@@ -115,6 +122,12 @@ export function createFirestorePaymentFulfillmentRepository(
         }
 
         const session = sessionSnapshot.data() as PersistedPaymentSession;
+        const approvedAfterInitiationExpiry =
+          session.approvedAfterInitiationExpiry === true ||
+          isApprovedAfterInitiationExpiry(session, command.nowMillis);
+        const approvalAuditFields = approvedAfterInitiationExpiry ? {
+          approvedAfterInitiationExpiry: true,
+        } : {};
         if (session.status === "approved") {
           const compatibility = classifyPaymentCompatibility({
             paymentId: command.paymentId,
@@ -137,6 +150,16 @@ export function createFirestorePaymentFulfillmentRepository(
           if (compatibility.kind !== "idempotent") {
             throw new Error("Sessao approved produziu estado incompativel.");
           }
+          const purchaseRef = compatibility.purchaseId ?
+            db.collection("purchases").doc(compatibility.purchaseId) : undefined;
+          const purchaseSnapshot = purchaseRef ?
+            await transaction.get(purchaseRef) : undefined;
+          if (approvedAfterInitiationExpiry) {
+            transaction.update(sessionRef, approvalAuditFields);
+            if (purchaseSnapshot?.exists && purchaseRef) {
+              transaction.update(purchaseRef, approvalAuditFields);
+            }
+          }
           const outcome: WebhookOutcome = "processed";
           transaction.create(
             webhookRef,
@@ -144,13 +167,31 @@ export function createFirestorePaymentFulfillmentRepository(
               command,
               outcome,
               "idempotent_session",
-              compatibility.purchaseId
+              compatibility.purchaseId,
+              approvedAfterInitiationExpiry
             )
           );
           return {
             outcome,
             purchaseId: compatibility.purchaseId,
             newlyProcessed: false,
+          };
+        }
+
+        const statusCompatibility = classifyFulfillmentSessionStatus(session);
+        if (statusCompatibility.kind === "permanent") {
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              statusCompatibility.outcome,
+              statusCompatibility.reason,
+              undefined
+            )
+          );
+          return {
+            outcome: statusCompatibility.outcome,
+            newlyProcessed: true,
           };
         }
 
@@ -170,6 +211,11 @@ export function createFirestorePaymentFulfillmentRepository(
           } as LegacyPurchase)) ?? [],
         });
         if (legacyPurchaseResult.kind === "processed") {
+          const legacyPurchaseRef = db.collection("purchases")
+            .doc(legacyPurchaseResult.purchaseId);
+          if (approvedAfterInitiationExpiry) {
+            transaction.update(legacyPurchaseRef, approvalAuditFields);
+          }
           transaction.update(sessionRef, {
             status: "approved",
             providerState: "created",
@@ -178,6 +224,7 @@ export function createFirestorePaymentFulfillmentRepository(
             approvedAt: Timestamp.fromMillis(command.nowMillis),
             updatedAt: Timestamp.fromMillis(command.nowMillis),
             errorMessage: FieldValue.delete(),
+            ...approvalAuditFields,
           });
           transaction.create(
             webhookRef,
@@ -185,7 +232,8 @@ export function createFirestorePaymentFulfillmentRepository(
               command,
               "processed",
               "legacy_purchase_reconciled",
-              legacyPurchaseResult.purchaseId
+              legacyPurchaseResult.purchaseId,
+              approvedAfterInitiationExpiry
             )
           );
           return {
@@ -200,6 +248,7 @@ export function createFirestorePaymentFulfillmentRepository(
           transaction.update(legacyPurchaseRef, {
             status: "refund_required_oversold",
             updatedAt: Timestamp.fromMillis(command.nowMillis),
+            ...approvalAuditFields,
           });
           transaction.update(sessionRef, {
             status: "refund_required",
@@ -208,6 +257,7 @@ export function createFirestorePaymentFulfillmentRepository(
             paymentId: command.paymentId,
             purchaseId: legacyPurchaseResult.purchaseId,
             updatedAt: Timestamp.fromMillis(command.nowMillis),
+            ...approvalAuditFields,
           });
           transaction.create(
             webhookRef,
@@ -215,7 +265,8 @@ export function createFirestorePaymentFulfillmentRepository(
               command,
               "refund_required_oversold",
               "legacy_refunded_oversold_reconciled",
-              legacyPurchaseResult.purchaseId
+              legacyPurchaseResult.purchaseId,
+              approvedAfterInitiationExpiry
             )
           );
           return {
@@ -302,6 +353,7 @@ export function createFirestorePaymentFulfillmentRepository(
             }],
             error: "Overselling detected",
             createdAt: Timestamp.fromMillis(command.nowMillis),
+            ...approvalAuditFields,
           });
           transaction.update(sessionRef, {
             status: "refund_required",
@@ -310,6 +362,7 @@ export function createFirestorePaymentFulfillmentRepository(
             paymentId: command.paymentId,
             purchaseId: command.purchaseId,
             updatedAt: Timestamp.fromMillis(command.nowMillis),
+            ...approvalAuditFields,
           });
           transaction.create(
             webhookRef,
@@ -317,7 +370,8 @@ export function createFirestorePaymentFulfillmentRepository(
               command,
               outcome,
               "oversold",
-              command.purchaseId
+              command.purchaseId,
+              approvedAfterInitiationExpiry
             )
           );
           return {
@@ -348,6 +402,7 @@ export function createFirestorePaymentFulfillmentRepository(
             totalAmount: session.totalAmount,
           }],
           createdAt: Timestamp.fromMillis(command.nowMillis),
+          ...approvalAuditFields,
         });
 
         const expiresIn = ticketExpirySeconds(
@@ -389,11 +444,18 @@ export function createFirestorePaymentFulfillmentRepository(
           approvedAt: Timestamp.fromMillis(command.nowMillis),
           updatedAt: Timestamp.fromMillis(command.nowMillis),
           errorMessage: FieldValue.delete(),
+          ...approvalAuditFields,
         });
         const outcome: WebhookOutcome = "processed";
         transaction.create(
           webhookRef,
-          terminalEventData(command, outcome, undefined, command.purchaseId)
+          terminalEventData(
+            command,
+            outcome,
+            undefined,
+            command.purchaseId,
+            approvedAfterInitiationExpiry
+          )
         );
         return {
           outcome,

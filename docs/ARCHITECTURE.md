@@ -90,6 +90,17 @@ flowchart LR
 - QR Code usa assinatura JWT para reduzir risco de falsificacao.
 - Validacao presencial depende do backend para bloquear reuso.
 
+## Expiracao e aprovacao tardia
+
+- `expiresAt` impede apenas que uma nova operacao seja iniciada no provedor.
+- `expireStalePaymentSessions` consulta em paginas as sessoes `pending` vencidas
+  e relê cada uma em transacao antes de decidir. Estados `ready` e `failed`, ou
+  `creating` com lease vencido, expiram; `created` permanece aguardando o
+  resultado do provedor.
+- Uma aprovacao valida posterior ao prazo segue pelo fulfillment normal e e
+  marcada com `approvedAfterInitiationExpiry` para auditoria.
+- A rotina interna nao cancela recursos nem executa reembolso no Mercado Pago.
+
 ## Referencias
 
 - [functions/API.md](../functions/API.md)

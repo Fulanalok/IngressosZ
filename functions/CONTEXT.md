@@ -122,7 +122,8 @@ Sistema e operacao:
 - `seedDatabase`: callable de seed/dev.
 - `optimizeImage`: trigger Storage.
 - `onTicketCreated`: trigger Firestore para complemento/e-mail.
-- `expireStalePixSessions`: schedule para Pix pendente expirado.
+- `expireStalePaymentSessions`: schedule paginado para sessoes pendentes cujo
+  prazo de iniciar a operacao no provider venceu.
 
 ## Fluxo Checkout/Pix
 
@@ -171,6 +172,18 @@ Requisitos:
 - Manter handlers por dominio em `endpoints/`.
 - Manter log suficiente para auditoria de pagamentos, sem expor segredo.
 
+## Manutencao de Payment Sessions
+
+- `domain/paymentSessionLifecycle.ts` concentra a classificacao pura de
+  expiracao, lease e aprovacao tardia.
+- `infrastructure/paymentSessionMaintenanceFirestore.ts` pagina a consulta e
+  relê cada candidato em transacao antes da mutacao.
+- `expiresAt` e somente o prazo para iniciar Checkout ou Pix. Sessoes
+  `providerState: created` nao expiram, e aprovacoes tardias validas sao
+  cumpridas com `approvedAfterInitiationExpiry: true` para auditoria.
+- A rotina preserva evidencias do provider e nao cancela ou reembolsa recursos
+  externos.
+
 ## Testes
 
 Testes unitarios cobrem helpers e decisao do fulfillment. A integracao do webhook
@@ -179,6 +192,8 @@ e obrigatoria no Firestore Emulator e cobre atomicidade, concorrencia e outcomes
 ```bash
 npm --prefix functions run test
 npm run test:webhook
+npm run test:maintenance
 ```
 
-O script de integracao inicia o emulador e falha se ele ou a suite nao iniciar.
+Os scripts de integracao iniciam o emulador e falham se ele ou a suite nao
+iniciar. O CI executa webhook e manutencao em etapas explicitas.

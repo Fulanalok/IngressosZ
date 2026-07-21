@@ -58,7 +58,7 @@ describe("Cloud Functions", () => {
       "createPaymentSession",
       "createPixPayment",
       "deleteEvent",
-      "expireStalePixSessions",
+      "expireStalePaymentSessions",
       "health",
       "logClientError",
       "onTicketCreated",

@@ -141,6 +141,20 @@ conflitantes geram outcome terminal sem modificar os registros existentes.
   a emissao acontece via Functions.
 - `paymentWebhookEvents` nega toda leitura e escrita do cliente.
 
+## Scheduled Functions
+
+### `expireStalePaymentSessions`
+
+- Executa a cada 15 minutos e pagina sessoes `pending` com `expiresAt` vencido.
+- `expiresAt` limita o inicio da operacao no provedor; nao invalida uma
+  aprovacao legitima recebida depois.
+- Expira `providerState` `ready`, `failed` e `creating` quando o lease venceu,
+  sempre apos reler a sessao em transacao. Nunca expira `created`.
+- Preserva a evidencia do provider e registra `expiredAt` e
+  `expirationReason`. Nao cancela nem reembolsa no Mercado Pago.
+- O webhook aceita estados expirados que comprovem tentativa no provider e
+  registra `approvedAfterInitiationExpiry` quando aplicavel.
+
 ## Testes
 
 ```bash
@@ -151,6 +165,8 @@ npm run test
 
 `npm run test:webhook` na raiz inicia o Firestore Emulator e executa a integracao
 obrigatoria. A ausencia do emulador faz o teste falhar, nunca ser pulado.
+`npm run test:maintenance` valida paginacao, lease, idempotencia e concorrencia
+da manutencao no mesmo emulador.
 
 ## Deploy
 
