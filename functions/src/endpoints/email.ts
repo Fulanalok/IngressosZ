@@ -1,5 +1,10 @@
 import admin from "firebase-admin";
-import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import {
+  FieldValue,
+  Firestore,
+  getFirestore,
+  Timestamp,
+} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as nodemailer from "nodemailer";
@@ -66,7 +71,6 @@ export const onTicketCreated = onDocumentCreated(
       await sendPurchaseEmail(data.purchaseId, {
         userId: data.userId,
         eventId: data.eventId,
-        ticketsCount: 1,
       });
     }
   }
@@ -240,16 +244,33 @@ const sendTicketEmail = async (
   }
 };
 
+type PurchaseEmailFallback = {
+  userId?: string;
+  eventId?: string;
+  ticketsCount?: number;
+  accountCreated?: boolean;
+};
+
+type PurchaseEmailDependencies = {
+  getDb(): Firestore;
+  deliver(
+    userId: string,
+    eventId: string,
+    ticketsCount: number,
+    options: { accountCreated?: boolean }
+  ): Promise<void>;
+};
+
 export const sendPurchaseEmail = async (
   purchaseId: string,
-  fallback?: {
-    userId?: string;
-    eventId?: string;
-    ticketsCount?: number;
-    accountCreated?: boolean;
+  fallback?: PurchaseEmailFallback,
+  dependencies: PurchaseEmailDependencies = {
+    getDb: getFirestore,
+    deliver: sendTicketEmail,
   }
 ) => {
-  const purchaseRef = getFirestore().collection("purchases").doc(purchaseId);
+  const db = dependencies.getDb();
+  const purchaseRef = db.collection("purchases").doc(purchaseId);
   let shouldSend = false;
   let userId = fallback?.userId;
   let eventId = fallback?.eventId;
@@ -257,7 +278,8 @@ export const sendPurchaseEmail = async (
   let accountCreated = fallback?.accountCreated;
 
   try {
-    await getFirestore().runTransaction(async (transaction) => {
+    await db.runTransaction(async (transaction) => {
+      shouldSend = false;
       const purchaseSnap = await transaction.get(purchaseRef);
       if (!purchaseSnap.exists) {
         return;
@@ -312,7 +334,7 @@ export const sendPurchaseEmail = async (
     return;
   }
 
-  await sendTicketEmail(userId, eventId, ticketsCount ?? 1, {
+  await dependencies.deliver(userId, eventId, ticketsCount ?? 1, {
     accountCreated: Boolean(accountCreated),
   });
 };

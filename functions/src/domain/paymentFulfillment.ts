@@ -1,5 +1,6 @@
 /* eslint-disable require-jsdoc, max-len */
 import { createHash } from "node:crypto";
+import { MAX_PURCHASE_QUANTITY } from "./purchaseLimits.js";
 
 export const WEBHOOK_OUTCOMES = [
   "processed",
@@ -66,7 +67,8 @@ export type LegacyPurchaseResult =
   | {
     kind: "conflict";
     outcome: "refund_required_duplicate" |
-      "refund_required_invalid_session";
+      "refund_required_invalid_session" |
+      "refund_required_amount_mismatch";
     reason: string;
   };
 
@@ -211,7 +213,10 @@ export function classifyWebhookGate(
   return { kind: "continue" };
 }
 
+// eslint-disable-next-line complexity
 export function classifyLegacyPurchases(input: {
+  paymentId: string;
+  payment: ProviderPayment;
   paymentSessionId: string;
   session: PersistedPaymentSession;
   purchases: LegacyPurchase[];
@@ -226,6 +231,41 @@ export function classifyLegacyPurchases(input: {
   }
 
   const purchase = input.purchases[0];
+  if (normalizePaymentId(input.payment.id) !== input.paymentId) {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_invalid_session",
+      reason: "provider_payment_id_mismatch",
+    };
+  }
+  if (input.payment.currency_id !== "BRL") {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_invalid_session",
+      reason: "currency_mismatch",
+    };
+  }
+  const providerAmountInCents = moneyToCents(input.payment.transaction_amount);
+  const sessionAmountInCents = moneyToCents(input.session.totalAmount);
+  if (
+    providerAmountInCents === undefined ||
+    sessionAmountInCents === undefined ||
+    providerAmountInCents !== sessionAmountInCents
+  ) {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_amount_mismatch",
+      reason: "amount_mismatch",
+    };
+  }
+  const persistedPaymentId = normalizePaymentId(input.session.paymentId);
+  if (persistedPaymentId && persistedPaymentId !== input.paymentId) {
+    return {
+      kind: "conflict",
+      outcome: "refund_required_duplicate",
+      reason: "session_already_has_another_payment",
+    };
+  }
   const identityMatches =
     trimmedString(purchase.eventId) === trimmedString(input.session.eventId) &&
     trimmedString(purchase.userId) === trimmedString(input.session.userId);
@@ -295,6 +335,7 @@ export function classifyPaymentCompatibility(input: {
     ["standard", "vip", "premium"].includes(String(session.ticketType)) &&
     Number.isSafeInteger(session.quantity) &&
     Number(session.quantity) > 0 &&
+    Number(session.quantity) <= MAX_PURCHASE_QUANTITY &&
     unitPriceInCents !== undefined &&
     totalInCents !== undefined &&
     totalInCents === unitPriceInCents * Number(session.quantity) &&

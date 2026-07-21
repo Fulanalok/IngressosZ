@@ -126,24 +126,28 @@ export function createFirestorePaymentFulfillmentRepository(
         }
 
         const session = sessionSnapshot.data() as PersistedPaymentSession;
-        const eventId = asNonEmptyString(session.eventId);
-        const eventRef = eventId ? db.collection("events").doc(eventId) : undefined;
-        const eventSnapshot = eventRef ? await transaction.get(eventRef) : undefined;
-        const legacyPurchasesSnapshot = session.status === "approved" ?
-          undefined :
-          await transaction.get(
-            db.collection("purchases")
-              .where("paymentId", "==", command.paymentId)
-              .limit(2)
-          );
-
-        const compatibility = classifyPaymentCompatibility({
-          paymentId: command.paymentId,
-          payment: command.providerPayment,
-          session,
-          eventExists: Boolean(eventSnapshot?.exists),
-        });
-        if (compatibility.kind === "idempotent") {
+        if (session.status === "approved") {
+          const compatibility = classifyPaymentCompatibility({
+            paymentId: command.paymentId,
+            payment: command.providerPayment,
+            session,
+            eventExists: false,
+          });
+          if (compatibility.kind === "permanent") {
+            transaction.create(
+              webhookRef,
+              terminalEventData(
+                command,
+                compatibility.outcome,
+                compatibility.reason,
+                undefined
+              )
+            );
+            return { outcome: compatibility.outcome, newlyProcessed: true };
+          }
+          if (compatibility.kind !== "idempotent") {
+            throw new Error("Sessao approved produziu estado incompativel.");
+          }
           const outcome: WebhookOutcome = "processed";
           transaction.create(
             webhookRef,
@@ -160,28 +164,15 @@ export function createFirestorePaymentFulfillmentRepository(
             newlyProcessed: false,
           };
         }
-        if (compatibility.kind === "permanent") {
-          transaction.create(
-            webhookRef,
-            terminalEventData(
-              command,
-              compatibility.outcome,
-              compatibility.reason,
-              undefined
-            )
-          );
-          if (session.status !== "approved") {
-            transaction.update(sessionRef, {
-              status: "refund_required",
-              refundReason: compatibility.reason,
-              paymentId: command.paymentId,
-              updatedAt: Timestamp.fromMillis(command.nowMillis),
-            });
-          }
-          return { outcome: compatibility.outcome, newlyProcessed: true };
-        }
 
+        const legacyPurchasesSnapshot = await transaction.get(
+          db.collection("purchases")
+            .where("paymentId", "==", command.paymentId)
+            .limit(2)
+        );
         const legacyPurchaseResult = classifyLegacyPurchases({
+          paymentId: command.paymentId,
+          payment: command.providerPayment,
           paymentSessionId: sessionRef.id,
           session,
           purchases: legacyPurchasesSnapshot?.docs.map((document) => ({
@@ -258,6 +249,36 @@ export function createFirestorePaymentFulfillmentRepository(
             outcome: legacyPurchaseResult.outcome,
             newlyProcessed: false,
           };
+        }
+
+        const eventId = asNonEmptyString(session.eventId);
+        const eventRef = eventId ? db.collection("events").doc(eventId) : undefined;
+        const eventSnapshot = eventRef ? await transaction.get(eventRef) : undefined;
+        const compatibility = classifyPaymentCompatibility({
+          paymentId: command.paymentId,
+          payment: command.providerPayment,
+          session,
+          eventExists: Boolean(eventSnapshot?.exists),
+        });
+        if (compatibility.kind === "permanent") {
+          transaction.create(
+            webhookRef,
+            terminalEventData(
+              command,
+              compatibility.outcome,
+              compatibility.reason,
+              undefined
+            )
+          );
+          if (compatibility.reason !== "session_already_has_another_payment") {
+            transaction.update(sessionRef, {
+              status: "refund_required",
+              refundReason: compatibility.reason,
+              paymentId: command.paymentId,
+              updatedAt: Timestamp.fromMillis(command.nowMillis),
+            });
+          }
+          return { outcome: compatibility.outcome, newlyProcessed: true };
         }
 
         const quantity = session.quantity as number;

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { getApps, initializeApp } from "firebase-admin/app";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import { after, before, beforeEach, describe, it } from "mocha";
 import type {
   PaymentFulfillmentDependencies,
@@ -12,6 +12,7 @@ import {
 } from "../../lib/domain/paymentFulfillment.js";
 import { createFirestorePaymentFulfillmentRepository } from
   "../../lib/infrastructure/paymentFulfillmentFirestore.js";
+import { sendPurchaseEmail } from "../../lib/endpoints/email.js";
 
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "demo-ingressosz";
 process.env.GOOGLE_CLOUD_PROJECT =
@@ -291,6 +292,98 @@ describe("Webhook Integration Tests", () => {
     expect(emailCalls).to.equal(0);
   });
 
+  for (const legacyCase of [
+    { name: "sem providerState", missingField: "providerState" },
+    { name: "sem paymentMethod", missingField: "paymentMethod" },
+    { name: "sem o evento atual", missingField: "event" },
+  ]) {
+    it(`reconcilia compra approved legada ${legacyCase.name}`, async () => {
+      await seed({ availableTickets: 8 });
+      const db = getFirestore();
+      if (legacyCase.missingField === "event") {
+        await db.collection("events").doc("event-1").delete();
+      } else {
+        await db.collection("paymentSessions").doc("session-1").update({
+          [legacyCase.missingField]: FieldValue.delete(),
+        });
+      }
+      await db.collection("purchases").doc("legacy-approved").set({
+        paymentId: "payment-legacy-schema",
+        status: "approved",
+        eventId: "event-1",
+        userId: "buyer-1",
+      });
+
+      const result = await invoke("payment-legacy-schema");
+      expect(result).to.include({
+        outcome: "processed",
+        purchaseId: "legacy-approved",
+        newlyProcessed: false,
+      });
+      expect((await db.collection("purchases").get()).size).to.equal(1);
+      expect((await db.collection("tickets").get()).empty).to.equal(true);
+      if (legacyCase.missingField !== "event") {
+        expect((await db.collection("events").doc("event-1").get())
+          .data()?.availableTickets).to.equal(8);
+      }
+      expect((await db.collection("paymentWebhookEvents")
+        .doc("payment-legacy-schema").get()).data()?.outcome)
+        .to.equal("processed");
+      expect(emailCalls).to.equal(0);
+    });
+  }
+
+  it("nao reconcilia compra legada quando o valor diverge", async () => {
+    await seed();
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-amount").set({
+      paymentId: "payment-legacy-amount",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    const result = await invoke("payment-legacy-amount", "session-1", {
+      transaction_amount: 20,
+    });
+    expect(result.outcome).to.equal("refund_required_amount_mismatch");
+    expect((await db.collection("purchases").doc("legacy-amount").get())
+      .data()?.status).to.equal("approved");
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-amount").get()).data()).to.include({
+      outcome: "refund_required_amount_mismatch",
+      reason: "amount_mismatch",
+    });
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("reconcilia quantidade legada acima do limite sem novos tickets", async () => {
+    await seed({
+      availableTickets: 4,
+      session: { quantity: 6, unitPrice: 4, totalAmount: 24 },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-quantity").set({
+      paymentId: "payment-legacy-quantity",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+      items: [{ ticketType: "vip", quantity: 6 }],
+    });
+    const result = await invoke("payment-legacy-quantity", "session-1", {
+      transaction_amount: 24,
+    });
+    expect(result).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-quantity",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(4);
+    expect(emailCalls).to.equal(0);
+  });
+
   it("reconcilia refunded_oversold legado sem tickets ou estoque", async () => {
     await seed({ availableTickets: 1 });
     const db = getFirestore();
@@ -398,6 +491,33 @@ describe("Webhook Integration Tests", () => {
       .data()?.status).to.equal("refund_required");
   });
 
+  it("schema novo incompleto continua bloqueado sem compra legada", async () => {
+    await seed();
+    const db = getFirestore();
+    await db.collection("paymentSessions").doc("session-1").update({
+      providerState: FieldValue.delete(),
+    });
+    const result = await invoke("payment-incomplete");
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+  });
+
+  it("quantidade acima do limite nao inicia criacao de tickets", async () => {
+    await seed({
+      session: { quantity: 6, unitPrice: 4, totalAmount: 24 },
+    });
+    const result = await invoke("payment-quantity", "session-1", {
+      transaction_amount: 24,
+    });
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+  });
+
   it("oversell cria auditoria honesta sem alterar estoque", async () => {
     await seed({ availableTickets: 1 });
     const result = await invoke("payment-oversell");
@@ -426,6 +546,63 @@ describe("Webhook Integration Tests", () => {
       .doc("payment-duplicate").get()).data()?.outcome).to.equal(
       "refund_required_duplicate"
     );
+  });
+
+  it("paymentId duplicado nao substitui a identidade original da sessao", async () => {
+    await seed({
+      session: {
+        paymentMethod: "pix",
+        providerState: "created",
+        paymentId: "payment-original-pix",
+      },
+    });
+    const duplicate = await invoke("payment-duplicate-pix");
+    expect(duplicate.outcome).to.equal("refund_required_duplicate");
+    const db = getFirestore();
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({
+      status: "pending",
+      providerState: "created",
+      paymentId: "payment-original-pix",
+    });
+
+    expect((await invoke("payment-original-pix")).outcome)
+      .to.equal("processed");
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("trigger de ticket usa quantidade total e envia email uma vez", async () => {
+    const db = getFirestore();
+    await db.collection("purchases").doc("purchase-email").set({
+      userId: "buyer-1",
+      eventId: "event-1",
+      items: [{ ticketType: "vip", quantity: 3 }],
+    });
+    const deliveries: number[] = [];
+    const emailDependencies = {
+      getDb: () => db,
+      deliver: async (_userId, _eventId, ticketsCount) => {
+        deliveries.push(ticketsCount);
+      },
+    };
+    const triggerFallback = { userId: "buyer-1", eventId: "event-1" };
+    await Promise.all([
+      sendPurchaseEmail("purchase-email", triggerFallback, emailDependencies),
+      sendPurchaseEmail("purchase-email", triggerFallback, emailDependencies),
+    ]);
+    await sendPurchaseEmail(
+      "purchase-email",
+      triggerFallback,
+      emailDependencies
+    );
+
+    expect(deliveries).to.deep.equal([3]);
+    expect((await db.collection("purchases").doc("purchase-email").get())
+      .data()?.emailSent).to.equal(true);
   });
 
   it("external_reference funciona sem PII no metadata", async () => {

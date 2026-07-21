@@ -96,6 +96,8 @@ describe("payment fulfillment helpers", () => {
   it("classifica compra legada approved e oversold compativeis", () => {
     const persistedSession = session();
     expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
       paymentSessionId: "session-1",
       session: persistedSession,
       purchases: [{
@@ -109,6 +111,8 @@ describe("payment fulfillment helpers", () => {
       purchaseId: "purchase-approved",
     });
     expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
       paymentSessionId: "session-1",
       session: persistedSession,
       purchases: [{
@@ -127,6 +131,8 @@ describe("payment fulfillment helpers", () => {
   it("classifica compras legadas multiplas ou conflitantes", () => {
     const persistedSession = session();
     expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
       paymentSessionId: "session-1",
       session: persistedSession,
       purchases: [
@@ -138,6 +144,8 @@ describe("payment fulfillment helpers", () => {
       outcome: "refund_required_duplicate",
     });
     expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
       paymentSessionId: "session-1",
       session: persistedSession,
       purchases: [{
@@ -150,6 +158,43 @@ describe("payment fulfillment helpers", () => {
       kind: "conflict",
       outcome: "refund_required_invalid_session",
     });
+  });
+
+  it("valida valor, moeda e identidade do pagamento legado", () => {
+    const input = {
+      paymentId: "payment-1",
+      paymentSessionId: "session-1",
+      session: session(),
+      purchases: [{
+        id: "purchase-approved",
+        status: "approved",
+        eventId: "event-1",
+        userId: "user-1",
+      }],
+    };
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ transaction_amount: 20 }),
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_amount_mismatch",
+    });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ currency_id: "USD" }),
+    })).to.include({ kind: "conflict", reason: "currency_mismatch" });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ id: "another-payment" }),
+    })).to.include({
+      kind: "conflict",
+      reason: "provider_payment_id_mismatch",
+    });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ transaction_amount: 24 }),
+      session: session({ quantity: 6, unitPrice: 4, totalAmount: 24 }),
+    })).to.include({ kind: "processed", purchaseId: "purchase-approved" });
   });
 
   it("aceita valor correto e estados de tentativa recuperaveis", () => {
@@ -185,6 +230,19 @@ describe("payment fulfillment helpers", () => {
       session: session({ providerState: "ready" }),
       eventExists: true,
     })).to.include({ kind: "permanent", reason: "invalid_provider_state" });
+  });
+
+  it("rejeita quantidade acima do limite no fulfillment novo", () => {
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment({ transaction_amount: 24 }),
+      session: session({ quantity: 6, unitPrice: 4, totalAmount: 24 }),
+      eventExists: true,
+    })).to.include({
+      kind: "permanent",
+      outcome: "refund_required_invalid_session",
+      reason: "invalid_session_data",
+    });
   });
 
   it("ignora metadados adulterados na classificacao", () => {
