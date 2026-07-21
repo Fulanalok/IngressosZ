@@ -11,6 +11,7 @@ import {
   normalizePaymentId,
   processProviderPayment,
   stableWebhookDocumentId,
+  ticketExpirySeconds,
 } from "../domain/paymentFulfillment.js";
 import { createFirestorePaymentFulfillmentRepository } from
   "../infrastructure/paymentFulfillmentFirestore.js";
@@ -126,17 +127,6 @@ export function createWebhookHandler(dependencies: WebhookHandlerDependencies) {
       response.status(500).send("Internal Server Error");
     }
   };
-}
-
-function ticketExpirySeconds(
-  issuedAtMillis: number,
-  eventDate?: string,
-  eventTime?: string
-) {
-  if (!eventDate) return 90 * 24 * 60 * 60;
-  const end = new Date(`${eventDate}T${eventTime || "23:59"}:00`);
-  end.setDate(end.getDate() + 1);
-  return Math.max(Math.floor((end.getTime() - issuedAtMillis) / 1000), 86400);
 }
 
 function productionFulfillmentDependencies(): PaymentFulfillmentDependencies {

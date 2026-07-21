@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, it } from "mocha";
 import type {
   PaymentFulfillmentDependencies,
@@ -14,6 +15,7 @@ import {
   isApprovedProviderPayment,
   moneyToCents,
   processProviderPayment,
+  ticketExpirySeconds,
 } from "../../lib/domain/paymentFulfillment.js";
 import { createWebhookHandler, verifyMercadoPagoSignature } from
   "../../lib/endpoints/webhook.js";
@@ -72,6 +74,52 @@ describe("payment fulfillment helpers", () => {
     expect(moneyToCents(0.1 + 0.2)).to.equal(30);
     expect(moneyToCents(12.345)).to.equal(undefined);
     expect(moneyToCents(Number.NaN)).to.equal(undefined);
+  });
+
+  it("usa 90 dias quando o evento nao possui data", () => {
+    expect(ticketExpirySeconds(1700000000000, undefined, undefined))
+      .to.equal(90 * 24 * 60 * 60);
+    expect(ticketExpirySeconds(1700000000000, null, "20:00"))
+      .to.equal(90 * 24 * 60 * 60);
+    expect(ticketExpirySeconds(1700000000000, "data-invalida", "20:00"))
+      .to.equal(90 * 24 * 60 * 60);
+  });
+
+  it("usa 23:59 e o dia posterior quando o horario esta ausente", () => {
+    const issuedAtMillis = new Date("2026-07-20T12:00:00").getTime();
+    const expectedEnd = new Date("2026-07-21T23:59:00");
+    expectedEnd.setDate(expectedEnd.getDate() + 1);
+    expect(ticketExpirySeconds(issuedAtMillis, "2026-07-21", undefined))
+      .to.equal(Math.floor(
+        (expectedEnd.getTime() - issuedAtMillis) / 1000
+      ));
+    expect(ticketExpirySeconds(issuedAtMillis, "2026-07-21", "invalido"))
+      .to.equal(Math.floor(
+        (expectedEnd.getTime() - issuedAtMillis) / 1000
+      ));
+  });
+
+  it("nunca retorna menos de 86400 segundos", () => {
+    expect(ticketExpirySeconds(
+      new Date("2026-07-30T12:00:00").getTime(),
+      "2026-07-20",
+      "10:00"
+    )).to.equal(86400);
+  });
+
+  it("usa o helper compartilhado nos dois consumidores", () => {
+    const infrastructure = readFileSync(new URL(
+      "../infrastructure/paymentFulfillmentFirestore.ts",
+      import.meta.url
+    ), "utf8");
+    const webhook = readFileSync(new URL(
+      "../endpoints/webhook.ts",
+      import.meta.url
+    ), "utf8");
+    for (const source of [infrastructure, webhook]) {
+      expect(source).to.include("ticketExpirySeconds");
+      expect(source).not.to.include("function ticketExpirySeconds");
+    }
   });
 
   it("trata pagamento nao aprovado como observacao transitoria", () => {

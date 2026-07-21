@@ -193,6 +193,28 @@ export function moneyToCents(value: unknown): number | undefined {
   return cents;
 }
 
+export function ticketExpirySeconds(
+  issuedAtMillis: number,
+  eventDate?: unknown,
+  eventTime?: unknown
+) {
+  if (typeof eventDate !== "string" || !eventDate) {
+    return 90 * 24 * 60 * 60;
+  }
+  const defaultEnd = new Date(`${eventDate}T23:59:00`);
+  if (Number.isNaN(defaultEnd.getTime())) {
+    return 90 * 24 * 60 * 60;
+  }
+  const requestedEnd = typeof eventTime === "string" && eventTime ?
+    new Date(`${eventDate}T${eventTime}:00`) : defaultEnd;
+  const end = Number.isNaN(requestedEnd.getTime()) ? defaultEnd : requestedEnd;
+  end.setDate(end.getDate() + 1);
+  return Math.max(
+    Math.floor((end.getTime() - issuedAtMillis) / 1000),
+    86400
+  );
+}
+
 export function isApprovedProviderPayment(payment: ProviderPayment) {
   return payment.status === "approved";
 }

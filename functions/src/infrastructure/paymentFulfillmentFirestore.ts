@@ -15,6 +15,7 @@ import {
   classifyPaymentCompatibility,
   classifyWebhookGate,
   moneyToCents,
+  ticketExpirySeconds,
 } from "../domain/paymentFulfillment.js";
 
 type EventData = {
@@ -58,18 +59,6 @@ function existingResult(data: Record<string, unknown>): FulfillmentResult {
     purchaseId: typeof data.purchaseId === "string" ? data.purchaseId : undefined,
     newlyProcessed: false,
   };
-}
-
-function ticketExpirySeconds(
-  nowMillis: number,
-  eventDate: unknown,
-  eventTime: unknown
-) {
-  if (typeof eventDate !== "string") return 90 * 24 * 60 * 60;
-  const time = typeof eventTime === "string" ? eventTime : "23:59";
-  const end = new Date(`${eventDate}T${time}:00`);
-  end.setDate(end.getDate() + 1);
-  return Math.max(Math.floor((end.getTime() - nowMillis) / 1000), 86400);
 }
 
 export function createFirestorePaymentFulfillmentRepository(
