@@ -1,288 +1,651 @@
 import { expect } from "chai";
-import { createHmac } from "crypto";
-import admin from "firebase-admin";
 import { getApps, initializeApp } from "firebase-admin/app";
-import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import functionsTestLib from "firebase-functions-test";
-import { Payment } from "mercadopago";
-import { after, afterEach, before, describe, it } from "mocha";
-import net from "net";
-import nodemailer from "nodemailer";
+import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import { after, before, beforeEach, describe, it } from "mocha";
+import type {
+  PaymentFulfillmentDependencies,
+  ProviderPayment,
+} from "../../lib/domain/paymentFulfillment.js";
+import {
+  processProviderPayment,
+  stableWebhookDocumentId,
+} from "../../lib/domain/paymentFulfillment.js";
+import { createFirestorePaymentFulfillmentRepository } from
+  "../../lib/infrastructure/paymentFulfillmentFirestore.js";
+import { sendPurchaseEmail } from "../../lib/endpoints/email.js";
 
-const parseHostPort = (value: string) => {
-  const [host, port] = value.split(":");
-  return { host: host || "127.0.0.1", port: Number(port) || 8086 };
-};
-
-const canConnect = (host: string, port: number) =>
-  new Promise<boolean>((resolve) => {
-    const socket = net.connect({ host, port }, () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.setTimeout(500, () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.on("error", () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-
-type WebhookRequest = {
-  body: Record<string, unknown>;
-  headers: Record<string, string>;
-};
-type WebhookResponse = {
-  status: (code: number) => WebhookResponse;
-  send: (payload: unknown) => WebhookResponse;
-  json: (payload: unknown) => WebhookResponse;
-  end: () => WebhookResponse;
-};
-type WebhookHandler = (req: WebhookRequest, res: WebhookResponse) => void;
-type PaymentGet = typeof Payment.prototype.get;
-type GetUser = ReturnType<typeof admin.auth>["getUser"];
-type StubPayment = {
-  payerEmail: string;
-  metadata: {
-    eventId: string;
-    userId: string;
-    userEmail: string;
-    ticketType: string;
-    paymentSessionId: string;
-  };
-  additional_info: {
-    items: Array<{ quantity: number }>;
-    payer: { email: string };
-  };
-};
-
-process.env.FUNCTIONS_EMULATOR = "true";
-process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "zingressos-test";
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "demo-ingressosz";
 process.env.GOOGLE_CLOUD_PROJECT =
-  process.env.GOOGLE_CLOUD_PROJECT || "zingressos-test";
-process.env.FIREBASE_CONFIG =
-  process.env.FIREBASE_CONFIG ||
-  JSON.stringify({
-    projectId: "zingressos-test",
-    storageBucket: "zingressos-test.appspot.com",
+  process.env.GOOGLE_CLOUD_PROJECT || "demo-ingressosz";
+
+const nowMillis = Date.parse("2026-07-20T12:00:00.000Z");
+const collectionNames = [
+  "paymentWebhookEvents",
+  "paymentSessions",
+  "purchases",
+  "tickets",
+  "events",
+];
+
+describe("Webhook Integration Tests", () => {
+  let emailCalls = 0;
+
+  before(() => {
+    if (!process.env.FIRESTORE_EMULATOR_HOST) {
+      throw new Error(
+        "FIRESTORE_EMULATOR_HOST ausente; execute npm run test:webhook na raiz."
+      );
+    }
+    if (!getApps().length) initializeApp({ projectId: "demo-ingressosz" });
   });
-process.env.FIRESTORE_EMULATOR_HOST =
-  process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8086";
-process.env.FIREBASE_AUTH_EMULATOR_HOST =
-  process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
-process.env.JWT_SECRET = process.env.JWT_SECRET || "e2e-secret";
-process.env.MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || "e2e-token";
-process.env.MP_WEBHOOK_SECRET =
-  process.env.MP_WEBHOOK_SECRET || "webhook-e2e-secret";
-process.env.SMTP_EMAIL = process.env.SMTP_EMAIL || "";
-process.env.SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
 
-const functionsTest = functionsTestLib({
-  projectId: "zingressos-test",
-  storageBucket: "zingressos-test.appspot.com",
-});
-
-describe("Webhook E2E (pagamento -> webhook -> tickets)", () => {
-  let receiveWebhook: WebhookHandler | undefined;
-  let originalGet: PaymentGet | undefined;
-  let originalGetUser: GetUser | undefined;
-  let originalCreateTransport: typeof nodemailer.createTransport | undefined;
-  let stubPayment: StubPayment | null = null;
-  const cleanupPaths: Array<{ path: string; id: string }> = [];
-
-  const createDoc = async (path: string, data: Record<string, unknown>) => {
-    const ref = getFirestore().collection(path).doc();
-    await ref.set(data);
-    cleanupPaths.push({ path, id: ref.id });
-    return ref;
-  };
-
-  const invokeWebhook = (body: Record<string, unknown>) =>
-    new Promise<{ statusCode: number; payload: unknown }>((resolve, reject) => {
-      if (!receiveWebhook) {
-        reject(new Error("receiveWebhook não inicializado"));
-        return;
-      }
-      let statusCode = 200;
-      const paymentId =
-        typeof (body.data as { id?: unknown } | undefined)?.id === "string" ?
-          ((body.data as { id: string }).id) :
-          "";
-      const requestId = `request-${paymentId || Date.now()}`;
-      const ts = "1700000000";
-      const manifest = `id:${paymentId};request-id:${requestId};ts:${ts};`;
-      const hash = createHmac(
-        "sha256",
-        process.env.MP_WEBHOOK_SECRET || ""
-      )
-        .update(manifest)
-        .digest("hex");
-      const req: WebhookRequest = {
-        body,
-        headers: {
-          "x-request-id": requestId,
-          "x-signature": `ts=${ts},v1=${hash}`,
-        },
-      };
-      const res: WebhookResponse = {
-        status: (code: number) => {
-          statusCode = code;
-          return res;
-        },
-        send: (payload: unknown) => {
-          resolve({ statusCode, payload });
-          return res;
-        },
-        json: (payload: unknown) => {
-          resolve({ statusCode, payload });
-          return res;
-        },
-        end: () => {
-          resolve({ statusCode, payload: "" });
-          return res;
-        },
-      };
-
-      try {
-        receiveWebhook(req, res);
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-  before(async function () {
-    const { host, port } = parseHostPort(
-      process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8086"
-    );
-    const ready = await canConnect(host, port);
-    if (!ready) {
-      this.skip();
+  beforeEach(async () => {
+    const db = getFirestore();
+    for (const name of collectionNames) {
+      const snapshot = await db.collection(name).get();
+      await Promise.all(snapshot.docs.map((document) => document.ref.delete()));
     }
+    emailCalls = 0;
+  });
 
-    originalCreateTransport = nodemailer.createTransport;
-    nodemailer.createTransport = (() => ({
-      sendMail: async () => ({ messageId: "mock-id" }),
-    })) as unknown as typeof nodemailer.createTransport;
-
-    const mod = await import("../../lib/index.js");
-    if (!getApps().length) {
-      initializeApp({ projectId: "zingressos-test" });
+  after(async () => {
+    const db = getFirestore();
+    for (const name of collectionNames) {
+      const snapshot = await db.collection(name).get();
+      await Promise.all(snapshot.docs.map((document) => document.ref.delete()));
     }
-    receiveWebhook = mod.receiveWebhook as unknown as WebhookHandler;
-    originalGet = Payment.prototype.get;
-    Payment.prototype.get = async ({ id }: { id: string }) => {
-      if (!stubPayment) {
-        throw new Error("Stub payment não configurado");
-      }
-      return {
-        id,
-        status: "approved",
-        metadata: stubPayment.metadata,
-        additional_info: stubPayment.additional_info,
-        payer: { email: stubPayment.payerEmail },
-      } as unknown as Awaited<ReturnType<PaymentGet>>;
+  });
+
+  function dependencies(): PaymentFulfillmentDependencies {
+    return {
+      repository: createFirestorePaymentFulfillmentRepository(getFirestore()),
+      now: () => nowMillis,
+      createPurchaseId: (paymentId) =>
+        stableWebhookDocumentId("purchase", paymentId),
+      createTicketId: (paymentId, index) =>
+        stableWebhookDocumentId("ticket", `${paymentId}:${index}`),
+      signTicket: ({ ticketId }) => `signed-${ticketId}`,
+      sendPurchaseEmail: async () => {
+        emailCalls += 1;
+      },
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+        error: () => undefined,
+      },
     };
-    const auth = admin.auth();
-    originalGetUser = auth.getUser;
-    auth.getUser = async (uid: string) => {
-      return {
-        uid,
-        email: stubPayment?.payerEmail || "e2e.user@example.com",
-      } as unknown as Awaited<ReturnType<GetUser>>;
-    };
-  });
+  }
 
-  afterEach(async () => {
-    try {
-      const tickets = await getFirestore().collection("tickets").get();
-      await Promise.all(tickets.docs.map((doc) => doc.ref.delete()));
-      const purchases = await getFirestore().collection("purchases").get();
-      await Promise.all(purchases.docs.map((doc) => doc.ref.delete()));
-      for (const item of cleanupPaths.splice(0)) {
-        await getFirestore().collection(item.path).doc(item.id).delete();
-      }
-    } catch (err) {
-      console.warn("Error during cleanup:", err);
-    }
-  });
-
-  after(() => {
-    if (originalGet) {
-      Payment.prototype.get = originalGet;
-    }
-    if (originalGetUser) {
-      const auth = admin.auth();
-      auth.getUser = originalGetUser;
-    }
-    if (originalCreateTransport) {
-      nodemailer.createTransport = originalCreateTransport;
-    }
-    functionsTest.cleanup();
-  });
-
-  it("processa pagamento aprovado e emite tickets", async () => {
-    const eventRef = await createDoc("events", {
-      title: "Evento E2E",
-      price: 120,
-      availableTickets: 10,
-      date: "2024-12-25",
+  async function seed(options: {
+    sessionId?: string;
+    eventId?: string;
+    availableTickets?: number;
+    inventory?: Record<string, number>;
+    session?: Record<string, unknown>;
+  } = {}) {
+    const db = getFirestore();
+    const eventId = options.eventId ?? "event-1";
+    const sessionId = options.sessionId ?? "session-1";
+    await db.collection("events").doc(eventId).set({
+      title: "Evento confiavel",
+      date: "2026-12-10",
       time: "20:00",
-      createdAt: FieldValue.serverTimestamp(),
+      availableTickets: options.availableTickets ?? 10,
+      ...(options.inventory ? { inventory: options.inventory } : {}),
+      updatedAt: Timestamp.fromMillis(nowMillis),
     });
-    const userEmail = "e2e.user@example.com";
-    const userId = `e2e-user-${Date.now()}`;
-
-    const paymentSessionRef = await createDoc("paymentSessions", {
-      eventId: eventRef.id,
-      userId,
+    await db.collection("paymentSessions").doc(sessionId).set({
+      eventId,
+      userId: "buyer-1",
+      userEmail: "buyer@example.com",
+      ticketType: "vip",
+      quantity: 2,
+      unitPrice: 12.34,
+      totalAmount: 24.68,
+      paymentMethod: "checkout",
+      provider: "mercadopago",
+      providerState: "created",
       status: "pending",
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: Timestamp.fromMillis(nowMillis - 1000),
+      updatedAt: Timestamp.fromMillis(nowMillis - 1000),
+      ...options.session,
+    });
+    return { eventId, sessionId };
+  }
+
+  function payment(
+    paymentId: string,
+    sessionId = "session-1",
+    overrides: Partial<ProviderPayment> = {}
+  ): ProviderPayment {
+    return {
+      id: paymentId,
+      status: "approved",
+      transaction_amount: 24.68,
+      currency_id: "BRL",
+      external_reference: sessionId,
+      metadata: { paymentSessionId: sessionId },
+      ...overrides,
+    };
+  }
+
+  async function invoke(
+    paymentId: string,
+    sessionId = "session-1",
+    overrides: Partial<ProviderPayment> = {}
+  ) {
+    return processProviderPayment(
+      paymentId,
+      payment(paymentId, sessionId, overrides),
+      dependencies()
+    );
+  }
+
+  it("processa compra usando apenas a paymentSession", async () => {
+    await seed({ inventory: { vip: 4, standard: 6 } });
+    const result = await invoke("payment-1", "session-1", {
+      metadata: {
+        paymentSessionId: "session-1",
+        eventId: "attacker-event",
+        userId: "attacker",
+        userEmail: "attacker@example.com",
+        ticketType: "premium",
+        quantity: 999,
+      },
     });
 
-    const paymentId = `pay-${Date.now()}`;
-    stubPayment = {
-      payerEmail: userEmail,
-      metadata: {
-        eventId: eventRef.id,
-        userId,
-        userEmail,
-        ticketType: "standard",
-        paymentSessionId: paymentSessionRef.id,
+    expect(result.outcome).to.equal("processed");
+    const db = getFirestore();
+    const purchases = await db.collection("purchases").get();
+    const tickets = await db.collection("tickets").get();
+    const event = (await db.collection("events").doc("event-1").get()).data();
+    const sessionData = (
+      await db.collection("paymentSessions").doc("session-1").get()
+    ).data();
+    const webhookEvent = (
+      await db.collection("paymentWebhookEvents").doc("payment-1").get()
+    ).data();
+    expect(purchases.size).to.equal(1);
+    expect(tickets.size).to.equal(2);
+    expect(tickets.docs.map((ticket) => ticket.data().price)).to.deep.equal([
+      12.34,
+      12.34,
+    ]);
+    expect(tickets.docs.every((ticket) =>
+      ticket.data().userId === "buyer-1" &&
+      ticket.data().ticketType === "vip"
+    )).to.equal(true);
+    expect(event?.availableTickets).to.equal(8);
+    expect(event?.inventory.vip).to.equal(2);
+    expect(sessionData).to.include({
+      status: "approved",
+      providerState: "created",
+      paymentId: "payment-1",
+    });
+    expect(webhookEvent?.outcome).to.equal("processed");
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("pending repetido nao produz efeitos e approved posterior processa uma vez", async () => {
+    await seed();
+    const first = await invoke("payment-transition", "session-1", {
+      status: "pending",
+    });
+    const second = await invoke("payment-transition", "session-1", {
+      status: "pending",
+    });
+    expect(first).to.include({
+      outcome: "ignored_not_approved",
+      newlyProcessed: false,
+    });
+    expect(second).to.include({
+      outcome: "ignored_not_approved",
+      newlyProcessed: false,
+    });
+    const db = getFirestore();
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-transition").get()).exists).to.equal(false);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.status).to.equal("pending");
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+    expect(emailCalls).to.equal(0);
+
+    expect((await invoke("payment-transition")).outcome).to.equal("processed");
+    await invoke("payment-transition");
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("rejected seguido de approved permanece processavel", async () => {
+    await seed();
+    expect((await invoke("payment-rejected", "session-1", {
+      status: "rejected",
+    })).outcome).to.equal("ignored_not_approved");
+    expect((await getFirestore().collection("paymentWebhookEvents")
+      .doc("payment-rejected").get()).exists).to.equal(false);
+    expect((await invoke("payment-rejected")).outcome).to.equal("processed");
+    expect((await getFirestore().collection("tickets").get()).size).to.equal(2);
+  });
+
+  it("outcome processed prevalece sobre notificacao posterior nao aprovada", async () => {
+    await seed();
+    await invoke("payment-terminal");
+    const result = await invoke("payment-terminal", "session-1", {
+      status: "pending",
+    });
+    expect(result).to.include({ outcome: "processed", newlyProcessed: false });
+    const db = getFirestore();
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.status).to.equal("approved");
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("reconcilia compra approved legada sem repetir efeitos", async () => {
+    await seed({ availableTickets: 8 });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-approved").set({
+      paymentId: "payment-legacy-approved",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    await Promise.all([0, 1].map((index) =>
+      db.collection("tickets").doc(`legacy-ticket-${index}`).set({
+        paymentId: "payment-legacy-approved",
+        purchaseId: "legacy-approved",
+        eventId: "event-1",
+        userId: "buyer-1",
+      })
+    ));
+
+    const result = await invoke("payment-legacy-approved");
+    expect(result).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-approved",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({
+      status: "approved",
+      providerState: "created",
+      paymentId: "payment-legacy-approved",
+      purchaseId: "legacy-approved",
+    });
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-approved").get()).data()).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-approved",
+      reason: "legacy_purchase_reconciled",
+    });
+    expect(emailCalls).to.equal(0);
+  });
+
+  for (const legacyCase of [
+    { name: "sem providerState", missingField: "providerState" },
+    { name: "sem paymentMethod", missingField: "paymentMethod" },
+    { name: "sem o evento atual", missingField: "event" },
+  ]) {
+    it(`reconcilia compra approved legada ${legacyCase.name}`, async () => {
+      await seed({ availableTickets: 8 });
+      const db = getFirestore();
+      if (legacyCase.missingField === "event") {
+        await db.collection("events").doc("event-1").delete();
+      } else {
+        await db.collection("paymentSessions").doc("session-1").update({
+          [legacyCase.missingField]: FieldValue.delete(),
+        });
+      }
+      await db.collection("purchases").doc("legacy-approved").set({
+        paymentId: "payment-legacy-schema",
+        status: "approved",
+        eventId: "event-1",
+        userId: "buyer-1",
+      });
+
+      const result = await invoke("payment-legacy-schema");
+      expect(result).to.include({
+        outcome: "processed",
+        purchaseId: "legacy-approved",
+        newlyProcessed: false,
+      });
+      expect((await db.collection("purchases").get()).size).to.equal(1);
+      expect((await db.collection("tickets").get()).empty).to.equal(true);
+      if (legacyCase.missingField !== "event") {
+        expect((await db.collection("events").doc("event-1").get())
+          .data()?.availableTickets).to.equal(8);
+      }
+      expect((await db.collection("paymentWebhookEvents")
+        .doc("payment-legacy-schema").get()).data()?.outcome)
+        .to.equal("processed");
+      expect(emailCalls).to.equal(0);
+    });
+  }
+
+  it("nao reconcilia compra legada quando o valor diverge", async () => {
+    await seed();
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-amount").set({
+      paymentId: "payment-legacy-amount",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    const result = await invoke("payment-legacy-amount", "session-1", {
+      transaction_amount: 20,
+    });
+    expect(result.outcome).to.equal("refund_required_amount_mismatch");
+    expect((await db.collection("purchases").doc("legacy-amount").get())
+      .data()?.status).to.equal("approved");
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-amount").get()).data()).to.include({
+      outcome: "refund_required_amount_mismatch",
+      reason: "amount_mismatch",
+    });
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("reconcilia quantidade legada acima do limite sem novos tickets", async () => {
+    await seed({
+      availableTickets: 4,
+      session: { quantity: 6, unitPrice: 4, totalAmount: 24 },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-quantity").set({
+      paymentId: "payment-legacy-quantity",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+      items: [{ ticketType: "vip", quantity: 6 }],
+    });
+    const result = await invoke("payment-legacy-quantity", "session-1", {
+      transaction_amount: 24,
+    });
+    expect(result).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-quantity",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(4);
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("reconcilia refunded_oversold legado sem tickets ou estoque", async () => {
+    await seed({ availableTickets: 1 });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-oversold").set({
+      paymentId: "payment-legacy-oversold",
+      paymentSessionId: "session-1",
+      status: "refunded_oversold",
+      eventId: "event-1",
+      userId: "buyer-1",
+    });
+    const result = await invoke("payment-legacy-oversold");
+    expect(result).to.include({
+      outcome: "refund_required_oversold",
+      newlyProcessed: false,
+    });
+    expect((await db.collection("purchases").doc("legacy-oversold").get())
+      .data()?.status).to.equal("refund_required_oversold");
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(1);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({ status: "refund_required", refundReason: "oversold" });
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-oversold").get()).data()?.outcome).to.equal(
+      "refund_required_oversold"
+    );
+  });
+
+  it("multiplas compras legadas registram conflito sem novo fulfillment", async () => {
+    await seed();
+    const db = getFirestore();
+    await Promise.all(["legacy-a", "legacy-b"].map((purchaseId) =>
+      db.collection("purchases").doc(purchaseId).set({
+        paymentId: "payment-legacy-conflict",
+        status: "approved",
+        eventId: "event-1",
+        userId: "buyer-1",
+      })
+    ));
+    const result = await invoke("payment-legacy-conflict");
+    expect(result.outcome).to.equal("refund_required_duplicate");
+    expect((await db.collection("purchases").get()).size).to.equal(2);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.status).to.equal("pending");
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-conflict").get()).data()).to.include({
+      outcome: "refund_required_duplicate",
+      reason: "multiple_legacy_purchases",
+    });
+    expect(emailCalls).to.equal(0);
+  });
+
+  it("repete o mesmo paymentId sem duplicar efeitos ou email", async () => {
+    await seed();
+    await invoke("payment-repeat");
+    await invoke("payment-repeat");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("duas invocacoes concorrentes produzem um unico fulfillment", async () => {
+    await seed();
+    const results = await Promise.all([
+      invoke("payment-concurrent"),
+      invoke("payment-concurrent"),
+    ]);
+    expect(results.map((result) => result.outcome)).to.deep.equal([
+      "processed",
+      "processed",
+    ]);
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("sessao inexistente registra outcome terminal sem efeitos", async () => {
+    const result = await invoke("payment-missing", "missing-session");
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-missing").get()).data()?.reason).to.equal(
+      "session_not_found"
+    );
+  });
+
+  it("amount mismatch nao aprova compra nem emite tickets", async () => {
+    await seed();
+    const result = await invoke("payment-amount", "session-1", {
+      transaction_amount: 20,
+    });
+    expect(result.outcome).to.equal("refund_required_amount_mismatch");
+    const db = getFirestore();
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.status).to.equal("refund_required");
+  });
+
+  it("schema novo incompleto continua bloqueado sem compra legada", async () => {
+    await seed();
+    const db = getFirestore();
+    await db.collection("paymentSessions").doc("session-1").update({
+      providerState: FieldValue.delete(),
+    });
+    const result = await invoke("payment-incomplete");
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+  });
+
+  it("quantidade acima do limite nao inicia criacao de tickets", async () => {
+    await seed({
+      session: { quantity: 6, unitPrice: 4, totalAmount: 24 },
+    });
+    const result = await invoke("payment-quantity", "session-1", {
+      transaction_amount: 24,
+    });
+    expect(result.outcome).to.equal("refund_required_invalid_session");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).empty).to.equal(true);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(10);
+  });
+
+  it("oversell cria auditoria honesta sem alterar estoque", async () => {
+    await seed({ availableTickets: 1 });
+    const result = await invoke("payment-oversell");
+    expect(result.outcome).to.equal("refund_required_oversold");
+    const db = getFirestore();
+    const purchase = (await db.collection("purchases").get()).docs[0].data();
+    expect(purchase.status).to.equal("refund_required_oversold");
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(1);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({ status: "refund_required", refundReason: "oversold" });
+  });
+
+  it("segundo paymentId exige reembolso e preserva compra original", async () => {
+    await seed();
+    await invoke("payment-original");
+    const duplicate = await invoke("payment-duplicate");
+    expect(duplicate.outcome).to.equal("refund_required_duplicate");
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.paymentId).to.equal("payment-original");
+    expect((await db.collection("paymentWebhookEvents")
+      .doc("payment-duplicate").get()).data()?.outcome).to.equal(
+      "refund_required_duplicate"
+    );
+  });
+
+  it("paymentId duplicado nao substitui a identidade original da sessao", async () => {
+    await seed({
+      session: {
+        paymentMethod: "pix",
+        providerState: "created",
+        paymentId: "payment-original-pix",
       },
-      additional_info: {
-        items: [{ quantity: 2 }],
-        payer: { email: userEmail },
+    });
+    const duplicate = await invoke("payment-duplicate-pix");
+    expect(duplicate.outcome).to.equal("refund_required_duplicate");
+    const db = getFirestore();
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()).to.include({
+      status: "pending",
+      providerState: "created",
+      paymentId: "payment-original-pix",
+    });
+
+    expect((await invoke("payment-original-pix")).outcome)
+      .to.equal("processed");
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).size).to.equal(2);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(8);
+    expect(emailCalls).to.equal(1);
+  });
+
+  it("trigger de ticket usa quantidade total e envia email uma vez", async () => {
+    const db = getFirestore();
+    await db.collection("purchases").doc("purchase-email").set({
+      userId: "buyer-1",
+      eventId: "event-1",
+      items: [{ ticketType: "vip", quantity: 3 }],
+    });
+    const deliveries: number[] = [];
+    const emailDependencies = {
+      getDb: () => db,
+      deliver: async (_userId, _eventId, ticketsCount) => {
+        deliveries.push(ticketsCount);
       },
     };
+    const triggerFallback = { userId: "buyer-1", eventId: "event-1" };
+    await Promise.all([
+      sendPurchaseEmail("purchase-email", triggerFallback, emailDependencies),
+      sendPurchaseEmail("purchase-email", triggerFallback, emailDependencies),
+    ]);
+    await sendPurchaseEmail(
+      "purchase-email",
+      triggerFallback,
+      emailDependencies
+    );
 
-    const { statusCode } = await invokeWebhook({
-      type: "payment",
-      data: { id: paymentId },
+    expect(deliveries).to.deep.equal([3]);
+    expect((await db.collection("purchases").doc("purchase-email").get())
+      .data()?.emailSent).to.equal(true);
+  });
+
+  it("external_reference funciona sem PII no metadata", async () => {
+    await seed();
+    const result = await invoke("payment-external", "session-1", {
+      metadata: { paymentSessionId: "session-1" },
     });
-    expect(statusCode).to.equal(200);
+    expect(result.outcome).to.equal("processed");
+  });
 
-    const purchases = await getFirestore()
-      .collection("purchases")
-      .where("paymentId", "==", paymentId)
-      .get();
-    expect(purchases.size).to.equal(1);
-    const purchaseId = purchases.docs[0].id;
+  it("metadata legado localiza sessao sem external_reference", async () => {
+    await seed();
+    const result = await invoke("payment-legacy", "session-1", {
+      external_reference: null,
+      metadata: { payment_session_id: "session-1" },
+    });
+    expect(result.outcome).to.equal("processed");
+  });
 
-    const tickets = await getFirestore()
-      .collection("tickets")
-      .where("purchaseId", "==", purchaseId)
-      .get();
-    expect(tickets.size).to.equal(2);
-
-    const paymentSessionSnap = await paymentSessionRef.get();
-    const paymentSession = paymentSessionSnap.data();
-    expect(paymentSession?.status).to.equal("approved");
-    expect(paymentSession?.paymentId).to.equal(paymentId);
-
-    const eventSnap = await eventRef.get();
-    const event = eventSnap.data();
-    expect(event?.availableTickets).to.equal(8);
+  it("falha antes do commit deixa a sessao repetivel e sem processing", async () => {
+    await seed();
+    const failingDependencies = dependencies();
+    failingDependencies.repository = {
+      fulfill: async () => {
+        throw new Error("firestore unavailable");
+      },
+    };
+    try {
+      await processProviderPayment(
+        "payment-retry",
+        payment("payment-retry"),
+        failingDependencies
+      );
+      expect.fail("deveria falhar");
+    } catch (error) {
+      expect((error as Error).message).to.equal("firestore unavailable");
+    }
+    const db = getFirestore();
+    const sessionData = (
+      await db.collection("paymentSessions").doc("session-1").get()
+    ).data();
+    expect(sessionData?.status).to.equal("pending");
+    expect(sessionData?.status).not.to.equal("processing");
+    expect((await invoke("payment-retry")).outcome).to.equal("processed");
   });
 });

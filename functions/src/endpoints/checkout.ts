@@ -14,6 +14,47 @@ import {
   paymentSessionRepository,
 } from "./paymentSessions.js";
 
+export async function createPreferenceWithClient(
+  preference: Pick<Preference, "create">,
+  session: PaymentSessionData,
+  event: PaymentEventData,
+  paymentSessionId: string
+) {
+  const title = `Ingresso ${TICKET_TYPE_LABELS[session.ticketType]}: ${
+    event.title ?? ""
+  }`;
+  const result = await preference.create({
+    body: {
+      items: [{
+        id: session.eventId,
+        title,
+        quantity: session.quantity,
+        unit_price: session.unitPrice,
+        currency_id: "BRL",
+      }],
+      payer: { email: session.userEmail },
+      metadata: { paymentSessionId },
+      external_reference: paymentSessionId,
+      back_urls: {
+        success: `${webBaseUrl.value()}/pagamento/sucesso`,
+        failure: `${webBaseUrl.value()}/pagamento/cancelado`,
+        pending: `${webBaseUrl.value()}/pagamento/cancelado`,
+      },
+      auto_return: "approved",
+    },
+    requestOptions: {
+      idempotencyKey: buildProviderIdempotencyKey(
+        paymentSessionId,
+        "checkout"
+      ),
+    },
+  });
+  if (!result.id) {
+    throw new HttpsError("internal", "Preference ID nao retornado.");
+  }
+  return { providerId: result.id, response: { id: result.id } };
+}
+
 async function createPreferenceAtProvider(
   session: PaymentSessionData,
   event: PaymentEventData,
@@ -43,47 +84,14 @@ async function createPreferenceAtProvider(
     );
   }
 
-  const title = `Ingresso ${TICKET_TYPE_LABELS[session.ticketType]}: ${
-    event.title ?? ""
-  }`;
   const preference = new Preference(new MercadoPagoConfig({ accessToken }));
   try {
-    const result = await preference.create({
-      body: {
-        items: [{
-          id: session.eventId,
-          title,
-          quantity: session.quantity,
-          unit_price: session.unitPrice,
-          currency_id: "BRL",
-        }],
-        payer: { email: session.userEmail },
-        metadata: {
-          eventId: session.eventId,
-          userId: session.userId,
-          quantity: session.quantity,
-          userEmail: session.userEmail,
-          ticketType: session.ticketType,
-          paymentSessionId,
-        },
-        back_urls: {
-          success: `${webBaseUrl.value()}/pagamento/sucesso`,
-          failure: `${webBaseUrl.value()}/pagamento/cancelado`,
-          pending: `${webBaseUrl.value()}/pagamento/cancelado`,
-        },
-        auto_return: "approved",
-      },
-      requestOptions: {
-        idempotencyKey: buildProviderIdempotencyKey(
-          paymentSessionId,
-          "checkout"
-        ),
-      },
-    });
-    if (!result.id) {
-      throw new HttpsError("internal", "Preference ID nao retornado.");
-    }
-    return { providerId: result.id, response: { id: result.id } };
+    return await createPreferenceWithClient(
+      preference,
+      session,
+      event,
+      paymentSessionId
+    );
   } catch (error) {
     logger.error("Erro ao criar preferencia de pagamento:", error);
     if (isEmulator) {

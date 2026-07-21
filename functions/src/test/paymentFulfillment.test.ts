@@ -1,0 +1,512 @@
+import { expect } from "chai";
+import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { describe, it } from "mocha";
+import type {
+  PaymentFulfillmentDependencies,
+  PersistedPaymentSession,
+  ProviderPayment,
+} from "../../lib/domain/paymentFulfillment.js";
+import {
+  classifyLegacyPurchases,
+  classifyPaymentCompatibility,
+  classifyWebhookGate,
+  extractPaymentSessionId,
+  isApprovedProviderPayment,
+  moneyToCents,
+  processProviderPayment,
+  ticketExpirySeconds,
+} from "../../lib/domain/paymentFulfillment.js";
+import { createWebhookHandler, verifyMercadoPagoSignature } from
+  "../../lib/endpoints/webhook.js";
+
+const session = (
+  overrides: Partial<PersistedPaymentSession> = {}
+): PersistedPaymentSession => ({
+  eventId: "event-1",
+  userId: "user-1",
+  userEmail: "buyer@example.com",
+  ticketType: "vip",
+  quantity: 2,
+  unitPrice: 12.34,
+  totalAmount: 24.68,
+  paymentMethod: "checkout",
+  provider: "mercadopago",
+  providerState: "created",
+  status: "pending",
+  ...overrides,
+});
+
+const payment = (overrides: Partial<ProviderPayment> = {}): ProviderPayment => ({
+  id: "payment-1",
+  status: "approved",
+  transaction_amount: 24.68,
+  currency_id: "BRL",
+  external_reference: "session-1",
+  metadata: { paymentSessionId: "session-1" },
+  ...overrides,
+});
+
+describe("payment fulfillment helpers", () => {
+  it("extrai external_reference", () => {
+    expect(extractPaymentSessionId(payment())).to.deep.equal({
+      paymentSessionId: "session-1",
+    });
+  });
+
+  it("aceita metadata paymentSessionId atual e legado", () => {
+    expect(extractPaymentSessionId({
+      metadata: { paymentSessionId: "current-session" },
+    })).to.deep.equal({ paymentSessionId: "current-session" });
+    expect(extractPaymentSessionId({
+      metadata: { payment_session_id: "legacy-session" },
+    })).to.deep.equal({ paymentSessionId: "legacy-session" });
+  });
+
+  it("rejeita referencias divergentes", () => {
+    expect(extractPaymentSessionId(payment({
+      metadata: { paymentSessionId: "other-session" },
+    }))).to.deep.equal({ reason: "divergent_reference" });
+  });
+
+  it("converte dinheiro para centavos sem comparar floats diretamente", () => {
+    expect(moneyToCents(12.34)).to.equal(1234);
+    expect(moneyToCents(0.1 + 0.2)).to.equal(30);
+    expect(moneyToCents(12.345)).to.equal(undefined);
+    expect(moneyToCents(Number.NaN)).to.equal(undefined);
+  });
+
+  it("usa 90 dias quando o evento nao possui data", () => {
+    expect(ticketExpirySeconds(1700000000000, undefined, undefined))
+      .to.equal(90 * 24 * 60 * 60);
+    expect(ticketExpirySeconds(1700000000000, null, "20:00"))
+      .to.equal(90 * 24 * 60 * 60);
+    expect(ticketExpirySeconds(1700000000000, "data-invalida", "20:00"))
+      .to.equal(90 * 24 * 60 * 60);
+  });
+
+  it("usa 23:59 e o dia posterior quando o horario esta ausente", () => {
+    const issuedAtMillis = new Date("2026-07-20T12:00:00").getTime();
+    const expectedEnd = new Date("2026-07-21T23:59:00");
+    expectedEnd.setDate(expectedEnd.getDate() + 1);
+    expect(ticketExpirySeconds(issuedAtMillis, "2026-07-21", undefined))
+      .to.equal(Math.floor(
+        (expectedEnd.getTime() - issuedAtMillis) / 1000
+      ));
+    expect(ticketExpirySeconds(issuedAtMillis, "2026-07-21", "invalido"))
+      .to.equal(Math.floor(
+        (expectedEnd.getTime() - issuedAtMillis) / 1000
+      ));
+  });
+
+  it("nunca retorna menos de 86400 segundos", () => {
+    expect(ticketExpirySeconds(
+      new Date("2026-07-30T12:00:00").getTime(),
+      "2026-07-20",
+      "10:00"
+    )).to.equal(86400);
+  });
+
+  it("usa o helper compartilhado nos dois consumidores", () => {
+    const infrastructure = readFileSync(new URL(
+      "../infrastructure/paymentFulfillmentFirestore.ts",
+      import.meta.url
+    ), "utf8");
+    const webhook = readFileSync(new URL(
+      "../endpoints/webhook.ts",
+      import.meta.url
+    ), "utf8");
+    for (const source of [infrastructure, webhook]) {
+      expect(source).to.include("ticketExpirySeconds");
+      expect(source).not.to.include("function ticketExpirySeconds");
+    }
+  });
+
+  it("trata pagamento nao aprovado como observacao transitoria", () => {
+    expect(isApprovedProviderPayment(payment())).to.equal(true);
+    expect(classifyWebhookGate(undefined, payment({ status: "pending" })))
+      .to.deep.equal({ kind: "transient_not_approved" });
+    expect(classifyWebhookGate(undefined, payment({ status: "rejected" })))
+      .to.deep.equal({ kind: "transient_not_approved" });
+    expect(classifyWebhookGate(undefined, payment()))
+      .to.deep.equal({ kind: "continue" });
+  });
+
+  it("preserva outcome terminal mesmo com notificacao posterior pending", () => {
+    expect(classifyWebhookGate("processed", payment({ status: "pending" })))
+      .to.deep.equal({ kind: "terminal" });
+    expect(classifyWebhookGate(
+      "refund_required_oversold",
+      payment({ status: "rejected" })
+    )).to.deep.equal({ kind: "terminal" });
+  });
+
+  it("classifica compra legada approved e oversold compativeis", () => {
+    const persistedSession = session();
+    expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-approved",
+        status: "approved",
+        eventId: "event-1",
+        userId: "user-1",
+      }],
+    })).to.deep.equal({
+      kind: "processed",
+      purchaseId: "purchase-approved",
+    });
+    expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-oversold",
+        status: "refunded_oversold",
+        eventId: "event-1",
+        userId: "user-1",
+        paymentSessionId: "session-1",
+      }],
+    })).to.deep.equal({
+      kind: "oversold",
+      purchaseId: "purchase-oversold",
+    });
+  });
+
+  it("classifica compras legadas multiplas ou conflitantes", () => {
+    const persistedSession = session();
+    expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [
+        { id: "purchase-1", status: "approved" },
+        { id: "purchase-2", status: "approved" },
+      ],
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_duplicate",
+    });
+    expect(classifyLegacyPurchases({
+      paymentId: "payment-1",
+      payment: payment(),
+      paymentSessionId: "session-1",
+      session: persistedSession,
+      purchases: [{
+        id: "purchase-conflict",
+        status: "approved",
+        eventId: "other-event",
+        userId: "user-1",
+      }],
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_invalid_session",
+    });
+  });
+
+  it("valida valor, moeda e identidade do pagamento legado", () => {
+    const input = {
+      paymentId: "payment-1",
+      paymentSessionId: "session-1",
+      session: session(),
+      purchases: [{
+        id: "purchase-approved",
+        status: "approved",
+        eventId: "event-1",
+        userId: "user-1",
+      }],
+    };
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ transaction_amount: 20 }),
+    })).to.include({
+      kind: "conflict",
+      outcome: "refund_required_amount_mismatch",
+    });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ currency_id: "USD" }),
+    })).to.include({ kind: "conflict", reason: "currency_mismatch" });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ id: "another-payment" }),
+    })).to.include({
+      kind: "conflict",
+      reason: "provider_payment_id_mismatch",
+    });
+    expect(classifyLegacyPurchases({
+      ...input,
+      payment: payment({ transaction_amount: 24 }),
+      session: session({ quantity: 6, unitPrice: 4, totalAmount: 24 }),
+    })).to.include({ kind: "processed", purchaseId: "purchase-approved" });
+  });
+
+  it("aceita valor correto e estados de tentativa recuperaveis", () => {
+    for (const providerState of ["created", "creating", "failed"]) {
+      expect(classifyPaymentCompatibility({
+        paymentId: "payment-1",
+        payment: payment(),
+        session: session({ providerState }),
+        eventExists: true,
+      })).to.deep.equal({ kind: "valid" });
+    }
+  });
+
+  it("rejeita valor, moeda e providerState ready incompatíveis", () => {
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment({ transaction_amount: 24.67 }),
+      session: session(),
+      eventExists: true,
+    })).to.include({
+      kind: "permanent",
+      outcome: "refund_required_amount_mismatch",
+    });
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment({ currency_id: "USD" }),
+      session: session(),
+      eventExists: true,
+    })).to.include({ kind: "permanent", reason: "currency_mismatch" });
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment(),
+      session: session({ providerState: "ready" }),
+      eventExists: true,
+    })).to.include({ kind: "permanent", reason: "invalid_provider_state" });
+  });
+
+  it("rejeita quantidade acima do limite no fulfillment novo", () => {
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment({ transaction_amount: 24 }),
+      session: session({ quantity: 6, unitPrice: 4, totalAmount: 24 }),
+      eventExists: true,
+    })).to.include({
+      kind: "permanent",
+      outcome: "refund_required_invalid_session",
+      reason: "invalid_session_data",
+    });
+  });
+
+  it("ignora metadados adulterados na classificacao", () => {
+    const result = classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment({
+        metadata: {
+          paymentSessionId: "session-1",
+          eventId: "attacker-event",
+          userId: "attacker",
+          quantity: 999,
+          ticketType: "premium",
+        },
+      }),
+      session: session(),
+      eventExists: true,
+    });
+    expect(result).to.deep.equal({ kind: "valid" });
+  });
+
+  it("classifica sessao aprovada pelo mesmo ou por outro pagamento", () => {
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment(),
+      session: session({
+        status: "approved",
+        paymentId: "payment-1",
+        purchaseId: "purchase-1",
+      }),
+      eventExists: true,
+    })).to.deep.equal({ kind: "idempotent", purchaseId: "purchase-1" });
+    expect(classifyPaymentCompatibility({
+      paymentId: "payment-1",
+      payment: payment(),
+      session: session({ status: "approved", paymentId: "payment-2" }),
+      eventExists: true,
+    })).to.include({
+      kind: "permanent",
+      outcome: "refund_required_duplicate",
+    });
+  });
+
+  it("valida assinatura HMAC e rejeita hash ausente ou diferente", () => {
+    const secret = "webhook-secret";
+    const requestId = "request-1";
+    const dataId = "payment-1";
+    const timestamp = "1700000000";
+    const hash = createHmac("sha256", secret)
+      .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`)
+      .digest("hex");
+    expect(verifyMercadoPagoSignature({
+      signature: `ts=${timestamp},v1=${hash}`,
+      requestId,
+      dataId,
+      secret,
+    })).to.equal(true);
+    expect(verifyMercadoPagoSignature({
+      signature: `ts=${timestamp},v1=00`,
+      requestId,
+      dataId,
+      secret,
+    })).to.equal(false);
+  });
+});
+
+describe("payment fulfillment orchestration", () => {
+  function dependencies(
+    fulfill: PaymentFulfillmentDependencies["repository"]["fulfill"]
+  ) {
+    let emailCalls = 0;
+    const deps: PaymentFulfillmentDependencies & { emailCalls(): number } = {
+      repository: { fulfill },
+      now: () => 1700000000000,
+      createPurchaseId: () => "purchase-1",
+      createTicketId: (_paymentId, index) => `ticket-${index}`,
+      signTicket: ({ ticketId }) => `jwt-${ticketId}`,
+      sendPurchaseEmail: async () => {
+        emailCalls += 1;
+      },
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+        error: () => undefined,
+      },
+      emailCalls: () => emailCalls,
+    };
+    return deps;
+  }
+
+  it("envia email somente para um novo processamento aprovado", async () => {
+    const deps = dependencies(async () => ({
+      outcome: "processed",
+      purchaseId: "purchase-1",
+      newlyProcessed: true,
+      email: {
+        purchaseId: "purchase-1",
+        userId: "user-1",
+        eventId: "event-1",
+        ticketsCount: 2,
+      },
+    }));
+    await processProviderPayment("payment-1", payment(), deps);
+    expect(deps.emailCalls()).to.equal(1);
+  });
+
+  it("webhook repetido nao envia outro email", async () => {
+    const deps = dependencies(async () => ({
+      outcome: "processed",
+      purchaseId: "purchase-1",
+      newlyProcessed: false,
+    }));
+    await processProviderPayment("payment-1", payment(), deps);
+    expect(deps.emailCalls()).to.equal(0);
+  });
+
+  it("falha de email depois do commit preserva o resultado processado", async () => {
+    const deps = dependencies(async () => ({
+      outcome: "processed",
+      purchaseId: "purchase-1",
+      newlyProcessed: true,
+      email: {
+        purchaseId: "purchase-1",
+        userId: "user-1",
+        eventId: "event-1",
+        ticketsCount: 2,
+      },
+    }));
+    deps.sendPurchaseEmail = async () => {
+      throw new Error("smtp unavailable");
+    };
+    const result = await processProviderPayment("payment-1", payment(), deps);
+    expect(result.outcome).to.equal("processed");
+  });
+
+  it("falha transitoria e propagada para permitir retry", async () => {
+    const deps = dependencies(async () => {
+      throw new Error("firestore unavailable");
+    });
+    try {
+      await processProviderPayment("payment-1", payment(), deps);
+      expect.fail("deveria propagar a falha");
+    } catch (error) {
+      expect((error as Error).message).to.equal("firestore unavailable");
+    }
+  });
+});
+
+describe("webhook HTTP layer", () => {
+  function signedRequest(secret: string) {
+    const paymentId = "payment-1";
+    const requestId = "request-1";
+    const timestamp = "1700000000";
+    const hash = createHmac("sha256", secret)
+      .update(`id:${paymentId};request-id:${requestId};ts:${timestamp};`)
+      .digest("hex");
+    return {
+      body: { type: "payment", data: { id: paymentId } },
+      headers: {
+        "x-request-id": requestId,
+        "x-signature": `ts=${timestamp},v1=${hash}`,
+      },
+    };
+  }
+
+  function responseRecorder() {
+    let statusCode = 200;
+    let payload = "";
+    const response = {
+      status(code: number) {
+        statusCode = code;
+        return response;
+      },
+      send(value: string) {
+        payload = value;
+        return response;
+      },
+    };
+    return {
+      response,
+      result: () => ({ statusCode, payload }),
+    };
+  }
+
+  it("retorna 403 para assinatura invalida", async () => {
+    const recorder = responseRecorder();
+    const handler = createWebhookHandler({
+      webhookSecret: () => "secret",
+      getPayment: async () => payment(),
+      processPayment: async () => ({ outcome: "processed" }),
+    });
+    await handler({
+      body: { type: "payment", data: { id: "payment-1" } },
+      headers: {
+        "x-request-id": "request-1",
+        "x-signature": "ts=1700000000,v1=00",
+      },
+    }, recorder.response);
+    expect(recorder.result()).to.deep.equal({
+      statusCode: 403,
+      payload: "Forbidden",
+    });
+  });
+
+  it("retorna 500 quando Mercado Pago ou Firestore falha", async () => {
+    const recorder = responseRecorder();
+    const handler = createWebhookHandler({
+      webhookSecret: () => "secret",
+      getPayment: async () => {
+        throw new Error("provider unavailable");
+      },
+      processPayment: async () => ({ outcome: "processed" }),
+    });
+    await handler(signedRequest("secret"), recorder.response);
+    expect(recorder.result()).to.deep.equal({
+      statusCode: 500,
+      payload: "Internal Server Error",
+    });
+  });
+});

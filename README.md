@@ -13,8 +13,9 @@ operacionais e legais mapeadas na documentacao.
 - Frontend React/Vite publicado no Firebase Hosting.
 - Backend serverless com Firebase Functions v2.
 - Checkout Pro e Pix via Mercado Pago.
-- Webhook Mercado Pago com validacao HMAC.
-- `paymentSessions` para rastrear a intencao de pagamento.
+- Webhook Mercado Pago com validacao HMAC e fulfillment idempotente.
+- `paymentSessions` como fonte confiavel dos dados da compra.
+- `paymentWebhookEvents/{paymentId}` como trava terminal de idempotencia.
 - Tickets digitais com QR Code JWT assinado.
 - Validador presencial com controle de role.
 - Painel admin para eventos, roles, vendas e reembolsos.
@@ -55,9 +56,20 @@ Fluxo principal:
 1. Usuario escolhe evento e quantidade.
 2. Frontend solicita `paymentSessions/{id}` a uma callable autenticada.
 3. Frontend envia somente o ID da sessao para Checkout ou Pix.
-4. Mercado Pago confirma via webhook.
-5. Backend valida a assinatura, consolida compra e emite tickets.
-6. QR Code e validado por usuario com role permitida.
+4. Mercado Pago confirma via webhook; metadata apenas localiza a sessao.
+5. Backend valida a assinatura e o pagamento contra a `paymentSession`.
+6. Uma transacao atomica registra o webhook, consolida compra, estoque e tickets.
+7. QR Code e validado por usuario com role permitida.
+
+O webhook nao usa `status: processing`: falhas anteriores ao commit podem ser
+repetidas, enquanto resultados terminais ficam em `paymentWebhookEvents`. Estados
+`refund_required_*` registram necessidade de compensacao; nao executam reembolso
+automatico no Mercado Pago.
+
+Notificacoes ainda nao aprovadas retornam `ignored_not_approved` sem persistir
+uma trava, podendo ser reenviadas depois como `approved`. Antes de um novo
+fulfillment, compras legadas pelo mesmo `paymentId` sao reconciliadas para evitar
+novo desconto de estoque, compra, ticket ou e-mail.
 
 ## Estrutura do repositorio
 

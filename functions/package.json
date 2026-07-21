@@ -8,7 +8,9 @@
     "serve": "npm run build && npx firebase-tools emulators:start --only functions --project demo-ingressosz --config ../firebase.json",
     "shell": "npm run build && npx firebase-tools functions:shell --project demo-ingressosz --config ../firebase.json",
     "start": "npm run shell",
-    "test": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register --timeout 10000 \"src/test/**/*.test.ts\"",
+    "test": "npm run test:unit",
+    "test:unit": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register --timeout 10000 --ignore \"src/test/webhook.e2e.test.ts\" \"src/test/**/*.test.ts\"",
+    "test:webhook": "npm run build && node --no-deprecation ./node_modules/mocha/bin/mocha -r ts-node/register --timeout 20000 \"src/test/webhook.e2e.test.ts\"",
     "deploy": "npx firebase-tools deploy --only functions --config ../firebase.json",
     "logs": "npx firebase-tools functions:log"
   },

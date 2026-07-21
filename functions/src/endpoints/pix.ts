@@ -44,11 +44,6 @@ export async function createPixWithClient(
       payment_method_id: "pix",
       payer: { email: session.userEmail },
       metadata: {
-        eventId: session.eventId,
-        userId: session.userId,
-        quantity: session.quantity,
-        userEmail: session.userEmail,
-        ticketType: session.ticketType,
         paymentSessionId,
       },
       additional_info: {

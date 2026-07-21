@@ -36,7 +36,8 @@ pagamento rastreavel via Mercado Pago.
 - Firestore Rules negam create, update e delete de `paymentSessions` ao cliente.
 - `paymentMethod` aceita apenas `checkout` ou `pix`.
 - `purchases` e `tickets` nao aceitam escrita direta do cliente.
-- Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET`.
+- Webhook Mercado Pago valida HMAC com `MP_WEBHOOK_SECRET` e usa
+  `paymentWebhookEvents/{paymentId}` como trava idempotente inacessivel ao cliente.
 - QR Code dos ingressos usa JWT assinado com `JWT_SECRET`.
 - Validacao presencial exige auth e role permitida.
 - Backend usa `getFirestore()` de `firebase-admin/firestore`.
@@ -59,11 +60,18 @@ pagamento rastreavel via Mercado Pago.
 3. Backend calcula valores e cria `paymentSessions/{id}` por transacao.
 4. Frontend envia somente o ID para `createPaymentPreference` ou
    `createPixPayment`.
-5. Mercado Pago confirma via `receiveWebhook`.
-6. Function valida assinatura, consulta o pagamento, atualiza a sessao, cria a
-   compra, decrementa estoque, emite tickets JWT e dispara e-mail.
-7. Oversell e falhas ficam registrados para auditoria; o reembolso automatico
-   no Mercado Pago apos oversell ainda e trabalho futuro.
+5. Mercado Pago confirma via `receiveWebhook`; metadata serve apenas para localizar
+   a sessao, inclusive no formato legado `payment_session_id`.
+6. Function valida assinatura e compara o pagamento com a `paymentSession`, fonte
+   exclusiva de usuario, evento, tipo, quantidade e valores.
+7. Uma transacao cria `paymentWebhookEvents`, compra e tickets e decrementa o
+   estoque. Nao existe estado intermediario `processing`.
+8. Oversell, duplicidade e incompatibilidades recebem estados `refund_required_*`
+   para auditoria. O reembolso automatico no Mercado Pago continua futuro.
+9. Estados nao aprovados sao observacoes transitorias: `ignored_not_approved`
+   nao e persistido e uma notificacao posterior `approved` continua processavel.
+10. Compras legadas pelo mesmo `paymentId` sao reconciliadas dentro da transacao
+    antes de criar qualquer novo fulfillment.
 
 ## Organizacao do Frontend
 
@@ -159,13 +167,17 @@ Exports publicos atuais:
 - `paymentSessions`: create/update/delete negados ao cliente; leitura pelo dono,
   organizer responsavel ou admin. O frontend envia apenas o ID da sessao para
   iniciar Checkout ou Pix.
+- `paymentWebhookEvents`: todo acesso do cliente e negado; Functions registram um
+  resultado terminal por `paymentId` na mesma transacao do fulfillment.
+  `ignored_not_approved` nao e armazenado nessa colecao.
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
 - `purchases`: sem acesso direto pelo cliente.
 - `users`: usuario gerencia dados proprios, mas `role` e protegida.
 
 ## Limitacoes Conhecidas
 
-1. O teste E2E do webhook depende de emuladores Firebase para rodar completo.
+1. O teste de integracao do webhook roda obrigatoriamente no Firestore Emulator
+   no CI.
 2. Validacao offline de QR Code ainda e futura; validacao atual depende do
    backend.
 3. Fluxo real do Mercado Pago precisa validacao manual em producao antes de

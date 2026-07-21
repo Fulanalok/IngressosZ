@@ -22,6 +22,7 @@ import {
   validateProviderSession,
 } from "../../lib/endpoints/paymentSessions.js";
 import { createPixWithClient } from "../../lib/endpoints/pix.js";
+import { createPreferenceWithClient } from "../../lib/endpoints/checkout.js";
 
 class FakePaymentSessionRepository implements PaymentSessionRepository {
   events = new Map<string, PaymentEventData>();
@@ -916,7 +917,7 @@ describe("idempotencia do Mercado Pago", () => {
     );
   });
 
-  it("envia idempotencyKey ao Payment.create sem alterar metadata", async () => {
+  it("envia idempotencyKey e somente o localizador no metadata Pix", async () => {
     let received: Record<string, unknown> | undefined;
     const payment = {
       create: async (data: Record<string, unknown>) => {
@@ -941,6 +942,25 @@ describe("idempotencia do Mercado Pago", () => {
     });
     const body = received?.body as Record<string, unknown>;
     expect(body.external_reference).to.equal("session-1");
-    expect(body.metadata).to.deep.include({ paymentSessionId: "session-1" });
+    expect(body.metadata).to.deep.equal({ paymentSessionId: "session-1" });
+  });
+
+  it("envia external_reference e somente o localizador no Checkout", async () => {
+    let received: Record<string, unknown> | undefined;
+    const preference = {
+      create: async (data: Record<string, unknown>) => {
+        received = data;
+        return { id: "preference-1" };
+      },
+    };
+    await createPreferenceWithClient(
+      preference as never,
+      session({ paymentMethod: "checkout" }),
+      event(),
+      "session-1"
+    );
+    const body = received?.body as Record<string, unknown>;
+    expect(body.external_reference).to.equal("session-1");
+    expect(body.metadata).to.deep.equal({ paymentSessionId: "session-1" });
   });
 });

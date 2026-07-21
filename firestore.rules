@@ -86,6 +86,10 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /paymentWebhookEvents/{paymentId} {
+      allow read, create, update, delete: if false;
+    }
+
     match /purchases/{purchaseId} {
       allow read, write: if false;
     }
