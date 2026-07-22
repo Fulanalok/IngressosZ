@@ -99,7 +99,7 @@ Campos esperados:
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  status: "pending" | "approved" | "failed" | "cancelled" | "expired";
+  status: "pending" | "approved" | "expired" | "refund_required";
   provider: "mercadopago";
   paymentMethod: "checkout" | "pix";
   expiresAt: Timestamp;
@@ -109,10 +109,18 @@ Campos esperados:
   providerCreatedAt?: Timestamp;
   preferenceId?: string;
   paymentId?: string;
+  purchaseId?: string;
+  refundReason?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   completedAt?: Timestamp;
+  approvedAt?: Timestamp;
   expiredAt?: Timestamp;
+  expirationReason?:
+    | "provider_not_started"
+    | "provider_attempt_failed"
+    | "provider_attempt_stale";
+  approvedAfterInitiationExpiry?: true;
 }
 ```
 

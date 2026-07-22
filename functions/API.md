@@ -22,7 +22,7 @@ handlers vivem em `functions/src/endpoints/`:
 - `system.ts`: healthcheck, log de erro do cliente e reCAPTCHA v2.
 - `storage.ts`: otimizacao de imagens.
 - `seed.ts`: carga de desenvolvimento.
-- `maintenance.ts`: expiracao agendada de sessoes Pix.
+- `maintenance.ts`: manutencao agendada do ciclo de vida de `paymentSessions`.
 
 ## Callable Functions
 
