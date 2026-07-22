@@ -30,6 +30,19 @@ export interface PaymentSessionLifecycleData {
   approvedAfterInitiationExpiry?: unknown;
 }
 
+export interface LegacyApprovalData {
+  approvedAt?: unknown;
+  createdAt?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
+}
+
+export interface LegacyApprovalTiming {
+  originalApprovalMillis?: number;
+  approvedAtMillis?: number;
+  shouldRepairApprovedAt: boolean;
+  approvedAfterInitiationExpiry: boolean;
+}
+
 export function timestampToMillis(value: unknown): number | undefined {
   if (value instanceof Date) {
     const millis = value.getTime();
@@ -128,4 +141,68 @@ export function isPersistedApprovalAfterInitiationExpiry(
   const expiresAtMillis = timestampToMillis(session.expiresAt);
   return approvedAtMillis !== undefined && expiresAtMillis !== undefined &&
     approvedAtMillis >= expiresAtMillis;
+}
+
+function resolvedLegacyApprovalFields(
+  originalApprovalMillis: number | undefined,
+  persistedApprovedAtMillis: number | undefined
+): Omit<LegacyApprovalTiming, "approvedAfterInitiationExpiry"> {
+  const approvedAtMillis = persistedApprovedAtMillis ?? originalApprovalMillis;
+  if (approvedAtMillis === undefined) {
+    return { shouldRepairApprovedAt: false };
+  }
+  return {
+    ...(originalApprovalMillis === undefined ? {} : {
+      originalApprovalMillis,
+    }),
+    approvedAtMillis,
+    shouldRepairApprovedAt: persistedApprovedAtMillis === undefined,
+  };
+}
+
+function legacyApprovalIsAfterInitiationExpiry(
+  session: Pick<
+    PaymentSessionLifecycleData,
+    "approvedAfterInitiationExpiry"
+  >,
+  purchase: LegacyApprovalData,
+  comparisonMillis: number | undefined,
+  expiresAtMillis: number | undefined
+) {
+  if (
+    session.approvedAfterInitiationExpiry === true ||
+    purchase.approvedAfterInitiationExpiry === true
+  ) {
+    return true;
+  }
+  if (comparisonMillis === undefined || expiresAtMillis === undefined) {
+    return false;
+  }
+  return comparisonMillis >= expiresAtMillis;
+}
+
+export function resolveLegacyApprovalTiming(
+  session: Pick<
+    PaymentSessionLifecycleData,
+    "approvedAt" | "expiresAt" | "approvedAfterInitiationExpiry"
+  >,
+  purchase: LegacyApprovalData
+): LegacyApprovalTiming {
+  const originalApprovalMillis = timestampToMillis(purchase.approvedAt) ??
+    timestampToMillis(purchase.createdAt);
+  const persistedApprovedAtMillis = timestampToMillis(session.approvedAt);
+  const comparisonMillis = originalApprovalMillis ?? persistedApprovedAtMillis;
+  const expiresAtMillis = timestampToMillis(session.expiresAt);
+  return {
+    ...resolvedLegacyApprovalFields(
+      originalApprovalMillis,
+      persistedApprovedAtMillis
+    ),
+    approvedAfterInitiationExpiry: legacyApprovalIsAfterInitiationExpiry(
+      session,
+      purchase,
+      comparisonMillis,
+      expiresAtMillis
+    ),
+  };
 }

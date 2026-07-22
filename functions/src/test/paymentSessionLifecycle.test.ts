@@ -5,6 +5,7 @@ import {
   classifyPaymentSessionExpiration,
   isApprovedAfterInitiationExpiry,
   isPersistedApprovalAfterInitiationExpiry,
+  resolveLegacyApprovalTiming,
 } from "../../lib/domain/paymentSessionLifecycle.js";
 import { classifyFulfillmentSessionStatus } from
   "../../lib/domain/paymentFulfillment.js";
@@ -144,6 +145,60 @@ describe("approved after initiation expiry", () => {
     expect(isPersistedApprovalAfterInitiationExpiry({}, {
       approvedAfterInitiationExpiry: true,
     })).to.equal(true);
+  });
+
+  it("resolve approvedAt legado antes de createdAt", () => {
+    const timing = resolveLegacyApprovalTiming({
+      expiresAt: new Date(nowMillis),
+    }, {
+      approvedAt: new Date(nowMillis - 2000),
+      createdAt: new Date(nowMillis + 2000),
+    });
+    expect(timing).to.deep.equal({
+      originalApprovalMillis: nowMillis - 2000,
+      approvedAtMillis: nowMillis - 2000,
+      shouldRepairApprovedAt: true,
+      approvedAfterInitiationExpiry: false,
+    });
+  });
+
+  it("usa createdAt legado como fallback e aplica a fronteira inclusiva", () => {
+    const atExpiry = resolveLegacyApprovalTiming({
+      expiresAt: new Date(nowMillis),
+    }, {
+      approvedAt: "invalido",
+      createdAt: new Date(nowMillis),
+    });
+    expect(atExpiry).to.include({
+      originalApprovalMillis: nowMillis,
+      approvedAtMillis: nowMillis,
+      shouldRepairApprovedAt: true,
+      approvedAfterInitiationExpiry: true,
+    });
+    expect(resolveLegacyApprovalTiming({
+      expiresAt: new Date(nowMillis),
+    }, {
+      createdAt: new Date(nowMillis + 1),
+    }).approvedAfterInitiationExpiry).to.equal(true);
+  });
+
+  it("nao usa retry como fallback e preserva evidencia existente", () => {
+    expect(resolveLegacyApprovalTiming({
+      expiresAt: new Date(nowMillis - 1000),
+    }, {
+      approvedAt: undefined,
+      createdAt: "invalido",
+    })).to.deep.equal({
+      shouldRepairApprovedAt: false,
+      approvedAfterInitiationExpiry: false,
+    });
+    expect(resolveLegacyApprovalTiming({
+      approvedAt: new Date(nowMillis - 2000),
+      expiresAt: new Date(nowMillis),
+    }, {}).approvedAtMillis).to.equal(nowMillis - 2000);
+    expect(resolveLegacyApprovalTiming({}, {
+      approvedAfterInitiationExpiry: true,
+    }).approvedAfterInitiationExpiry).to.equal(true);
   });
 
   for (const providerState of ["created", "creating", "failed"]) {

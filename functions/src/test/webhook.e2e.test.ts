@@ -144,6 +144,17 @@ describe("Webhook Integration Tests", () => {
     );
   }
 
+  async function expectLegacyReconciliationWithoutNewEffects(
+    availableTickets = 10
+  ) {
+    const db = getFirestore();
+    expect((await db.collection("purchases").get()).size).to.equal(1);
+    expect((await db.collection("tickets").get()).empty).to.equal(true);
+    expect((await db.collection("events").doc("event-1").get())
+      .data()?.availableTickets).to.equal(availableTickets);
+    expect(emailCalls).to.equal(0);
+  }
+
   it("processa compra usando apenas a paymentSession", async () => {
     await seed({ inventory: { vip: 4, standard: 6 } });
     const result = await invoke("payment-1", "session-1", {
@@ -796,9 +807,107 @@ describe("Webhook Integration Tests", () => {
     expect(emailCalls).to.equal(1);
   });
 
-  it("reconcilia expired ready com compra legada approved", async () => {
+  it("reconcilia compra legada criada antes de expiresAt", async () => {
+    const expiresAtMillis = nowMillis - 1000;
+    const originalApprovalMillis = expiresAtMillis - 1000;
     await seed({
       availableTickets: 8,
+      session: {
+        status: "expired",
+        providerState: "ready",
+        expiresAt: Timestamp.fromMillis(expiresAtMillis),
+      },
+    });
+    const db = getFirestore();
+    await db.collection("purchases").doc("legacy-before-expiry").set({
+      paymentId: "payment-legacy-before",
+      status: "approved",
+      eventId: "event-1",
+      userId: "buyer-1",
+      createdAt: Timestamp.fromMillis(originalApprovalMillis),
+    });
+
+    const first = await invoke("payment-legacy-before");
+    expect(first).to.include({
+      outcome: "processed",
+      purchaseId: "legacy-before-expiry",
+      newlyProcessed: false,
+    });
+    const firstSession = (await db.collection("paymentSessions")
+      .doc("session-1").get()).data();
+    expect(firstSession?.approvedAt.toMillis()).to.equal(originalApprovalMillis);
+    expect(firstSession).not.to.have.property("approvedAfterInitiationExpiry");
+
+    await db.collection("paymentWebhookEvents")
+      .doc("payment-legacy-before").delete();
+    const replay = await invoke(
+      "payment-legacy-before",
+      "session-1",
+      {},
+      nowMillis + 30 * 24 * 60 * 60 * 1000
+    );
+    expect(replay).to.include({ outcome: "processed", newlyProcessed: false });
+    for (const data of [
+      (await db.collection("paymentSessions").doc("session-1").get()).data(),
+      (await db.collection("purchases").doc("legacy-before-expiry").get())
+        .data(),
+      (await db.collection("paymentWebhookEvents")
+        .doc("payment-legacy-before").get()).data(),
+    ]) {
+      expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+    }
+    expect((await db.collection("paymentSessions").doc("session-1").get())
+      .data()?.approvedAt.toMillis()).to.equal(originalApprovalMillis);
+    await expectLegacyReconciliationWithoutNewEffects(8);
+  });
+
+  for (const timingCase of [
+    { name: "exatamente em expiresAt", offset: 0, useApprovedAt: false },
+    { name: "depois de expiresAt", offset: 500, useApprovedAt: true },
+  ]) {
+    it(`marca compra legada approved ${timingCase.name}`, async () => {
+      const expiresAtMillis = nowMillis - 1000;
+      const originalApprovalMillis = expiresAtMillis + timingCase.offset;
+      await seed({
+        session: {
+          status: "expired",
+          providerState: "ready",
+          expiresAt: Timestamp.fromMillis(expiresAtMillis),
+        },
+      });
+      const db = getFirestore();
+      await db.collection("purchases").doc("legacy-at-or-after").set({
+        paymentId: `payment-legacy-${timingCase.offset}`,
+        status: "approved",
+        eventId: "event-1",
+        userId: "buyer-1",
+        ...(timingCase.useApprovedAt ? {
+          approvedAt: Timestamp.fromMillis(originalApprovalMillis),
+          createdAt: Timestamp.fromMillis(expiresAtMillis - 5000),
+        } : {
+          createdAt: Timestamp.fromMillis(originalApprovalMillis),
+        }),
+      });
+
+      await invoke(`payment-legacy-${timingCase.offset}`);
+      const sessionData = (await db.collection("paymentSessions")
+        .doc("session-1").get()).data();
+      expect(sessionData?.approvedAt.toMillis()).to.equal(originalApprovalMillis);
+      for (const data of [
+        sessionData,
+        (await db.collection("purchases").doc("legacy-at-or-after").get())
+          .data(),
+        (await db.collection("paymentWebhookEvents")
+          .doc(`payment-legacy-${timingCase.offset}`).get()).data(),
+      ]) {
+        expect(data?.approvedAfterInitiationExpiry).to.equal(true);
+      }
+      await expectLegacyReconciliationWithoutNewEffects();
+    });
+  }
+
+  it("reconcilia compra legada sem timestamp sem inferir atraso", async () => {
+    await seed({
       session: {
         status: "expired",
         providerState: "ready",
@@ -806,68 +915,73 @@ describe("Webhook Integration Tests", () => {
       },
     });
     const db = getFirestore();
-    await db.collection("purchases").doc("legacy-late").set({
-      paymentId: "payment-legacy-late",
+    await db.collection("purchases").doc("legacy-without-timestamp").set({
+      paymentId: "payment-legacy-without-timestamp",
       status: "approved",
       eventId: "event-1",
       userId: "buyer-1",
     });
-    const result = await invoke("payment-legacy-late");
-    expect(result).to.include({
-      outcome: "processed",
-      purchaseId: "legacy-late",
-      newlyProcessed: false,
-    });
-    expect((await db.collection("purchases").get()).size).to.equal(1);
-    expect((await db.collection("purchases").doc("legacy-late").get())
-      .data()?.approvedAfterInitiationExpiry).to.equal(true);
-    expect((await db.collection("tickets").get()).empty).to.equal(true);
-    expect((await db.collection("events").doc("event-1").get())
-      .data()?.availableTickets).to.equal(8);
-    expect(emailCalls).to.equal(0);
-  });
 
-  it("reconcilia refund_required com compra legada oversold", async () => {
-    await seed({
-      session: {
-        status: "refund_required",
-        providerState: "created",
-        expiresAt: Timestamp.fromMillis(nowMillis - 1000),
-      },
-    });
-    const db = getFirestore();
-    await db.collection("purchases").doc("legacy-refund-oversold").set({
-      paymentId: "payment-refund-oversold",
-      status: "refunded_oversold",
-      eventId: "event-1",
-      userId: "buyer-1",
-    });
-
-    const result = await invoke("payment-refund-oversold");
-    expect(result).to.include({
-      outcome: "refund_required_oversold",
-      purchaseId: "legacy-refund-oversold",
-      newlyProcessed: false,
-    });
-    expect((await db.collection("paymentSessions").doc("session-1").get())
-      .data()).to.include({ status: "refund_required", refundReason: "oversold" });
-    expect((await db.collection("purchases").get()).size).to.equal(1);
-    expect((await db.collection("purchases").doc("legacy-refund-oversold").get())
-      .data()?.status).to.equal("refund_required_oversold");
-    expect((await db.collection("tickets").get()).empty).to.equal(true);
-    expect((await db.collection("events").doc("event-1").get())
-      .data()?.availableTickets).to.equal(10);
-    expect(emailCalls).to.equal(0);
+    await invoke("payment-legacy-without-timestamp");
     for (const data of [
       (await db.collection("paymentSessions").doc("session-1").get()).data(),
-      (await db.collection("purchases").doc("legacy-refund-oversold").get())
+      (await db.collection("purchases").doc("legacy-without-timestamp").get())
         .data(),
       (await db.collection("paymentWebhookEvents")
-        .doc("payment-refund-oversold").get()).data(),
+        .doc("payment-legacy-without-timestamp").get()).data(),
     ]) {
+      expect(data).not.to.have.property("approvedAt");
       expect(data).not.to.have.property("approvedAfterInitiationExpiry");
     }
+    await expectLegacyReconciliationWithoutNewEffects();
   });
+
+  for (const timingCase of [
+    { name: "antes do prazo", offset: -500 },
+    { name: "depois do prazo", offset: 500 },
+  ]) {
+    it(`reconcilia oversell legado criado ${timingCase.name}`, async () => {
+      const expiresAtMillis = nowMillis - 1000;
+      await seed({
+        session: {
+          status: "refund_required",
+          providerState: "created",
+          expiresAt: Timestamp.fromMillis(expiresAtMillis),
+        },
+      });
+      const db = getFirestore();
+      await db.collection("purchases").doc("legacy-refund-oversold").set({
+        paymentId: `payment-refund-oversold-${timingCase.offset}`,
+        status: "refunded_oversold",
+        eventId: "event-1",
+        userId: "buyer-1",
+        createdAt: Timestamp.fromMillis(expiresAtMillis + timingCase.offset),
+      });
+
+      await invoke(`payment-refund-oversold-${timingCase.offset}`);
+      const sessionData = (await db.collection("paymentSessions")
+        .doc("session-1").get()).data();
+      expect(sessionData).to.include({
+        status: "refund_required",
+        refundReason: "oversold",
+      });
+      const artifacts = [
+        sessionData,
+        (await db.collection("purchases").doc("legacy-refund-oversold").get())
+          .data(),
+        (await db.collection("paymentWebhookEvents")
+          .doc(`payment-refund-oversold-${timingCase.offset}`).get()).data(),
+      ];
+      for (const data of artifacts) {
+        if (timingCase.offset < 0) {
+          expect(data).not.to.have.property("approvedAfterInitiationExpiry");
+        } else {
+          expect(data?.approvedAfterInitiationExpiry).to.equal(true);
+        }
+      }
+      await expectLegacyReconciliationWithoutNewEffects();
+    });
+  }
 
   it("nao reativa refund_required com compra legada approved", async () => {
     await seed({

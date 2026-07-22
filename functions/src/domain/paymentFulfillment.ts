@@ -58,6 +58,8 @@ export interface LegacyPurchase {
   eventId?: unknown;
   userId?: unknown;
   paymentSessionId?: unknown;
+  approvedAt?: unknown;
+  createdAt?: unknown;
   approvedAfterInitiationExpiry?: unknown;
 }
 

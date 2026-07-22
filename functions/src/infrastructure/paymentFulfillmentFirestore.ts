@@ -21,6 +21,7 @@ import {
 import {
   isApprovedAfterInitiationExpiry,
   isPersistedApprovalAfterInitiationExpiry,
+  resolveLegacyApprovalTiming,
 } from "../domain/paymentSessionLifecycle.js";
 
 type EventData = {
@@ -187,43 +188,53 @@ export function createFirestorePaymentFulfillmentRepository(
             .where("paymentId", "==", command.paymentId)
             .limit(2)
         );
+        const legacyPurchases = legacyPurchasesSnapshot.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        } as LegacyPurchase));
         const legacyPurchaseResult = classifyLegacyPurchases({
           paymentId: command.paymentId,
           payment: command.providerPayment,
           paymentSessionId: sessionRef.id,
           session,
-          purchases: legacyPurchasesSnapshot?.docs.map((document) => ({
-            id: document.id,
-            ...document.data(),
-          } as LegacyPurchase)) ?? [],
+          purchases: legacyPurchases,
         });
-        const usesCurrentApprovalTime =
-          session.status === "pending" || session.status === "expired";
-        const approvedAfterInitiationExpiry =
-          session.approvedAfterInitiationExpiry === true ||
-          (usesCurrentApprovalTime &&
-            isApprovedAfterInitiationExpiry(session, command.nowMillis)) ||
-          legacyPurchasesSnapshot.docs.some((document) =>
-            document.data().approvedAfterInitiationExpiry === true
-          );
-        const approvalAuditFields = approvedAfterInitiationExpiry ? {
-          approvedAfterInitiationExpiry: true,
-        } : {};
+        const matchedLegacyPurchase =
+          legacyPurchaseResult.kind === "processed" ||
+          legacyPurchaseResult.kind === "oversold" ?
+            legacyPurchases.find((purchase) =>
+              purchase.id === legacyPurchaseResult.purchaseId
+            ) : undefined;
+        const legacyApprovalTiming = matchedLegacyPurchase ?
+          resolveLegacyApprovalTiming(session, matchedLegacyPurchase) :
+          undefined;
         if (legacyPurchaseResult.kind === "processed") {
           const legacyPurchaseRef = db.collection("purchases")
             .doc(legacyPurchaseResult.purchaseId);
-          if (approvedAfterInitiationExpiry) {
-            transaction.update(legacyPurchaseRef, approvalAuditFields);
+          if (!legacyApprovalTiming) {
+            throw new Error("Compra legada reconciliavel nao encontrada.");
+          }
+          const legacyApprovalAuditFields =
+            legacyApprovalTiming.approvedAfterInitiationExpiry ? {
+              approvedAfterInitiationExpiry: true,
+            } : {};
+          if (legacyApprovalTiming.approvedAfterInitiationExpiry) {
+            transaction.update(legacyPurchaseRef, legacyApprovalAuditFields);
           }
           transaction.update(sessionRef, {
             status: "approved",
             providerState: "created",
             paymentId: command.paymentId,
             purchaseId: legacyPurchaseResult.purchaseId,
-            approvedAt: Timestamp.fromMillis(command.nowMillis),
+            ...(legacyApprovalTiming.shouldRepairApprovedAt &&
+              legacyApprovalTiming.approvedAtMillis !== undefined ? {
+                approvedAt: Timestamp.fromMillis(
+                  legacyApprovalTiming.approvedAtMillis
+                ),
+              } : {}),
             updatedAt: Timestamp.fromMillis(command.nowMillis),
             errorMessage: FieldValue.delete(),
-            ...approvalAuditFields,
+            ...legacyApprovalAuditFields,
           });
           transaction.create(
             webhookRef,
@@ -232,7 +243,7 @@ export function createFirestorePaymentFulfillmentRepository(
               "processed",
               "legacy_purchase_reconciled",
               legacyPurchaseResult.purchaseId,
-              approvedAfterInitiationExpiry
+              legacyApprovalTiming.approvedAfterInitiationExpiry
             )
           );
           return {
@@ -244,10 +255,17 @@ export function createFirestorePaymentFulfillmentRepository(
         if (legacyPurchaseResult.kind === "oversold") {
           const legacyPurchaseRef = db.collection("purchases")
             .doc(legacyPurchaseResult.purchaseId);
+          if (!legacyApprovalTiming) {
+            throw new Error("Compra legada reconciliavel nao encontrada.");
+          }
+          const legacyApprovalAuditFields =
+            legacyApprovalTiming.approvedAfterInitiationExpiry ? {
+              approvedAfterInitiationExpiry: true,
+            } : {};
           transaction.update(legacyPurchaseRef, {
             status: "refund_required_oversold",
             updatedAt: Timestamp.fromMillis(command.nowMillis),
-            ...approvalAuditFields,
+            ...legacyApprovalAuditFields,
           });
           transaction.update(sessionRef, {
             status: "refund_required",
@@ -256,7 +274,7 @@ export function createFirestorePaymentFulfillmentRepository(
             paymentId: command.paymentId,
             purchaseId: legacyPurchaseResult.purchaseId,
             updatedAt: Timestamp.fromMillis(command.nowMillis),
-            ...approvalAuditFields,
+            ...legacyApprovalAuditFields,
           });
           transaction.create(
             webhookRef,
@@ -265,7 +283,7 @@ export function createFirestorePaymentFulfillmentRepository(
               "refund_required_oversold",
               "legacy_refunded_oversold_reconciled",
               legacyPurchaseResult.purchaseId,
-              approvedAfterInitiationExpiry
+              legacyApprovalTiming.approvedAfterInitiationExpiry
             )
           );
           return {
@@ -306,6 +324,13 @@ export function createFirestorePaymentFulfillmentRepository(
             newlyProcessed: true,
           };
         }
+
+        const approvedAfterInitiationExpiry =
+          session.approvedAfterInitiationExpiry === true ||
+          isApprovedAfterInitiationExpiry(session, command.nowMillis);
+        const approvalAuditFields = approvedAfterInitiationExpiry ? {
+          approvedAfterInitiationExpiry: true,
+        } : {};
 
         const eventId = asNonEmptyString(session.eventId);
         const eventRef = eventId ? db.collection("events").doc(eventId) : undefined;
