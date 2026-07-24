@@ -176,6 +176,45 @@ describe("payment fulfillment helpers", () => {
     });
   });
 
+  it("restringe reconciliacao legada conforme o status da sessao", () => {
+    const base = {
+      paymentId: "payment-1",
+      payment: payment(),
+      paymentSessionId: "session-1",
+    };
+    const approvedPurchase = [{
+      id: "purchase-approved",
+      status: "approved",
+      eventId: "event-1",
+      userId: "user-1",
+    }];
+    const oversoldPurchase = [{
+      id: "purchase-oversold",
+      status: "refund_required_oversold",
+      eventId: "event-1",
+      userId: "user-1",
+    }];
+
+    expect(classifyLegacyPurchases({
+      ...base,
+      session: session({ status: "expired", providerState: "ready" }),
+      purchases: approvedPurchase,
+    })).to.include({ kind: "processed" });
+    expect(classifyLegacyPurchases({
+      ...base,
+      session: session({ status: "refund_required" }),
+      purchases: approvedPurchase,
+    })).to.include({
+      kind: "conflict",
+      reason: "legacy_approved_session_status_invalid",
+    });
+    expect(classifyLegacyPurchases({
+      ...base,
+      session: session({ status: "refund_required" }),
+      purchases: oversoldPurchase,
+    })).to.include({ kind: "oversold" });
+  });
+
   it("classifica compras legadas multiplas ou conflitantes", () => {
     const persistedSession = session();
     expect(classifyLegacyPurchases({

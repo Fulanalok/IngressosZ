@@ -45,6 +45,11 @@ export interface PersistedPaymentSession {
   paymentId?: unknown;
   purchaseId?: unknown;
   refundReason?: unknown;
+  expiresAt?: unknown;
+  expiredAt?: unknown;
+  expirationReason?: unknown;
+  approvedAt?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
 }
 
 export interface LegacyPurchase {
@@ -53,6 +58,9 @@ export interface LegacyPurchase {
   eventId?: unknown;
   userId?: unknown;
   paymentSessionId?: unknown;
+  approvedAt?: unknown;
+  createdAt?: unknown;
+  approvedAfterInitiationExpiry?: unknown;
 }
 
 export type WebhookGateResult =
@@ -79,6 +87,14 @@ export type CompatibilityResult =
     kind: "permanent";
     outcome: Exclude<WebhookOutcome, "processed" | "ignored_not_approved">;
     reason: string;
+  };
+
+export type FulfillmentSessionStatusResult =
+  | { kind: "valid" }
+  | {
+    kind: "permanent";
+    outcome: "refund_required_invalid_session";
+    reason: "expired_without_provider_attempt" | "invalid_session_status";
   };
 
 export interface SessionReference {
@@ -219,6 +235,31 @@ export function isApprovedProviderPayment(payment: ProviderPayment) {
   return payment.status === "approved";
 }
 
+export function classifyFulfillmentSessionStatus(
+  session: Pick<PersistedPaymentSession, "status" | "providerState">
+): FulfillmentSessionStatusResult {
+  if (session.status === "pending" || session.status === "approved") {
+    return { kind: "valid" };
+  }
+  if (session.status === "expired") {
+    if (["created", "creating", "failed"].includes(
+      String(session.providerState)
+    )) {
+      return { kind: "valid" };
+    }
+    return {
+      kind: "permanent",
+      outcome: "refund_required_invalid_session",
+      reason: "expired_without_provider_attempt",
+    };
+  }
+  return {
+    kind: "permanent",
+    outcome: "refund_required_invalid_session",
+    reason: "invalid_session_status",
+  };
+}
+
 export function classifyWebhookGate(
   existingOutcome: unknown,
   payment: ProviderPayment
@@ -302,12 +343,28 @@ export function classifyLegacyPurchases(input: {
     };
   }
   if (purchase.status === "approved") {
+    if (input.session.status !== "pending" && input.session.status !== "expired") {
+      return {
+        kind: "conflict",
+        outcome: "refund_required_invalid_session",
+        reason: "legacy_approved_session_status_invalid",
+      };
+    }
     return { kind: "processed", purchaseId: purchase.id };
   }
   if (
     purchase.status === "refunded_oversold" ||
     purchase.status === "refund_required_oversold"
   ) {
+    if (!["pending", "expired", "refund_required"].includes(
+      String(input.session.status)
+    )) {
+      return {
+        kind: "conflict",
+        outcome: "refund_required_invalid_session",
+        reason: "legacy_oversold_session_status_invalid",
+      };
+    }
     return { kind: "oversold", purchaseId: purchase.id };
   }
   return {
@@ -339,6 +396,10 @@ export function classifyPaymentCompatibility(input: {
       outcome: "refund_required_duplicate",
       reason: "session_already_approved",
     };
+  }
+  const statusCompatibility = classifyFulfillmentSessionStatus(session);
+  if (statusCompatibility.kind === "permanent") {
+    return statusCompatibility;
   }
   if (persistedPaymentId && persistedPaymentId !== paymentId) {
     return {

@@ -63,6 +63,18 @@ Roles atuais:
   QR Code e reembolso.
 - Recomenda-se configurar alertas de custo, quota, 401/403, 429 e 5xx.
 
+## Seguranca da manutencao de sessoes
+
+- A consulta paginada encontra somente sessoes `pending` vencidas em estados de
+  provider elegiveis; a decisao usa uma nova leitura dentro da transacao para
+  nao sobrescrever uma aprovacao concorrente.
+- `providerState: created` e excluido da expiracao, e aprovacoes validas tardias
+  ficam marcadas com `approvedAfterInitiationExpiry` para auditoria.
+- Os logs estruturados usam IDs, estados, motivos e contadores, sem e-mail ou
+  outros dados pessoais. As Firestore Rules continuam negando escrita dessas
+  sessoes pelo cliente.
+- A manutencao nao cancela pagamentos no provedor nem aciona reembolso.
+
 ## Pendencias de seguranca antes de vender ao publico
 
 - [ ] Confirmar secrets reais em ambiente de producao.

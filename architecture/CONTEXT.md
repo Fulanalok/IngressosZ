@@ -156,7 +156,7 @@ Exports publicos atuais:
 - `seedDatabase`
 - `onTicketCreated`
 - `optimizeImage`
-- `expireStalePixSessions`
+- `expireStalePaymentSessions`
 - `health`
 - `logClientError`
 - `verifyRecaptchaV2`
@@ -173,6 +173,18 @@ Exports publicos atuais:
 - `tickets`: leitura pelo dono ou owner/admin; escrita via Functions.
 - `purchases`: sem acesso direto pelo cliente.
 - `users`: usuario gerencia dados proprios, mas `role` e protegida.
+
+## Ciclo de Vida de Payment Sessions
+
+- `expiresAt` e o prazo para iniciar a operacao no provedor, nao o prazo para
+  receber ou cumprir uma aprovacao valida.
+- `expireStalePaymentSessions` pagina as sessoes elegiveis e relê cada documento
+  em transacao antes de expirar `ready`, `failed` ou `creating` com lease
+  vencido. `providerState: created` nunca e expirado pela rotina.
+- Aprovacoes tardias validas continuam no fulfillment e recebem
+  `approvedAfterInitiationExpiry: true` na sessao, compra e evento de auditoria.
+- O job nao cancela Pix ou preferencia, nao consulta o provedor e nao executa
+  reembolso automatico. A integracao da manutencao roda separadamente no CI.
 
 ## Limitacoes Conhecidas
 

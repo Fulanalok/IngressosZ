@@ -12,11 +12,14 @@ import {
   MAX_PURCHASE_QUANTITY,
   resolveMaxPerPurchase,
 } from "../domain/purchaseLimits.js";
+import { PROVIDER_CREATING_LEASE_MS } from
+  "../domain/paymentSessionLifecycle.js";
 import { requirePayloadObject } from "./eventAccess.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 
 export const PAYMENT_SESSION_TTL_MS = 15 * 60 * 1000;
-export const PROVIDER_CREATING_LEASE_MS = 2 * 60 * 1000;
+export { PROVIDER_CREATING_LEASE_MS } from
+  "../domain/paymentSessionLifecycle.js";
 export const CREATE_PAYMENT_SESSION_RATE_LIMIT_PER_MINUTE = 10;
 const TICKET_TYPES = ["standard", "vip", "premium"] as const;
 const PAYMENT_METHODS = ["checkout", "pix"] as const;

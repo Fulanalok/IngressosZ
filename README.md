@@ -71,6 +71,18 @@ uma trava, podendo ser reenviadas depois como `approved`. Antes de um novo
 fulfillment, compras legadas pelo mesmo `paymentId` sao reconciliadas para evitar
 novo desconto de estoque, compra, ticket ou e-mail.
 
+## Ciclo de vida das sessoes de pagamento
+
+- `expiresAt` limita somente o inicio de uma operacao no provedor. As callables
+  recusam iniciar Checkout ou Pix depois desse prazo.
+- `expireStalePaymentSessions` processa em paginas, com nova leitura
+  transacional, sessoes `pending` cujo provider ainda esta `ready`, `failed` ou
+  `creating` com lease vencido. Sessoes `created` nao sao expiradas.
+- Uma aprovacao valida recebida depois do prazo ainda e processada e registrada
+  como `approvedAfterInitiationExpiry` para auditoria.
+- A manutencao nao cancela recursos no provedor, nao executa reembolso e nao
+  representa expiracao financeira do pagamento.
+
 ## Estrutura do repositorio
 
 ```text

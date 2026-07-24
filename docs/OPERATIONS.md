@@ -126,6 +126,22 @@ npm --prefix ingressosZ run build
 npx firebase-tools deploy --only hosting --project <your-firebase-project-id>
 ```
 
+### Renomeacao do schedule de payment sessions
+
+O deploy que introduz `expireStalePaymentSessions` deve remover explicitamente
+`expireStalePixSessions`. Manter os dois schedules ativos faria a funcao antiga
+continuar aplicando a expiracao por `createdAt`.
+
+```bash
+npx firebase-tools deploy --only functions:expireStalePaymentSessions --project <your-firebase-project-id>
+npx firebase-tools functions:delete expireStalePixSessions --region southamerica-east1 --project <your-firebase-project-id> --force
+npx firebase-tools functions:list --project <your-firebase-project-id>
+```
+
+Confirme na listagem que somente `expireStalePaymentSessions` permanece. O
+codigo exporta apenas o nome novo; esses comandos tratam o recurso antigo que
+pode continuar implantado no ambiente.
+
 ## Mercado Pago
 
 Webhook atual:

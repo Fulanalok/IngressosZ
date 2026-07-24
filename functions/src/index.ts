@@ -1,7 +1,7 @@
 import "./config/bootstrap.js";
 
 export { onTicketCreated } from "./endpoints/email.js";
-export { expireStalePixSessions } from "./endpoints/maintenance.js";
+export { expireStalePaymentSessions } from "./endpoints/maintenance.js";
 export {
   createPaymentPreference,
   createPaymentSession,
