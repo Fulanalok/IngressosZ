@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { planLegacyActiveMigration } from "../lib/auth/roleMigration.js";
 
 const projectId = process.env.ROLE_MIGRATION_PROJECT_ID;
 if (!projectId) {
@@ -63,6 +64,7 @@ async function completedMigration(user, role) {
 async function reserveMigration(user, role) {
   const authRef = db.collection("authorization").doc(user.uid);
   const operationRef = authRef.collection("operations").doc(operationId);
+  const profileRef = db.collection("users").doc(user.uid);
   return db.runTransaction(async (transaction) => {
     const [authorization, operation] = await Promise.all([
       transaction.get(authRef),
@@ -88,13 +90,42 @@ async function reserveMigration(user, role) {
           operationData, user.uid, role, data.roleVersion,
           data.status === "error" ? "failed" : "applying"
         );
-      const legacyActive = data.status === "active" && data.role === role &&
-        validVersion(data.roleVersion) && !operation.exists;
-      if (!resumable && !legacyActive) {
+      const legacyPlan = planLegacyActiveMigration(
+        data, user.customClaims ?? {}, role, operation.exists
+      );
+      if (!resumable && legacyPlan.kind === "not-legacy-active") {
         throw new Error(`MANUAL_REVIEW_REQUIRED:${user.uid}`);
       }
       roleVersion = data.roleVersion;
       requestedAt = data.requestedAt ?? requestedAt;
+      if (legacyPlan.kind === "complete-active") {
+        const appliedAt = data.appliedAt ?? FieldValue.serverTimestamp();
+        transaction.update(authRef, {
+          desiredRole: null,
+          operationId: null,
+          requestedBy: FieldValue.delete(),
+          requestedAt: FieldValue.delete(),
+          appliedAt,
+          lastErrorCode: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        transaction.set(profileRef, { role }, { merge: true });
+        transaction.create(operationRef, {
+          operationId,
+          targetUid: user.uid,
+          previousRole: role,
+          desiredRole: role,
+          roleVersion,
+          status: "succeeded",
+          requestedBy: "role-migration",
+          requestedAt: appliedAt,
+          attempts: 0,
+          appliedAt,
+          lastErrorCode: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        return { completed: true, claimsVerified: true, roleVersion };
+      }
       transaction.update(authRef, {
         status: "applying",
         desiredRole: role,
@@ -206,6 +237,8 @@ async function finalizeMigration(uid, role, roleVersion) {
       status: "active",
       desiredRole: null,
       operationId: null,
+      requestedBy: FieldValue.delete(),
+      requestedAt: FieldValue.delete(),
       appliedAt: FieldValue.serverTimestamp(),
       lastErrorCode: null,
       updatedAt: FieldValue.serverTimestamp(),
@@ -224,6 +257,9 @@ async function finalizeMigration(uid, role, roleVersion) {
 async function migrateUser(user, role) {
   if (await completedMigration(user, role)) return "alreadyMigrated";
   const reservation = await reserveMigration(user, role);
+  if (reservation.completed && reservation.claimsVerified) {
+    return "alreadyMigrated";
+  }
   if (reservation.completed) {
     const refreshed = await auth.getUser(user.uid);
     if (await completedMigration(refreshed, role)) return "alreadyMigrated";

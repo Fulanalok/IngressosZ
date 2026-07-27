@@ -8,7 +8,8 @@
 com um documento `status: "active"`.
 
 Uma mudança reserva primeiro uma nova versão no Firestore e muda o documento
-para `applying`. A partir desse commit, tokens anteriores deixam de funcionar.
+para `applying`. A partir desse commit, tokens anteriores deixam de autorizar
+operações privilegiadas protegidas pela comparação de `roleVersion`.
 Depois, o backend atualiza claims, revoga refresh tokens e finaliza
 `authorization/{uid}` e `users/{uid}.role` na mesma transação Firestore.
 
@@ -60,6 +61,14 @@ O migrador deriva privilégios somente das custom claims do Firebase Auth,
 preserva claims não relacionadas, revoga refresh tokens e é idempotente. Um
 estado existente divergente resulta em `MANUAL_REVIEW_REQUIRED`, sem
 sobrescrita silenciosa.
+
+Para um documento legado `active` cujas claims e `roleVersion` já são coerentes,
+o migrador registra `operations/initial-migration` como concluída sem mudar o
+documento para `applying`, regravar claims ou revogar tokens. A janela de falha
+restante existe apenas quando as claims precisam ser alteradas: o documento fica
+fail-closed em `applying` ou `error` até Auth, revogação e finalização concluírem.
+Reexecute o mesmo comando, com o mesmo projeto explicitamente confirmado, para
+retomar a mesma versão e a operação `initial-migration`.
 
 ## Recuperação operacional
 

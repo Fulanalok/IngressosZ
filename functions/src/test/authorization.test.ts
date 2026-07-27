@@ -28,13 +28,14 @@ async function expectDenied(
   token: Record<string, unknown>,
   data: Record<string, unknown> | null
 ) {
+  let caught: unknown;
   try {
     await authorizeIdentity(identity(token), ["admin", "organizer"], authorization(data));
-    expect.fail("Era esperada a negação.");
   } catch (error) {
-    expect(error).to.be.instanceOf(HttpsError);
-    expect((error as HttpsError).code).to.equal("permission-denied");
+    caught = error;
   }
+  expect(caught).to.be.instanceOf(HttpsError);
+  expect((caught as HttpsError).code).to.equal("permission-denied");
 }
 
 function eventReader(

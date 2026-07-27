@@ -11,8 +11,15 @@ service cloud.firestore {
       );
     }
 
+    function currentAuthorizationExists() {
+      return exists(
+        /databases/$(database)/documents/authorization/$(request.auth.uid)
+      );
+    }
+
     function hasCurrentRole(role) {
       return isAuthenticated()
+        && currentAuthorizationExists()
         && request.auth.token.keys().hasAll(['role', 'roleVersion'])
         && request.auth.token.roleVersion is int
         && request.auth.token.roleVersion > 0

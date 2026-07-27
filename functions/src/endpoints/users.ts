@@ -14,6 +14,59 @@ import { callableSecurityOptions } from "../config/security.js";
 import { firebaseRoleChangeDependencies } from "../infrastructure/roleChangeFirebase.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 
+export const ASSIGNABLE_USER_ROLES = [
+  "user",
+  "organizer",
+  "validator",
+] as const satisfies readonly UserRole[];
+
+type RoleChangePayload = { uid?: string; role?: UserRole };
+
+export function parseRoleChangePayload(
+  data: unknown,
+  forcedRole?: UserRole
+): { uid: string; role: UserRole } {
+  const payload = (data ?? {}) as RoleChangePayload;
+  const allowedRoles: readonly UserRole[] = forcedRole ?
+    USER_ROLES : ASSIGNABLE_USER_ROLES;
+  const role = forcedRole ?? payload.role;
+  if (!payload.uid || !role || !allowedRoles.includes(role)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "UID e role válidos são obrigatórios."
+    );
+  }
+  return { uid: payload.uid, role };
+}
+
+export function mapRoleChangeFailure(error: RoleChangeFailure): HttpsError {
+  const conflict = error.code === "ROLE_CHANGE_CONFLICT";
+  const migration = error.code === "MIGRATION_REQUIRED";
+  const manualReview = error.code === "MANUAL_REVIEW_REQUIRED";
+  return new HttpsError(
+    conflict ? "aborted" : migration || manualReview ?
+      "failed-precondition" : "internal",
+    manualReview ?
+      "Claims legadas contraditórias exigem revisão manual." : migration ?
+        "Usuário privilegiado legado requer migração antes da alteração." :
+        conflict ?
+          "Há outra mudança de role pendente para este usuário." :
+          `Falha recuperável na alteração de role (${error.code}).`,
+    { roleChangeCode: error.code }
+  );
+}
+
+export function roleChangeCodeFromError(error: unknown): string {
+  if (error instanceof RoleChangeFailure) return error.code;
+  if (error instanceof HttpsError &&
+      typeof error.details === "object" && error.details !== null &&
+      "roleChangeCode" in error.details &&
+      typeof error.details.roleChangeCode === "string") {
+    return error.details.roleChangeCode;
+  }
+  return "ROLE_CHANGE_FAILED";
+}
+
 async function assignRole(
   requesterUid: string,
   uid: string,
@@ -29,19 +82,7 @@ async function assignRole(
     );
   } catch (error) {
     if (error instanceof RoleChangeFailure) {
-      const conflict = error.code === "ROLE_CHANGE_CONFLICT";
-      const migration = error.code === "MIGRATION_REQUIRED";
-      const manualReview = error.code === "MANUAL_REVIEW_REQUIRED";
-      throw new HttpsError(
-        conflict ? "aborted" : migration || manualReview ?
-          "failed-precondition" : "internal",
-        manualReview ?
-          "Claims legadas contraditórias exigem revisão manual." : migration ?
-            "Usuário privilegiado legado requer migração antes da alteração." :
-            conflict ?
-              "Há outra mudança de role pendente para este usuário." :
-              `Falha recuperável na alteração de role (${error.code}).`
-      );
+      throw mapRoleChangeFailure(error);
     }
     throw error;
   }
@@ -57,22 +98,12 @@ export function assertNotSelfRoleChange(requesterUid: string, targetUid: string)
 }
 
 async function handleRoleChange(
-  request: {
-    auth?: { uid: string; token: Record<string, unknown> };
-    data?: unknown;
-  },
+  requesterUid: string,
+  data: unknown,
   forcedRole?: UserRole
 ) {
-  const requester = await requireCurrentAdmin(request.auth);
-  const payload = (request.data ?? {}) as { uid?: string; role?: UserRole };
-  const role = forcedRole ?? payload.role;
-  if (!payload.uid || !role || !USER_ROLES.includes(role)) {
-    throw new HttpsError(
-      "invalid-argument",
-      "UID e role válidos são obrigatórios."
-    );
-  }
-  return assignRole(requester.uid, payload.uid, role);
+  const payload = parseRoleChangePayload(data, forcedRole);
+  return assignRole(requesterUid, payload.uid, payload.role);
 }
 
 export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
@@ -85,14 +116,14 @@ export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
     );
   }
   try {
-    const result = await handleRoleChange(request, "admin");
+    const result = await handleRoleChange(requester.uid, request.data, "admin");
     return {
       ...result,
       message: `Usuário ${(request.data as { uid: string }).uid} agora é administrador.`,
     };
   } catch (error) {
     logger.error("Falha ao definir admin", {
-      code: error instanceof RoleChangeFailure ? error.code : "ROLE_CHANGE_FAILED",
+      code: roleChangeCodeFromError(error),
     });
     throw error;
   }
@@ -108,14 +139,14 @@ export const setUserRole = onCall(callableSecurityOptions, async (request) => {
     );
   }
   try {
-    const result = await handleRoleChange(request);
+    const result = await handleRoleChange(requester.uid, request.data);
     return {
       ...result,
       message: `Usuário ${(request.data as { uid: string }).uid} agora é ${result.role}.`,
     };
   } catch (error) {
     logger.error("Falha ao definir role", {
-      code: error instanceof RoleChangeFailure ? error.code : "ROLE_CHANGE_FAILED",
+      code: roleChangeCodeFromError(error),
     });
     throw error;
   }

@@ -105,7 +105,11 @@ async function fail(
   code: string,
   error: unknown
 ): Promise<never> {
-  await repository.markFailed(reservation, code);
+  try {
+    await repository.markFailed(reservation, code);
+  } catch {
+    // The original Auth/finalization code is the actionable failure.
+  }
   throw new RoleChangeFailure(
     code,
     error instanceof Error ? error.message : "Role change failed"

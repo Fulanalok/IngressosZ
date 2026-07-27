@@ -20,6 +20,7 @@ class FakeRepository implements RoleChangeRepository {
   operationId: string | null = null;
   attempts = 0;
   failFinalize = false;
+  failMarkFailed = false;
   operationCount = 0;
   trace: string[] = [];
 
@@ -93,6 +94,7 @@ class FakeRepository implements RoleChangeRepository {
   }
 
   async markFailed(reservation: RoleReservation, errorCode: string) {
+    if (this.failMarkFailed) throw new Error("mark-failed");
     if (reservation.operationId === this.operationId) this.status = "error";
     void errorCode;
   }
@@ -148,13 +150,14 @@ function dependencies(repository: FakeRepository, auth: FakeAuth) {
 }
 
 async function expectFailure(promise: Promise<unknown>, code: string) {
+  let caught: unknown;
   try {
     await promise;
-    expect.fail("Era esperada falha.");
   } catch (error) {
-    expect(error).to.be.instanceOf(RoleChangeFailure);
-    expect((error as RoleChangeFailure).code).to.equal(code);
+    caught = error;
   }
+  expect(caught).to.be.instanceOf(RoleChangeFailure);
+  expect((caught as RoleChangeFailure).code).to.equal(code);
 }
 
 describe("role change orchestration", () => {
@@ -320,6 +323,19 @@ describe("role change orchestration", () => {
     );
     expect(repository.status).to.equal("error");
     expect(repository.roleVersion).to.equal(2);
+  });
+
+  it("preserva o código original quando markFailed também falha", async () => {
+    const repository = new FakeRepository();
+    const auth = new FakeAuth();
+    repository.failMarkFailed = true;
+    auth.failSet = true;
+    await expectFailure(
+      executeRoleChange(
+        "target", "admin", "requester", dependencies(repository, auth)
+      ),
+      ROLE_CHANGE_ERROR_CODES.setClaims
+    );
   });
 
   it("invalida autorização existente quando o usuário Auth não existe", async () => {
