@@ -41,6 +41,8 @@ pagamento rastreavel via Mercado Pago.
 - QR Code dos ingressos usa JWT assinado com `JWT_SECRET`.
 - Validacao presencial exige auth e role permitida.
 - Backend usa `getFirestore()` de `firebase-admin/firestore`.
+- Autorizacao privilegiada usa `authorization/{uid}` com `roleVersion`;
+  `users.role` permanece apenas como espelho de exibicao.
 
 ### Single-Company Simplicity
 

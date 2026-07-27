@@ -8,13 +8,34 @@ service firebase.storage {
       return request.auth != null;
     }
     
-    function hasRole(role) {
-      return isAuthenticated() && 
-             (request.auth.token.role == role || request.auth.token.admin == true);
+    function currentAuthorization() {
+      return firestore.get(
+        /databases/(default)/documents/authorization/$(request.auth.uid)
+      );
     }
-    
-    function isOrganizer() {
-      return hasRole('organizer') || hasRole('admin');
+
+    function hasCurrentRole(role) {
+      return isAuthenticated()
+        && request.auth.token.keys().hasAll(['role', 'roleVersion'])
+        && request.auth.token.roleVersion is int
+        && request.auth.token.roleVersion > 0
+        && currentAuthorization().data.status == 'active'
+        && currentAuthorization().data.role == role
+        && currentAuthorization().data.roleVersion
+          == request.auth.token.roleVersion
+        && request.auth.token.role == role
+        && (
+          (role == 'admin'
+            && request.auth.token.keys().hasAll(['admin'])
+            && request.auth.token.admin == true)
+          || (role != 'admin'
+            && (!request.auth.token.keys().hasAny(['admin'])
+              || request.auth.token.admin != true))
+        );
+    }
+
+    function isCurrentOrganizer() {
+      return hasCurrentRole('organizer') || hasCurrentRole('admin');
     }
     
     function isImage() {
@@ -31,7 +52,7 @@ service firebase.storage {
     // Only organizers/admins can upload
     match /events/{allPaths=**} {
       allow read: if true;
-      allow write: if isOrganizer() && isValidImageUpload(5);
+      allow write: if isCurrentOrganizer() && isValidImageUpload(5);
     }
     
     // --- User Profile Images (future proofing) ---

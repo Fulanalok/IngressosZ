@@ -67,11 +67,24 @@ const validEvent = {
 };
 
 function request(role: string, data: unknown, uid = `${role}-a`) {
-  return { auth: { uid, token: { role, admin: role === "admin" } }, data };
+  return {
+    auth: { uid, token: { role, admin: role === "admin", roleVersion: 1 } },
+    data,
+  };
 }
 
 function dependencies(repository: FakeRepository): EventOperationsDependencies {
-  return { repository, timestamp: () => "server-time" };
+  return {
+    repository,
+    timestamp: () => "server-time",
+    authorizationReader: {
+      async getAuthorization(uid) {
+        const prefix = uid.split("-")[0];
+        const role = prefix === "org" ? "organizer" : prefix;
+        return { role, roleVersion: 1, status: "active" };
+      },
+    },
+  };
 }
 
 async function expectCode(promise: Promise<unknown>, code: string) {

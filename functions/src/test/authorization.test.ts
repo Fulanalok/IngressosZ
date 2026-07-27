@@ -1,97 +1,136 @@
 import { expect } from "chai";
+import { HttpsError } from "firebase-functions/v2/https";
 import {
+  authorizeIdentity,
   canValidateEvent,
   claimRole,
-  isAdminClaims,
+  claimRoleVersion,
+  type AuthorizationReader,
+  type AuthorizedIdentity,
   type EventAuthorizationReader,
 } from "../../lib/auth/authorization.js";
 
-function reader(
+function authorization(data: Record<string, unknown> | null): AuthorizationReader {
+  return { async getAuthorization() { return data; } };
+}
+
+function identity(
+  token: Record<string, unknown> = {
+    role: "admin",
+    admin: true,
+    roleVersion: 3,
+  }
+) {
+  return { uid: "user-a", token };
+}
+
+async function expectDenied(
+  token: Record<string, unknown>,
+  data: Record<string, unknown> | null
+) {
+  try {
+    await authorizeIdentity(identity(token), ["admin", "organizer"], authorization(data));
+    expect.fail("Era esperada a negação.");
+  } catch (error) {
+    expect(error).to.be.instanceOf(HttpsError);
+    expect((error as HttpsError).code).to.equal("permission-denied");
+  }
+}
+
+function eventReader(
   organizerId: string,
   assignments: Record<string, boolean> = {}
 ): EventAuthorizationReader {
   return {
-    async getEvent() {
-      return { organizerId };
-    },
+    async getEvent() { return { organizerId }; },
     async getValidatorAssignment(_eventId, userId) {
-      return userId in assignments
-        ? { userId, active: assignments[userId] }
-        : null;
+      return userId in assignments ? { userId, active: assignments[userId] } : null;
     },
   };
 }
 
 describe("authorization", () => {
-  it("aceita somente roles canonicas em minusculas", () => {
+  it("aceita somente roles canônicas e versões inteiras positivas", () => {
     for (const role of ["user", "organizer", "validator", "admin"]) {
       expect(claimRole({ role })).to.equal(role);
     }
-
-    for (const role of [
-      "Admin",
-      "Organizer",
-      "Validator",
-      "USER",
-      "unknown",
-    ]) {
+    for (const role of ["Admin", "unknown", 1]) {
       expect(claimRole({ role })).to.equal(null);
     }
-    expect(claimRole({ role: 1 })).to.equal(null);
+    for (const value of [undefined, 0, -1, 1.5, "1"]) {
+      expect(claimRoleVersion({ roleVersion: value })).to.equal(null);
+    }
+    expect(claimRoleVersion({ roleVersion: 1 })).to.equal(1);
   });
 
-  it("permite somente admin autorizar alteracoes de roles", () => {
-    expect(isAdminClaims({ admin: true })).to.equal(true);
-    expect(isAdminClaims({ role: "admin" })).to.equal(true);
-    expect(isAdminClaims({ role: "organizer" })).to.equal(false);
-    expect(isAdminClaims({ role: "user" })).to.equal(false);
+  it("autoriza token atual coerente", async () => {
+    const result = await authorizeIdentity(
+      identity(),
+      ["admin"],
+      authorization({ role: "admin", roleVersion: 3, status: "active" })
+    );
+    expect(result.role).to.equal("admin");
+    expect(result.roleVersion).to.equal(3);
   });
 
-  it("permite validator atribuido validar o evento correspondente", async () => {
-    const allowed = await canValidateEvent(
-      { uid: "validator-a", token: { role: "validator" } },
-      "event-a",
-      reader("org-a", { "validator-a": true })
+  it("nega documento ausente, versão ausente, antiga e futura", async () => {
+    await expectDenied(identity().token, null);
+    await expectDenied(
+      { role: "admin", admin: true },
+      { role: "admin", roleVersion: 3, status: "active" }
     );
-    expect(allowed).to.equal(true);
+    await expectDenied(
+      { role: "admin", admin: true, roleVersion: 2 },
+      { role: "admin", roleVersion: 3, status: "active" }
+    );
+    await expectDenied(
+      { role: "admin", admin: true, roleVersion: 4 },
+      { role: "admin", roleVersion: 3, status: "active" }
+    );
   });
 
-  it("bloqueia validator nao atribuido ou inativo", async () => {
-    const unassigned = await canValidateEvent(
-      { uid: "validator-b", token: { role: "validator" } },
-      "event-a",
-      reader("org-a", { "validator-a": true })
+  it("nega applying, error, role divergente e admin contraditório", async () => {
+    for (const status of ["applying", "error"]) {
+      await expectDenied(
+        identity().token,
+        { role: "admin", roleVersion: 3, status }
+      );
+    }
+    await expectDenied(
+      identity().token,
+      { role: "organizer", roleVersion: 3, status: "active" }
     );
-    const inactive = await canValidateEvent(
-      { uid: "validator-a", token: { role: "validator" } },
-      "event-a",
-      reader("org-a", { "validator-a": false })
+    await expectDenied(
+      { role: "admin", roleVersion: 3 },
+      { role: "admin", roleVersion: 3, status: "active" }
     );
-    expect(unassigned).to.equal(false);
-    expect(inactive).to.equal(false);
+    await expectDenied(
+      { role: "organizer", admin: true, roleVersion: 3 },
+      { role: "organizer", roleVersion: 3, status: "active" }
+    );
   });
 
-  it("permite organizer validar somente o proprio evento", async () => {
-    const own = await canValidateEvent(
-      { uid: "org-a", token: { role: "organizer" } },
+  it("canValidateEvent opera com identidade previamente validada", async () => {
+    const organizer: AuthorizedIdentity = {
+      uid: "org-a",
+      token: { role: "organizer", roleVersion: 1 },
+      role: "organizer",
+      roleVersion: 1,
+    };
+    const validator: AuthorizedIdentity = {
+      uid: "validator-a",
+      token: { role: "validator", roleVersion: 1 },
+      role: "validator",
+      roleVersion: 1,
+    };
+    expect(await canValidateEvent(organizer, "event-a", eventReader("org-a")))
+      .to.equal(true);
+    expect(await canValidateEvent(organizer, "event-b", eventReader("org-b")))
+      .to.equal(false);
+    expect(await canValidateEvent(
+      validator,
       "event-a",
-      reader("org-a")
-    );
-    const other = await canValidateEvent(
-      { uid: "org-a", token: { role: "organizer" } },
-      "event-b",
-      reader("org-b")
-    );
-    expect(own).to.equal(true);
-    expect(other).to.equal(false);
-  });
-
-  it("bloqueia usuario comum mesmo com perfil externo privilegiado", async () => {
-    const allowed = await canValidateEvent(
-      { uid: "user-a", token: { role: "user" } },
-      "event-a",
-      reader("user-a", { "user-a": true })
-    );
-    expect(allowed).to.equal(false);
+      eventReader("org-a", { "validator-a": true })
+    )).to.equal(true);
   });
 });

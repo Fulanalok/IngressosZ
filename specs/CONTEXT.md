@@ -12,7 +12,11 @@ Este arquivo descreve comportamento esperado. Ele deve acompanhar
 - Perfil adicional: documento em `users/{uid}`.
 - Roles: `user`, `validator`, `organizer`, `admin`.
 - Admin real deve ter custom claims compativeis, incluindo `admin: true` e
-  `role: "admin"`.
+  `role: "admin"`, alem de `roleVersion` igual ao documento
+  `authorization/{uid}` ativo.
+- `authorization/{uid}` e a autoridade; `users/{uid}.role` e somente espelho.
+- Estados `applying` e `error`, documento ausente e claims divergentes negam
+  todo acesso privilegiado.
 - Rotas autenticadas usam `RequireAuth`.
 - Rotas por permissao usam `RequireRole`.
 - Admin/organizer acessam painel administrativo.

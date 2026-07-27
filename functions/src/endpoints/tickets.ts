@@ -1,9 +1,12 @@
 import admin from "firebase-admin";
 import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
-import { onRequest } from "firebase-functions/v2/https";
+import { HttpsError, onRequest } from "firebase-functions/v2/https";
 import jwt, { type JwtPayload } from "jsonwebtoken";
-import { canValidateEvent } from "../auth/authorization.js";
+import {
+  authorizeIdentity,
+  canValidateEvent,
+} from "../auth/authorization.js";
 import { corsHandler } from "../config/cors.js";
 import { jwtSecret } from "../config/params.js";
 import { requireAppCheck } from "../utils/appCheck.js";
@@ -26,11 +29,25 @@ export const validateTicket = onRequest(
         const token = authHeader.split("Bearer ")[1];
         let decodedToken: admin.auth.DecodedIdToken;
         try {
-          decodedToken = await admin.auth().verifyIdToken(token);
+          decodedToken = await admin.auth().verifyIdToken(token, true);
         } catch {
           res.status(401).json({ success: false, message: "Token inválido" });
           return;
         }
+        let authorizedIdentity;
+        try {
+          authorizedIdentity = await authorizeIdentity(
+            { uid: decodedToken.uid, token: decodedToken },
+            ["validator", "organizer", "admin"]
+          );
+        } catch (error) {
+          if (error instanceof HttpsError) {
+            res.status(403).json({ success: false, message: "Não autorizado" });
+            return;
+          }
+          throw error;
+        }
+
         const allowedValidator = await checkRateLimit(
           `validate:${decodedToken.uid}`,
           30
@@ -108,7 +125,7 @@ export const validateTicket = onRequest(
 
         const firestore = getFirestore();
         const hasPermission = await canValidateEvent(
-          { uid: decodedToken.uid, token: decodedToken },
+          authorizedIdentity,
           eventId,
           {
             async getEvent(id) {

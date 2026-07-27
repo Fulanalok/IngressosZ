@@ -1,103 +1,119 @@
-import admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+/* eslint-disable require-jsdoc, max-len */
 import * as logger from "firebase-functions/logger";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { isAdminClaims } from "../auth/authorization.js";
+import {
+  requireCurrentAdmin,
+  USER_ROLES,
+  type UserRole,
+} from "../auth/authorization.js";
+import {
+  executeRoleChange,
+  RoleChangeFailure,
+} from "../auth/roleChange.js";
 import { callableSecurityOptions } from "../config/security.js";
+import { firebaseRoleChangeDependencies } from "../infrastructure/roleChangeFirebase.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
 
-type AssignableRole = "user" | "organizer" | "validator" | "admin";
-
-/**
- * Assigns a role in Auth claims and mirrors it for profile display.
- * @param {string} uid Target user.
- * @param {AssignableRole} role New role.
- */
-async function assignRole(uid: string, role: AssignableRole) {
-  const user = await admin.auth().getUser(uid);
-  await admin.auth().setCustomUserClaims(uid, {
-    ...(user.customClaims ?? {}),
-    role,
-    admin: role === "admin",
-  });
-  await admin.auth().revokeRefreshTokens(uid);
-  await getFirestore().collection("users").doc(uid).set(
-    { role },
-    { merge: true }
-  );
-}
-
-/**
- * Rejects requests that do not carry trusted admin custom claims.
- * @param {object} request Callable request.
- */
-function requireAdmin(request: { auth?: { token: Record<string, unknown> } }) {
-  if (!request.auth || !isAdminClaims(request.auth.token)) {
-    throw new HttpsError(
-      "permission-denied",
-      "Apenas administradores podem realizar esta operação."
-    );
-  }
-}
-
-export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
-  requireAdmin(request);
-  const requesterUid = request.auth!.uid;
-  const allowed = await checkRateLimit(`role-admin:${requesterUid}`, 10);
-  if (!allowed) {
-    throw new HttpsError(
-      "resource-exhausted",
-      "Muitas tentativas. Aguarde um momento e tente novamente."
-    );
-  }
-
-  const { uid } = request.data as { uid?: string };
-  if (!uid) {
-    throw new HttpsError("invalid-argument", "O UID do usuário é obrigatório.");
-  }
-
+async function assignRole(
+  requesterUid: string,
+  uid: string,
+  role: UserRole
+) {
+  assertNotSelfRoleChange(requesterUid, uid);
   try {
-    await assignRole(uid, "admin");
-    return { success: true, message: `Usuário ${uid} agora é administrador.` };
+    return await executeRoleChange(
+      uid,
+      role,
+      requesterUid,
+      firebaseRoleChangeDependencies
+    );
   } catch (error) {
-    logger.error("Erro ao definir admin:", error);
-    throw new HttpsError("internal", "Erro ao definir privilégios de admin.");
+    if (error instanceof RoleChangeFailure) {
+      const conflict = error.code === "ROLE_CHANGE_CONFLICT";
+      const migration = error.code === "MIGRATION_REQUIRED";
+      throw new HttpsError(
+        conflict ? "aborted" : migration ? "failed-precondition" : "internal",
+        migration ?
+          "Usuário privilegiado legado requer migração antes da alteração." :
+          conflict ?
+            "Há outra mudança de role pendente para este usuário." :
+            `Falha recuperável na alteração de role (${error.code}).`
+      );
+    }
+    throw error;
   }
-});
+}
 
-export const setUserRole = onCall(callableSecurityOptions, async (request) => {
-  requireAdmin(request);
-  const requesterUid = request.auth!.uid;
-  const allowed = await checkRateLimit(`role-user:${requesterUid}`, 20);
-  if (!allowed) {
+export function assertNotSelfRoleChange(requesterUid: string, targetUid: string) {
+  if (requesterUid === targetUid) {
     throw new HttpsError(
-      "resource-exhausted",
-      "Muitas tentativas. Aguarde um momento e tente novamente."
+      "failed-precondition",
+      "Administradores não podem alterar a própria role."
     );
   }
+}
 
-  const { uid, role } = request.data as {
-    uid?: string;
-    role?: AssignableRole;
-  };
-  const validRoles: AssignableRole[] = [
-    "user",
-    "organizer",
-    "validator",
-    "admin",
-  ];
-  if (!uid || !role || !validRoles.includes(role)) {
+async function handleRoleChange(
+  request: {
+    auth?: { uid: string; token: Record<string, unknown> };
+    data?: unknown;
+  },
+  forcedRole?: UserRole
+) {
+  const requester = await requireCurrentAdmin(request.auth);
+  const payload = (request.data ?? {}) as { uid?: string; role?: UserRole };
+  const role = forcedRole ?? payload.role;
+  if (!payload.uid || !role || !USER_ROLES.includes(role)) {
     throw new HttpsError(
       "invalid-argument",
       "UID e role válidos são obrigatórios."
     );
   }
+  return assignRole(requester.uid, payload.uid, role);
+}
 
+export const setAdminRole = onCall(callableSecurityOptions, async (request) => {
+  const requester = await requireCurrentAdmin(request.auth);
+  const allowed = await checkRateLimit(`role-admin:${requester.uid}`, 10);
+  if (!allowed) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "Muitas tentativas. Aguarde um momento e tente novamente."
+    );
+  }
   try {
-    await assignRole(uid, role);
-    return { success: true, message: `Usuário ${uid} agora é ${role}.` };
+    const result = await handleRoleChange(request, "admin");
+    return {
+      ...result,
+      message: `Usuário ${(request.data as { uid: string }).uid} agora é administrador.`,
+    };
   } catch (error) {
-    logger.error("Erro ao definir role:", error);
-    throw new HttpsError("internal", "Erro ao definir o papel do usuário.");
+    logger.error("Falha ao definir admin", {
+      code: error instanceof RoleChangeFailure ? error.code : "ROLE_CHANGE_FAILED",
+    });
+    throw error;
+  }
+});
+
+export const setUserRole = onCall(callableSecurityOptions, async (request) => {
+  const requester = await requireCurrentAdmin(request.auth);
+  const allowed = await checkRateLimit(`role-user:${requester.uid}`, 20);
+  if (!allowed) {
+    throw new HttpsError(
+      "resource-exhausted",
+      "Muitas tentativas. Aguarde um momento e tente novamente."
+    );
+  }
+  try {
+    const result = await handleRoleChange(request);
+    return {
+      ...result,
+      message: `Usuário ${(request.data as { uid: string }).uid} agora é ${result.role}.`,
+    };
+  } catch (error) {
+    logger.error("Falha ao definir role", {
+      code: error instanceof RoleChangeFailure ? error.code : "ROLE_CHANGE_FAILED",
+    });
+    throw error;
   }
 });

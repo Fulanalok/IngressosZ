@@ -72,7 +72,12 @@ Teste com emulador Firestore:
 
 ```bash
 npm run test:emulator
+npm run test:roles
 ```
+
+O rollout de roleVersion exige migrar claims privilegiadas antes de publicar as
+Rules estritas. Consulte `docs/role-version-rollout.md`; Functions e Firestore
+nao possuem atomicidade distribuida e usam estados fail-closed recuperaveis.
 
 O teste E2E do webhook roda completo quando Firestore/Auth emulators estao
 ativos. Sem emuladores, ele pode ficar pendente.

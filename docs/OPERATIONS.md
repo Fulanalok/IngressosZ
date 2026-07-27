@@ -106,6 +106,18 @@ Suite raiz com emulador Firestore:
 npm run test:emulator
 ```
 
+Autorizacao por role:
+
+```bash
+npm run test:rules
+npm run test:roles
+```
+
+O procedimento de migração, corte estrito, validação manual do Storage e
+rollback está em
+[`role-version-rollout.md`](role-version-rollout.md). O backfill deve terminar
+antes do deploy das Rules estritas.
+
 ## Deploy
 
 Deploy completo recomendado pela raiz:

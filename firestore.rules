@@ -5,25 +5,42 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function hasRole(role) {
-      return isAuthenticated()
-        && request.auth.token.keys().hasAny(['role'])
-        && request.auth.token.role == role;
+    function currentAuthorization() {
+      return get(
+        /databases/$(database)/documents/authorization/$(request.auth.uid)
+      );
     }
 
-    function isAdmin() {
+    function hasCurrentRole(role) {
       return isAuthenticated()
-        && ((request.auth.token.keys().hasAny(['admin'])
+        && request.auth.token.keys().hasAll(['role', 'roleVersion'])
+        && request.auth.token.roleVersion is int
+        && request.auth.token.roleVersion > 0
+        && currentAuthorization().data.status == 'active'
+        && currentAuthorization().data.role == role
+        && currentAuthorization().data.roleVersion
+          == request.auth.token.roleVersion
+        && request.auth.token.role == role
+        && (
+          (role == 'admin'
+            && request.auth.token.keys().hasAll(['admin'])
             && request.auth.token.admin == true)
-          || hasRole('admin'));
+          || (role != 'admin'
+            && (!request.auth.token.keys().hasAny(['admin'])
+              || request.auth.token.admin != true))
+        );
     }
 
-    function isOrganizer() {
-      return hasRole('organizer');
+    function isCurrentAdmin() {
+      return hasCurrentRole('admin');
     }
 
-    function isValidator() {
-      return hasRole('validator');
+    function isCurrentOrganizer() {
+      return hasCurrentRole('organizer');
+    }
+
+    function isCurrentValidator() {
+      return hasCurrentRole('validator');
     }
 
     function authEmailMatches(email) {
@@ -33,7 +50,7 @@ service cloud.firestore {
     }
 
     function ownsEvent(eventId) {
-      return isOrganizer()
+      return isCurrentOrganizer()
         && exists(/databases/$(database)/documents/events/$(eventId))
         && get(/databases/$(database)/documents/events/$(eventId))
           .data.organizerId == request.auth.uid;
@@ -43,7 +60,7 @@ service cloud.firestore {
       let assignment = get(
         /databases/$(database)/documents/events/$(eventId)/validators/$(request.auth.uid)
       );
-      return isValidator()
+      return isCurrentValidator()
         && assignment.data.active == true
         && assignment.data.userId == request.auth.uid;
     }
@@ -59,13 +76,13 @@ service cloud.firestore {
       allow create, update, delete: if false;
 
       match /validators/{userId} {
-        allow read: if isAdmin()
+        allow read: if isCurrentAdmin()
           || (isAssignedValidator(eventId) && request.auth.uid == userId);
         allow create, update, delete: if false;
       }
 
       match /participants/{participantId} {
-        allow read: if isAdmin() || ownsEvent(eventId);
+        allow read: if isCurrentAdmin() || ownsEvent(eventId);
         allow write: if false;
       }
     }
@@ -73,7 +90,7 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       allow read: if isAuthenticated()
         && (request.auth.uid == resource.data.userId
-          || isAdmin()
+          || isCurrentAdmin()
           || ownsEvent(resource.data.eventId));
       allow create, update, delete: if false;
     }
@@ -81,7 +98,7 @@ service cloud.firestore {
     match /paymentSessions/{sessionId} {
       allow read: if isAuthenticated()
         && (resource.data.userId == request.auth.uid
-          || isAdmin()
+          || isCurrentAdmin()
           || ownsEvent(resource.data.eventId));
       allow create, update, delete: if false;
     }
@@ -114,7 +131,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated()
-        && (request.auth.uid == userId || isAdmin());
+        && (request.auth.uid == userId || isCurrentAdmin());
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly([
@@ -130,7 +147,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName', 'phone', 'avatarUrl'
         ]);
-      allow delete: if isAdmin();
+      allow delete: if isCurrentAdmin();
+    }
+
+    match /authorization/{userId} {
+      allow read, write: if false;
+
+      match /operations/{operationId} {
+        allow read, write: if false;
+      }
     }
 
     match /{document=**} {

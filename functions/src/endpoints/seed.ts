@@ -1,7 +1,7 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import jwt from "jsonwebtoken";
-import { isAdminClaims } from "../auth/authorization.js";
+import { requireCurrentAdmin } from "../auth/authorization.js";
 import { jwtSecret } from "../config/params.js";
 import { callableSecurityOptions } from "../config/security.js";
 import { checkRateLimit } from "../utils/rateLimit.js";
@@ -17,13 +17,8 @@ export const seedDatabase = onCall(
         "Seed de dados fica desabilitado fora do emulador."
       );
     }
-    if (!request.auth || !isAdminClaims(request.auth.token)) {
-      throw new HttpsError(
-        "permission-denied",
-        "Apenas administradores podem gerar dados de teste."
-      );
-    }
-    const rateKey = request.auth?.uid || "anonymous";
+    const identity = await requireCurrentAdmin(request.auth);
+    const rateKey = identity.uid;
     const allowedSeed = await checkRateLimit(`seed:${rateKey}`, 2);
     if (!allowedSeed) {
       throw new HttpsError(
