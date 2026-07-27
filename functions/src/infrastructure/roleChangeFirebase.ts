@@ -1,4 +1,4 @@
-/* eslint-disable require-jsdoc, max-len */
+/* eslint-disable require-jsdoc, max-len, complexity */
 import admin from "firebase-admin";
 import {
   FieldValue,
@@ -15,6 +15,8 @@ import {
   type RoleReservation,
 } from "../auth/roleChange.js";
 import type { UserRole } from "../auth/authorization.js";
+
+type ReservationInput = Parameters<RoleChangeRepository["reserve"]>[0];
 
 function validRole(value: unknown): value is UserRole {
   return value === "user" || value === "validator" ||
@@ -68,6 +70,113 @@ function updateExistingOperation(
   return reservation;
 }
 
+function reserveExistingAuthorization(
+  transaction: Transaction,
+  authRef: FirebaseFirestore.DocumentReference,
+  data: DocumentData,
+  input: ReservationInput
+): RoleReservation {
+  if (data.status === "applying" || data.status === "error") {
+    return updateExistingOperation(
+      transaction,
+      authRef,
+      data,
+      input.desiredRole
+    );
+  }
+  if (data.status !== "active" || !validRole(data.role) ||
+      !Number.isSafeInteger(data.roleVersion) || data.roleVersion < 1) {
+    throw new RoleChangeFailure(
+      "AUTHORIZATION_INVALID",
+      "Estado de autorização inválido."
+    );
+  }
+  if (data.role === input.desiredRole && !input.force) {
+    return {
+      targetUid: input.targetUid,
+      previousRole: data.role,
+      desiredRole: input.desiredRole,
+      roleVersion: data.roleVersion,
+      operationId: input.operationId,
+      completed: true,
+    };
+  }
+  const roleVersion = data.roleVersion + 1;
+  const reservation = {
+    targetUid: input.targetUid,
+    previousRole: data.role,
+    desiredRole: input.desiredRole,
+    roleVersion,
+    operationId: input.operationId,
+    completed: false,
+  };
+  const operationRef = authRef.collection("operations").doc(input.operationId);
+  transaction.update(authRef, {
+    roleVersion,
+    status: "applying",
+    desiredRole: input.desiredRole,
+    operationId: input.operationId,
+    requestedBy: input.requestedBy,
+    requestedAt: FieldValue.serverTimestamp(),
+    appliedAt: null,
+    lastErrorCode: null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  transaction.create(operationRef, {
+    operationId: input.operationId,
+    targetUid: input.targetUid,
+    previousRole: data.role,
+    desiredRole: input.desiredRole,
+    roleVersion,
+    status: "applying",
+    requestedBy: input.requestedBy,
+    attempts: 1,
+    requestedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return reservation;
+}
+
+function createInitialReservation(
+  transaction: Transaction,
+  authRef: FirebaseFirestore.DocumentReference,
+  input: ReservationInput
+): RoleReservation {
+  const reservation = {
+    targetUid: input.targetUid,
+    previousRole: "user" as const,
+    desiredRole: input.desiredRole,
+    roleVersion: 1,
+    operationId: input.operationId,
+    completed: false,
+  };
+  transaction.create(authRef, {
+    role: "user",
+    roleVersion: 1,
+    status: "applying",
+    desiredRole: input.desiredRole,
+    operationId: input.operationId,
+    requestedBy: input.requestedBy,
+    requestedAt: FieldValue.serverTimestamp(),
+    appliedAt: null,
+    lastErrorCode: null,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  transaction.create(authRef.collection("operations").doc(input.operationId), {
+    operationId: input.operationId,
+    targetUid: input.targetUid,
+    previousRole: "user",
+    desiredRole: input.desiredRole,
+    roleVersion: 1,
+    status: "applying",
+    requestedBy: input.requestedBy,
+    attempts: 1,
+    requestedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return reservation;
+}
+
 export const firebaseRoleChangeRepository: RoleChangeRepository = {
   async reserve(input) {
     const db = getFirestore();
@@ -76,110 +185,44 @@ export const firebaseRoleChangeRepository: RoleChangeRepository = {
       // eslint-disable-next-line complexity
       async (transaction) => {
         const snapshot = await transaction.get(authRef);
-        if (snapshot.exists) {
-          const data = snapshot.data() ?? {};
-          if (data.status === "applying" || data.status === "error") {
-            return updateExistingOperation(
-              transaction,
-              authRef,
-              data,
-              input.desiredRole
-            );
-          }
-          if (data.status !== "active" || !validRole(data.role) ||
-          !Number.isSafeInteger(data.roleVersion) || data.roleVersion < 1) {
-            throw new RoleChangeFailure(
-              "AUTHORIZATION_INVALID",
-              "Estado de autorização inválido."
-            );
-          }
-          if (data.role === input.desiredRole && !input.force) {
-            return {
-              targetUid: input.targetUid,
-              previousRole: data.role,
-              desiredRole: input.desiredRole,
-              roleVersion: data.roleVersion,
-              operationId: data.operationId ?? input.operationId,
-              completed: true,
-            };
-          }
-          const roleVersion = data.roleVersion + 1;
-          const reservation = {
-            targetUid: input.targetUid,
-            previousRole: data.role,
-            desiredRole: input.desiredRole,
-            roleVersion,
-            operationId: input.operationId,
-            completed: false,
-          };
-          const operationRef = authRef.collection("operations").doc(input.operationId);
-          transaction.update(authRef, {
-            roleVersion,
-            status: "applying",
-            desiredRole: input.desiredRole,
-            operationId: input.operationId,
-            requestedBy: input.requestedBy,
-            requestedAt: FieldValue.serverTimestamp(),
-            appliedAt: null,
-            lastErrorCode: null,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-          transaction.create(operationRef, {
-            operationId: input.operationId,
-            targetUid: input.targetUid,
-            previousRole: data.role,
-            desiredRole: input.desiredRole,
-            roleVersion,
-            status: "applying",
-            requestedBy: input.requestedBy,
-            attempts: 1,
-            requestedAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-          return reservation;
-        }
-
-        if (input.legacyRole !== null) {
-          throw new RoleChangeFailure(
-            "MIGRATION_REQUIRED",
-            "Usuário privilegiado precisa ser migrado antes da alteração."
-          );
-        }
-        const reservation = {
-          targetUid: input.targetUid,
-          previousRole: "user" as const,
-          desiredRole: input.desiredRole,
-          roleVersion: 1,
-          operationId: input.operationId,
-          completed: false,
-        };
-        transaction.create(authRef, {
-          role: "user",
-          roleVersion: 1,
-          status: "applying",
-          desiredRole: input.desiredRole,
-          operationId: input.operationId,
-          requestedBy: input.requestedBy,
-          requestedAt: FieldValue.serverTimestamp(),
-          appliedAt: null,
-          lastErrorCode: null,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        transaction.create(authRef.collection("operations").doc(input.operationId), {
-          operationId: input.operationId,
-          targetUid: input.targetUid,
-          previousRole: "user",
-          desiredRole: input.desiredRole,
-          roleVersion: 1,
-          status: "applying",
-          requestedBy: input.requestedBy,
-          attempts: 1,
-          requestedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        return reservation;
+        if (!snapshot.exists) return null;
+        return reserveExistingAuthorization(
+          transaction,
+          authRef,
+          snapshot.data() ?? {},
+          input
+        );
       }
     );
+  },
+
+  async initializeLegacy(input) {
+    const db = getFirestore();
+    const authRef = db.collection("authorization").doc(input.targetUid);
+    return db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(authRef);
+      if (snapshot.exists) {
+        return reserveExistingAuthorization(
+          transaction,
+          authRef,
+          snapshot.data() ?? {},
+          input
+        );
+      }
+      if (input.discovery.kind === "contradictory") {
+        throw new RoleChangeFailure(
+          "MANUAL_REVIEW_REQUIRED",
+          "Claims privilegiadas contraditórias exigem revisão manual."
+        );
+      }
+      if (input.discovery.kind === "privileged") {
+        throw new RoleChangeFailure(
+          "MIGRATION_REQUIRED",
+          "Usuário privilegiado precisa ser migrado antes da alteração."
+        );
+      }
+      return createInitialReservation(transaction, authRef, input);
+    });
   },
 
   async markFailed(reservation, errorCode) {
@@ -211,12 +254,30 @@ export const firebaseRoleChangeRepository: RoleChangeRepository = {
     const profileRef = db.collection("users").doc(reservation.targetUid);
     const operationRef = authRef.collection("operations").doc(reservation.operationId);
     await db.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(authRef);
-      const data = snapshot.data();
-      if (!snapshot.exists || data?.operationId !== reservation.operationId ||
-        data?.roleVersion !== reservation.roleVersion ||
-        data?.desiredRole !== reservation.desiredRole ||
-        (data?.status !== "applying" && data?.status !== "error")) {
+      const [snapshot, operationSnapshot] = await Promise.all([
+        transaction.get(authRef),
+        transaction.get(operationRef),
+      ]);
+      const data = snapshot.data() ?? {};
+      const operation = operationSnapshot.data() ?? {};
+      const operationConsistent = operationSnapshot.exists &&
+        operation.operationId === reservation.operationId &&
+        operation.targetUid === reservation.targetUid &&
+        operation.desiredRole === reservation.desiredRole &&
+        operation.roleVersion === reservation.roleVersion;
+      const alreadyFinalized = snapshot.exists && operationConsistent &&
+        data.status === "active" &&
+        data.role === reservation.desiredRole &&
+        data.roleVersion === reservation.roleVersion &&
+        operation.status === "succeeded";
+      if (alreadyFinalized) return;
+      const pending = snapshot.exists && operationConsistent &&
+        data.operationId === reservation.operationId &&
+        data.roleVersion === reservation.roleVersion &&
+        data.desiredRole === reservation.desiredRole &&
+        (data.status === "applying" || data.status === "error") &&
+        (operation.status === "applying" || operation.status === "failed");
+      if (!pending) {
         throw new RoleChangeFailure(
           ROLE_CHANGE_ERROR_CODES.finalizeConflict,
           "A operação não corresponde ao estado autoritativo atual."

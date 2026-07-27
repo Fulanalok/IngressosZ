@@ -1,4 +1,4 @@
-/* eslint-disable require-jsdoc */
+/* eslint-disable require-jsdoc, complexity */
 import { randomUUID } from "node:crypto";
 import type { AuthClaims, UserRole } from "./authorization.js";
 
@@ -9,6 +9,11 @@ export const ROLE_CHANGE_ERROR_CODES = {
   finalizeConflict: "FINALIZE_CONFLICT",
   finalize: "FINALIZE_FAILED",
 } as const;
+
+export type LegacyAuthorization =
+  | { kind: "common" }
+  | { kind: "privileged"; role: Exclude<UserRole, "user"> }
+  | { kind: "contradictory" };
 
 export interface RoleReservation {
   targetUid: string;
@@ -25,7 +30,14 @@ export interface RoleChangeRepository {
     desiredRole: UserRole;
     requestedBy: string;
     operationId: string;
-    legacyRole: UserRole | null;
+    force?: boolean;
+  }): Promise<RoleReservation | null>;
+  initializeLegacy(input: {
+    targetUid: string;
+    desiredRole: UserRole;
+    requestedBy: string;
+    operationId: string;
+    discovery: LegacyAuthorization;
     force?: boolean;
   }): Promise<RoleReservation>;
   markFailed(
@@ -64,11 +76,21 @@ export class RoleChangeFailure extends Error {
   }
 }
 
-function privilegedLegacyRole(claims: AuthClaims): UserRole | null {
-  if (claims.role === "admin" || claims.admin === true) return "admin";
-  if (claims.role === "organizer") return "organizer";
-  if (claims.role === "validator") return "validator";
-  return null;
+export function classifyLegacyAuthorization(
+  claims: AuthClaims
+): LegacyAuthorization {
+  if (claims.role === "admin") {
+    return claims.admin === true ?
+      { kind: "privileged", role: "admin" } :
+      { kind: "contradictory" };
+  }
+  if (claims.role === "organizer" || claims.role === "validator") {
+    return claims.admin === true ?
+      { kind: "contradictory" } :
+      { kind: "privileged", role: claims.role };
+  }
+  if (claims.admin === true) return { kind: "contradictory" };
+  return { kind: "common" };
 }
 
 async function fail(
@@ -91,37 +113,47 @@ export async function executeRoleChange(
   dependencies: RoleChangeDependencies
 ): Promise<RoleChangeResult> {
   const operationId = dependencies.operationId();
-  let existingClaims: AuthClaims;
-  try {
-    existingClaims = await dependencies.auth.getClaims(targetUid);
-  } catch (error) {
-    const reservation = await dependencies.repository.reserve({
-      targetUid,
-      desiredRole,
-      requestedBy,
-      operationId,
-      legacyRole: null,
-      force: true,
-    });
-    if (!reservation.completed) {
-      await dependencies.repository.markFailed(
-        reservation,
-        ROLE_CHANGE_ERROR_CODES.authUserNotFound
-      );
-    }
-    throw new RoleChangeFailure(
-      ROLE_CHANGE_ERROR_CODES.authUserNotFound,
-      error instanceof Error ? error.message : "Auth user not found"
-    );
-  }
-
-  const reservation = await dependencies.repository.reserve({
+  let reservation = await dependencies.repository.reserve({
     targetUid,
     desiredRole,
     requestedBy,
     operationId,
-    legacyRole: privilegedLegacyRole(existingClaims),
+    force: true,
   });
+  let existingClaims: AuthClaims | null = null;
+  if (reservation === null) {
+    try {
+      existingClaims = await dependencies.auth.getClaims(targetUid);
+    } catch (error) {
+      reservation = await dependencies.repository.initializeLegacy({
+        targetUid,
+        desiredRole,
+        requestedBy,
+        operationId,
+        discovery: { kind: "common" },
+        force: true,
+      });
+      if (!reservation.completed) {
+        await dependencies.repository.markFailed(
+          reservation,
+          ROLE_CHANGE_ERROR_CODES.authUserNotFound
+        );
+      }
+      throw new RoleChangeFailure(
+        ROLE_CHANGE_ERROR_CODES.authUserNotFound,
+        error instanceof Error ? error.message : "Auth user not found"
+      );
+    }
+    const discovery = classifyLegacyAuthorization(existingClaims);
+    reservation = await dependencies.repository.initializeLegacy({
+      targetUid,
+      desiredRole,
+      requestedBy,
+      operationId,
+      discovery,
+      force: true,
+    });
+  }
   if (reservation.completed) {
     return {
       success: true,
@@ -130,6 +162,19 @@ export async function executeRoleChange(
       operationId: reservation.operationId,
       resumed: true,
     };
+  }
+
+  if (existingClaims === null) {
+    try {
+      existingClaims = await dependencies.auth.getClaims(targetUid);
+    } catch (error) {
+      return fail(
+        dependencies.repository,
+        reservation,
+        ROLE_CHANGE_ERROR_CODES.authUserNotFound,
+        error
+      );
+    }
   }
 
   const claims = {

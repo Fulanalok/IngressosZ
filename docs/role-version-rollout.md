@@ -26,9 +26,14 @@ O corte estrito não pode ser ativado antes do backfill.
 2. Executar o backfill administrativo:
 
    ```bash
-   CONFIRM_ROLE_MIGRATION=true \
+   ROLE_MIGRATION_PROJECT_ID=<your-firebase-project-id> \
+     CONFIRM_ROLE_MIGRATION=<your-firebase-project-id> \
      npm --prefix functions run migrate:role-authorizations
    ```
+
+   Mesmo no emulador, informe explicitamente um projeto de teste, por exemplo
+   `demo-ingressosz`, nos dois campos. O migrador recusa confirmação genérica e
+   imprime o projeto selecionado antes de acessar Auth ou Firestore.
 
 3. Verificar que todo usuário com claim `admin`, `organizer` ou `validator`
    possui:
@@ -91,16 +96,19 @@ cacheadas pela plataforma.
 
 ## Rollback
 
-Não reverta apenas Functions ou apenas Rules.
+O rollback seguro deste corte é um **roll-forward**. Não republique Functions ou
+Rules antigas que aceitem tokens sem `roleVersion`, nem reative confiança
+exclusiva em claims legadas.
 
 1. Interrompa novas mudanças de role.
 2. Registre os documentos `applying/error` e seus `operationId`.
-3. Se o código precisar voltar, publique em conjunto a versão anterior de
-   Functions, Firestore Rules e Storage Rules.
-4. Não apague `authorization` nem o histórico de operações.
-5. Antes de reativar o corte estrito, execute novamente o migrador e retome as
-   operações pendentes.
+3. Preserve `authorization`, o histórico de operações e as Firestore/Storage
+   Rules estritas.
+4. Corrija ou substitua somente a orquestração defeituosa, mantendo os estados
+   não ativos fail-closed.
+5. Publique a correção, retome idempotentemente as operações pendentes e valide
+   a coerência entre documento e claims.
+6. Reative mudanças de role apenas depois que não restarem estados inesperados.
 
-O rollback para verificações antigas reabre temporariamente a janela de tokens
-antigos. Deve ser tratado como redução explícita de segurança e ter duração
-mínima.
+Voltar a aceitar claims antigas sem comparação com a versão autoritativa não é
+uma estratégia de recuperação suportada.

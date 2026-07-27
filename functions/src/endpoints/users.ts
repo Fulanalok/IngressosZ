@@ -31,13 +31,16 @@ async function assignRole(
     if (error instanceof RoleChangeFailure) {
       const conflict = error.code === "ROLE_CHANGE_CONFLICT";
       const migration = error.code === "MIGRATION_REQUIRED";
+      const manualReview = error.code === "MANUAL_REVIEW_REQUIRED";
       throw new HttpsError(
-        conflict ? "aborted" : migration ? "failed-precondition" : "internal",
-        migration ?
-          "Usuário privilegiado legado requer migração antes da alteração." :
-          conflict ?
-            "Há outra mudança de role pendente para este usuário." :
-            `Falha recuperável na alteração de role (${error.code}).`
+        conflict ? "aborted" : migration || manualReview ?
+          "failed-precondition" : "internal",
+        manualReview ?
+          "Claims legadas contraditórias exigem revisão manual." : migration ?
+            "Usuário privilegiado legado requer migração antes da alteração." :
+            conflict ?
+              "Há outra mudança de role pendente para este usuário." :
+              `Falha recuperável na alteração de role (${error.code}).`
       );
     }
     throw error;

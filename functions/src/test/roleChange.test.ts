@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import {
   executeRoleChange,
+  classifyLegacyAuthorization,
   ROLE_CHANGE_ERROR_CODES,
   RoleChangeFailure,
   type RoleAuthGateway,
@@ -10,6 +11,7 @@ import {
 import type { AuthClaims, UserRole } from "../../lib/auth/authorization.js";
 
 class FakeRepository implements RoleChangeRepository {
+  exists = true;
   role: UserRole = "user";
   roleVersion = 1;
   status: "active" | "applying" | "error" = "active";
@@ -17,15 +19,17 @@ class FakeRepository implements RoleChangeRepository {
   operationId: string | null = null;
   attempts = 0;
   failFinalize = false;
+  trace: string[] = [];
 
   async reserve(input: {
     targetUid: string;
     desiredRole: UserRole;
     requestedBy: string;
     operationId: string;
-    legacyRole: UserRole | null;
     force?: boolean;
-  }): Promise<RoleReservation> {
+  }): Promise<RoleReservation | null> {
+    this.trace.push("reserve");
+    if (!this.exists) return null;
     if (this.status !== "active") {
       if (this.desiredRole !== input.desiredRole) {
         throw new RoleChangeFailure("ROLE_CHANGE_CONFLICT", "conflict");
@@ -38,6 +42,36 @@ class FakeRepository implements RoleChangeRepository {
       return { ...this.reservation(input.targetUid), completed: true };
     }
     this.roleVersion += 1;
+    this.status = "applying";
+    this.desiredRole = input.desiredRole;
+    this.operationId = input.operationId;
+    this.attempts += 1;
+    return this.reservation(input.targetUid);
+  }
+
+  async initializeLegacy(input: {
+    targetUid: string;
+    desiredRole: UserRole;
+    requestedBy: string;
+    operationId: string;
+    discovery: { kind: "common" } |
+      { kind: "privileged"; role: Exclude<UserRole, "user"> } |
+      { kind: "contradictory" };
+    force?: boolean;
+  }): Promise<RoleReservation> {
+    this.trace.push("initializeLegacy");
+    if (this.exists) {
+      return (await this.reserve(input)) as RoleReservation;
+    }
+    if (input.discovery.kind === "privileged") {
+      throw new RoleChangeFailure("MIGRATION_REQUIRED", "migration");
+    }
+    if (input.discovery.kind === "contradictory") {
+      throw new RoleChangeFailure("MANUAL_REVIEW_REQUIRED", "manual");
+    }
+    this.exists = true;
+    this.role = "user";
+    this.roleVersion = 1;
     this.status = "applying";
     this.desiredRole = input.desiredRole;
     this.operationId = input.operationId;
@@ -84,8 +118,10 @@ class FakeAuth implements RoleAuthGateway {
   failGet = false;
   setCalls = 0;
   revokeCalls = 0;
+  trace: string[] = [];
 
   async getClaims() {
+    this.trace.push("getClaims");
     if (this.failGet) throw new Error("missing");
     return this.claims;
   }
@@ -115,6 +151,72 @@ async function expectFailure(promise: Promise<unknown>, code: string) {
 }
 
 describe("role change orchestration", () => {
+  it("reserva autorização existente antes de consultar claims", async () => {
+    const repository = new FakeRepository();
+    const auth = new FakeAuth();
+    const trace: string[] = [];
+    repository.trace = trace;
+    auth.trace = trace;
+    await executeRoleChange(
+      "target",
+      "admin",
+      "requester",
+      dependencies(repository, auth)
+    );
+    expect(trace.slice(0, 2)).to.deep.equal(["reserve", "getClaims"]);
+  });
+
+  it("classifica somente claims privilegiadas coerentes", () => {
+    expect(classifyLegacyAuthorization({ role: "admin", admin: true }))
+      .to.deep.equal({ kind: "privileged", role: "admin" });
+    expect(classifyLegacyAuthorization({ role: "organizer" }))
+      .to.deep.equal({ kind: "privileged", role: "organizer" });
+    expect(classifyLegacyAuthorization({ role: "validator", admin: false }))
+      .to.deep.equal({ kind: "privileged", role: "validator" });
+    for (const claims of [
+      { role: "admin" },
+      { role: "organizer", admin: true },
+      { role: "validator", admin: true },
+      { role: "user", admin: true },
+      { admin: true },
+    ]) {
+      expect(classifyLegacyAuthorization(claims))
+        .to.deep.equal({ kind: "contradictory" });
+    }
+  });
+
+  it("descobre usuário comum ausente e inicializa fail-closed", async () => {
+    const repository = new FakeRepository();
+    repository.exists = false;
+    const auth = new FakeAuth();
+    const result = await executeRoleChange(
+      "target",
+      "organizer",
+      "requester",
+      dependencies(repository, auth)
+    );
+    expect(result.roleVersion).to.equal(1);
+    expect(repository.role).to.equal("organizer");
+    expect(repository.trace).to.deep.equal(["reserve", "initializeLegacy"]);
+  });
+
+  it("exige migração ou revisão para claims legadas privilegiadas", async () => {
+    const repository = new FakeRepository();
+    repository.exists = false;
+    const auth = new FakeAuth();
+    auth.claims = { role: "admin", admin: true };
+    await expectFailure(
+      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      "MIGRATION_REQUIRED"
+    );
+    auth.claims = { role: "organizer", admin: true };
+    await expectFailure(
+      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      "MANUAL_REVIEW_REQUIRED"
+    );
+    expect(repository.exists).to.equal(false);
+  });
+
   it("promove, rebaixa e preserva claims não relacionadas", async () => {
     const repository = new FakeRepository();
     const auth = new FakeAuth();
@@ -203,7 +305,7 @@ describe("role change orchestration", () => {
     expect(repository.roleVersion).to.equal(2);
   });
 
-  it("retry depois do sucesso é idempotente", async () => {
+  it("nova solicitação após sucesso reserva uma nova versão", async () => {
     const repository = new FakeRepository();
     const auth = new FakeAuth();
     await executeRoleChange("target", "validator", "requester", dependencies(repository, auth));
@@ -214,9 +316,9 @@ describe("role change orchestration", () => {
       "requester",
       dependencies(repository, auth)
     );
-    expect(result.resumed).to.equal(true);
-    expect(repository.roleVersion).to.equal(2);
-    expect(auth.setCalls).to.equal(setCalls);
+    expect(result.resumed).to.equal(false);
+    expect(repository.roleVersion).to.equal(3);
+    expect(auth.setCalls).to.equal(setCalls + 1);
   });
 
   it("rejeita mudança incompatível concorrente", async () => {
