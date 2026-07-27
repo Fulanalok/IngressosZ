@@ -12,10 +12,14 @@ import { firebaseRoleChangeRepository } from "../../lib/infrastructure/roleChang
 class EmulatorAuth implements RoleAuthGateway {
   claims: Record<string, unknown> = { role: "user", unrelated: "preserved" };
   failSet = false;
+  failGet = false;
+  getErrorCode = "auth/user-not-found";
+  setClaimsCount = 0;
+  revokeCount = 0;
   private waiting = 0;
   private releaseBarrier: (() => void) | null = null;
   private barrier: Promise<void> | null = null;
-  private getClaimsCount = 0;
+  getClaimsCount = 0;
   private getClaimsWaiters: Array<{ count: number; resolve: () => void }> = [];
   onGetClaims: (() => Promise<void>) | null = null;
 
@@ -52,15 +56,21 @@ class EmulatorAuth implements RoleAuthGateway {
       if (this.waiting === 0) this.release();
       await this.barrier;
     }
+    if (this.failGet) {
+      throw Object.assign(new Error("lookup"), { code: this.getErrorCode });
+    }
     return this.claims;
   }
 
   async setClaims(_uid: string, claims: Record<string, unknown>) {
+    this.setClaimsCount += 1;
     if (this.failSet) throw new Error("injected");
     this.claims = claims;
   }
 
-  async revokeRefreshTokens() {}
+  async revokeRefreshTokens() {
+    this.revokeCount += 1;
+  }
 }
 
 let operationSequence = 0;
@@ -176,6 +186,78 @@ describe("role change Firestore integration", () => {
       status: "succeeded",
       attempts: 2,
     });
+  });
+
+  it("segunda solicitação para role ativa não cria operação nem toca no Auth", async () => {
+    await seedActive("completed", "user", 1);
+    const auth = new EmulatorAuth();
+    const deps = dependencies(auth);
+    await executeRoleChange("completed", "validator", "admin-a", deps);
+    const authRef = getFirestore().collection("authorization").doc("completed");
+    const before = {
+      setClaims: auth.setClaimsCount,
+      revoke: auth.revokeCount,
+      getClaims: auth.getClaimsCount,
+      operations: (await authRef.collection("operations").get()).size,
+    };
+
+    const result = await executeRoleChange(
+      "completed",
+      "validator",
+      "admin-b",
+      deps
+    );
+    expect(result).to.include({ resumed: true, roleVersion: 2 });
+    expect((await authRef.get()).data()).to.include({
+      role: "validator",
+      roleVersion: 2,
+      status: "active",
+    });
+    expect((await authRef.collection("operations").get()).size)
+      .to.equal(before.operations);
+    expect(auth.setClaimsCount).to.equal(before.setClaims);
+    expect(auth.revokeCount).to.equal(before.revoke);
+    expect(auth.getClaimsCount).to.equal(before.getClaims);
+  });
+
+  it("lookup ausente falha sem criar legado e retry exige descoberta válida", async () => {
+    const auth = new EmulatorAuth();
+    const deps = dependencies(auth);
+    const authRef = getFirestore().collection("authorization").doc("lookup");
+    auth.failGet = true;
+    const failed = await Promise.allSettled([
+      executeRoleChange("lookup", "user", "admin-a", deps),
+    ]);
+    expect(failed[0].status).to.equal("rejected");
+    expect((failed[0] as PromiseRejectedResult).reason.code)
+      .to.equal("AUTH_USER_NOT_FOUND");
+    expect((await authRef.get()).exists).to.equal(false);
+    expect((await authRef.collection("operations").get()).empty).to.equal(true);
+
+    auth.failGet = false;
+    auth.claims = { role: "admin", admin: true };
+    const privileged = await Promise.allSettled([
+      executeRoleChange("lookup", "user", "admin-a", deps),
+    ]);
+    expect(privileged[0].status).to.equal("rejected");
+    expect((privileged[0] as PromiseRejectedResult).reason.code)
+      .to.equal("MIGRATION_REQUIRED");
+    expect((await authRef.get()).exists).to.equal(false);
+
+    auth.claims = { role: "user", unrelated: "preserved" };
+    const initialized = await executeRoleChange(
+      "lookup",
+      "organizer",
+      "admin-a",
+      deps
+    );
+    expect(initialized.roleVersion).to.equal(1);
+    expect((await authRef.get()).data()).to.include({
+      role: "organizer",
+      roleVersion: 1,
+      status: "active",
+    });
+    expect((await authRef.collection("operations").get()).size).to.equal(1);
   });
 
   it("estado autoritativo criado durante descoberta prevalece", async () => {

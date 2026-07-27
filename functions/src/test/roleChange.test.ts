@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import {
   executeRoleChange,
+  authLookupErrorCode,
   classifyLegacyAuthorization,
   ROLE_CHANGE_ERROR_CODES,
   RoleChangeFailure,
@@ -19,6 +20,7 @@ class FakeRepository implements RoleChangeRepository {
   operationId: string | null = null;
   attempts = 0;
   failFinalize = false;
+  operationCount = 0;
   trace: string[] = [];
 
   async reserve(input: {
@@ -26,7 +28,6 @@ class FakeRepository implements RoleChangeRepository {
     desiredRole: UserRole;
     requestedBy: string;
     operationId: string;
-    force?: boolean;
   }): Promise<RoleReservation | null> {
     this.trace.push("reserve");
     if (!this.exists) return null;
@@ -38,7 +39,7 @@ class FakeRepository implements RoleChangeRepository {
       this.attempts += 1;
       return this.reservation(input.targetUid);
     }
-    if (this.role === input.desiredRole && !input.force) {
+    if (this.role === input.desiredRole) {
       return { ...this.reservation(input.targetUid), completed: true };
     }
     this.roleVersion += 1;
@@ -46,6 +47,7 @@ class FakeRepository implements RoleChangeRepository {
     this.desiredRole = input.desiredRole;
     this.operationId = input.operationId;
     this.attempts += 1;
+    this.operationCount += 1;
     return this.reservation(input.targetUid);
   }
 
@@ -57,7 +59,6 @@ class FakeRepository implements RoleChangeRepository {
     discovery: { kind: "common" } |
       { kind: "privileged"; role: Exclude<UserRole, "user"> } |
       { kind: "contradictory" };
-    force?: boolean;
   }): Promise<RoleReservation> {
     this.trace.push("initializeLegacy");
     if (this.exists) {
@@ -76,6 +77,7 @@ class FakeRepository implements RoleChangeRepository {
     this.desiredRole = input.desiredRole;
     this.operationId = input.operationId;
     this.attempts += 1;
+    this.operationCount += 1;
     return this.reservation(input.targetUid);
   }
 
@@ -116,13 +118,18 @@ class FakeAuth implements RoleAuthGateway {
   failSet = false;
   failRevoke = false;
   failGet = false;
+  getErrorCode = "auth/user-not-found";
+  getCalls = 0;
   setCalls = 0;
   revokeCalls = 0;
   trace: string[] = [];
 
   async getClaims() {
+    this.getCalls += 1;
     this.trace.push("getClaims");
-    if (this.failGet) throw new Error("missing");
+    if (this.failGet) {
+      throw Object.assign(new Error("lookup"), { code: this.getErrorCode });
+    }
     return this.claims;
   }
   async setClaims(_uid: string, claims: AuthClaims) {
@@ -185,6 +192,15 @@ describe("role change orchestration", () => {
     }
   });
 
+  it("normaliza falhas de lookup sem inferir descoberta", () => {
+    expect(authLookupErrorCode({ code: "auth/user-not-found" }))
+      .to.equal("AUTH_USER_NOT_FOUND");
+    expect(authLookupErrorCode({ code: "auth/internal-error" }))
+      .to.equal("AUTH_LOOKUP_FAILED");
+    expect(authLookupErrorCode(new Error("network")))
+      .to.equal("AUTH_LOOKUP_FAILED");
+  });
+
   it("descobre usuário comum ausente e inicializa fail-closed", async () => {
     const repository = new FakeRepository();
     repository.exists = false;
@@ -215,6 +231,54 @@ describe("role change orchestration", () => {
       "MANUAL_REVIEW_REQUIRED"
     );
     expect(repository.exists).to.equal(false);
+  });
+
+  it("não inicializa legado após lookup falhar e permite nova descoberta", async () => {
+    const repository = new FakeRepository();
+    repository.exists = false;
+    const auth = new FakeAuth();
+    auth.failGet = true;
+    await expectFailure(
+      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      "AUTH_USER_NOT_FOUND"
+    );
+    expect(repository.exists).to.equal(false);
+    expect(repository.operationCount).to.equal(0);
+    expect(repository.trace).to.deep.equal(["reserve"]);
+
+    auth.failGet = false;
+    auth.claims = { role: "admin", admin: true };
+    await expectFailure(
+      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      "MIGRATION_REQUIRED"
+    );
+    expect(repository.exists).to.equal(false);
+    expect(repository.operationCount).to.equal(0);
+
+    auth.claims = { role: "user" };
+    const result = await executeRoleChange(
+      "target",
+      "user",
+      "requester",
+      dependencies(repository, auth)
+    );
+    expect(result.roleVersion).to.equal(1);
+    expect(repository.exists).to.equal(true);
+    expect(repository.operationCount).to.equal(1);
+  });
+
+  it("usa código estável para falha de lookup que não é user-not-found", async () => {
+    const repository = new FakeRepository();
+    repository.exists = false;
+    const auth = new FakeAuth();
+    auth.failGet = true;
+    auth.getErrorCode = "auth/internal-error";
+    await expectFailure(
+      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      "AUTH_LOOKUP_FAILED"
+    );
+    expect(repository.exists).to.equal(false);
+    expect(repository.operationCount).to.equal(0);
   });
 
   it("promove, rebaixa e preserva claims não relacionadas", async () => {
@@ -263,7 +327,7 @@ describe("role change orchestration", () => {
     const auth = new FakeAuth();
     auth.failGet = true;
     await expectFailure(
-      executeRoleChange("target", "user", "requester", dependencies(repository, auth)),
+      executeRoleChange("target", "admin", "requester", dependencies(repository, auth)),
       ROLE_CHANGE_ERROR_CODES.authUserNotFound
     );
     expect(repository.status).to.equal("error");
@@ -305,20 +369,26 @@ describe("role change orchestration", () => {
     expect(repository.roleVersion).to.equal(2);
   });
 
-  it("nova solicitação após sucesso reserva uma nova versão", async () => {
+  it("segunda solicitação para role ativa retorna sem tocar no Auth", async () => {
     const repository = new FakeRepository();
     const auth = new FakeAuth();
     await executeRoleChange("target", "validator", "requester", dependencies(repository, auth));
     const setCalls = auth.setCalls;
+    const revokeCalls = auth.revokeCalls;
+    const getCalls = auth.getCalls;
+    const operationCount = repository.operationCount;
     const result = await executeRoleChange(
       "target",
       "validator",
       "requester",
       dependencies(repository, auth)
     );
-    expect(result.resumed).to.equal(false);
-    expect(repository.roleVersion).to.equal(3);
-    expect(auth.setCalls).to.equal(setCalls + 1);
+    expect(result.resumed).to.equal(true);
+    expect(repository.roleVersion).to.equal(2);
+    expect(repository.operationCount).to.equal(operationCount);
+    expect(auth.getCalls).to.equal(getCalls);
+    expect(auth.setCalls).to.equal(setCalls);
+    expect(auth.revokeCalls).to.equal(revokeCalls);
   });
 
   it("rejeita mudança incompatível concorrente", async () => {

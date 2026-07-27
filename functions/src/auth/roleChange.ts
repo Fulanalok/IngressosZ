@@ -4,6 +4,7 @@ import type { AuthClaims, UserRole } from "./authorization.js";
 
 export const ROLE_CHANGE_ERROR_CODES = {
   authUserNotFound: "AUTH_USER_NOT_FOUND",
+  authLookup: "AUTH_LOOKUP_FAILED",
   setClaims: "AUTH_SET_CLAIMS_FAILED",
   revoke: "AUTH_REVOKE_FAILED",
   finalizeConflict: "FINALIZE_CONFLICT",
@@ -30,7 +31,6 @@ export interface RoleChangeRepository {
     desiredRole: UserRole;
     requestedBy: string;
     operationId: string;
-    force?: boolean;
   }): Promise<RoleReservation | null>;
   initializeLegacy(input: {
     targetUid: string;
@@ -38,7 +38,6 @@ export interface RoleChangeRepository {
     requestedBy: string;
     operationId: string;
     discovery: LegacyAuthorization;
-    force?: boolean;
   }): Promise<RoleReservation>;
   markFailed(
     reservation: RoleReservation,
@@ -93,6 +92,13 @@ export function classifyLegacyAuthorization(
   return { kind: "common" };
 }
 
+export function authLookupErrorCode(error: unknown): string {
+  return typeof error === "object" && error !== null &&
+    "code" in error && error.code === "auth/user-not-found" ?
+    ROLE_CHANGE_ERROR_CODES.authUserNotFound :
+    ROLE_CHANGE_ERROR_CODES.authLookup;
+}
+
 async function fail(
   repository: RoleChangeRepository,
   reservation: RoleReservation,
@@ -118,30 +124,15 @@ export async function executeRoleChange(
     desiredRole,
     requestedBy,
     operationId,
-    force: true,
   });
   let existingClaims: AuthClaims | null = null;
   if (reservation === null) {
     try {
       existingClaims = await dependencies.auth.getClaims(targetUid);
     } catch (error) {
-      reservation = await dependencies.repository.initializeLegacy({
-        targetUid,
-        desiredRole,
-        requestedBy,
-        operationId,
-        discovery: { kind: "common" },
-        force: true,
-      });
-      if (!reservation.completed) {
-        await dependencies.repository.markFailed(
-          reservation,
-          ROLE_CHANGE_ERROR_CODES.authUserNotFound
-        );
-      }
       throw new RoleChangeFailure(
-        ROLE_CHANGE_ERROR_CODES.authUserNotFound,
-        error instanceof Error ? error.message : "Auth user not found"
+        authLookupErrorCode(error),
+        error instanceof Error ? error.message : "Auth lookup failed"
       );
     }
     const discovery = classifyLegacyAuthorization(existingClaims);
@@ -151,7 +142,6 @@ export async function executeRoleChange(
       requestedBy,
       operationId,
       discovery,
-      force: true,
     });
   }
   if (reservation.completed) {
@@ -171,7 +161,7 @@ export async function executeRoleChange(
       return fail(
         dependencies.repository,
         reservation,
-        ROLE_CHANGE_ERROR_CODES.authUserNotFound,
+        authLookupErrorCode(error),
         error
       );
     }

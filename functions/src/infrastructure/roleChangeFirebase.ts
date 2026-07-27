@@ -91,7 +91,7 @@ function reserveExistingAuthorization(
       "Estado de autorização inválido."
     );
   }
-  if (data.role === input.desiredRole && !input.force) {
+  if (data.role === input.desiredRole) {
     return {
       targetUid: input.targetUid,
       previousRole: data.role,
