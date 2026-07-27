@@ -30,7 +30,8 @@ export function parseRoleChangePayload(
   const allowedRoles: readonly UserRole[] = forcedRole ?
     USER_ROLES : ASSIGNABLE_USER_ROLES;
   const role = forcedRole ?? payload.role;
-  if (!payload.uid || !role || !allowedRoles.includes(role)) {
+  if (typeof payload.uid !== "string" || !payload.uid ||
+      !role || !allowedRoles.includes(role)) {
     throw new HttpsError(
       "invalid-argument",
       "UID e role válidos são obrigatórios."

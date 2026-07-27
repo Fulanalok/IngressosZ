@@ -30,6 +30,19 @@ describe("role endpoint", () => {
       .to.deep.equal({ uid: "user-b", role: "admin" });
   });
 
+  for (const uid of [42, {}, [], ""]) {
+    it(`rejeita UID inválido ${JSON.stringify(uid)}`, () => {
+      expect(() => parseRoleChangePayload({ uid, role: "user" }))
+        .to.throw(HttpsError)
+        .with.property("code", "invalid-argument");
+    });
+  }
+
+  it("continua aceitando UID string válido", () => {
+    expect(parseRoleChangePayload({ uid: "user-b", role: "user" }))
+      .to.deep.equal({ uid: "user-b", role: "user" });
+  });
+
   for (const role of ["user", "organizer", "validator"] as const) {
     it(`setUserRole continua aceitando ${role}`, () => {
       expect(parseRoleChangePayload({ uid: "user-b", role }))
