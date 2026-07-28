@@ -7,7 +7,13 @@ import {
 
 const adminAuth = {
   uid: "admin-a",
-  token: { role: "admin", admin: true },
+  token: { role: "admin", admin: true, roleVersion: 1 },
+};
+
+const currentAdmin = {
+  async getAuthorization() {
+    return { role: "admin", roleVersion: 1, status: "active" };
+  },
 };
 
 async function expectHttpsError(
@@ -35,7 +41,8 @@ describe("event validator access", () => {
     it(`rejeita payload ${label}`, async () => {
       const promise = authorizeEventValidatorChange(
         { auth: adminAuth, data },
-        async () => undefined
+        async () => undefined,
+        currentAdmin
       );
 
       await expectHttpsError(
@@ -60,7 +67,8 @@ describe("event validator access", () => {
       },
       async (_userId, role) => {
         checkedRole = role;
-      }
+      },
+      currentAdmin
     );
 
     expect(checkedRole).to.equal("validator");
@@ -81,7 +89,8 @@ describe("event validator access", () => {
       async () => {
         roleCheckCalled = true;
         throw new Error("Usuário removido do Auth");
-      }
+      },
+      currentAdmin
     );
 
     expect(roleCheckCalled).to.equal(false);
@@ -95,7 +104,12 @@ describe("event validator access", () => {
           auth: { uid: "user-a", token: { role: "user" } },
           data: { eventId: "event-a", userId: "validator-a", active: false },
         },
-        async () => undefined
+        async () => undefined,
+        {
+          async getAuthorization() {
+            return { role: "user", roleVersion: 1, status: "active" };
+          },
+        }
       ),
       "permission-denied"
     );

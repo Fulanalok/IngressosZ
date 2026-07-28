@@ -1,8 +1,29 @@
+/* eslint-disable require-jsdoc, valid-jsdoc, max-len */
+import { getFirestore } from "firebase-admin/firestore";
+import { HttpsError } from "firebase-functions/v2/https";
+
+export const USER_ROLES = ["user", "organizer", "validator", "admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
 export type AuthClaims = Record<string, unknown>;
 
 export interface AuthIdentity {
   uid: string;
   token: AuthClaims;
+}
+
+export interface AuthorizedIdentity extends AuthIdentity {
+  role: UserRole;
+  roleVersion: number;
+}
+
+export interface AuthorizationRecord {
+  role?: unknown;
+  roleVersion?: unknown;
+  status?: unknown;
+}
+
+export interface AuthorizationReader {
+  getAuthorization(uid: string): Promise<AuthorizationRecord | null>;
 }
 
 export interface EventAuthorizationReader {
@@ -13,57 +34,89 @@ export interface EventAuthorizationReader {
   ): Promise<{ userId?: string; active?: boolean } | null>;
 }
 
+const firestoreAuthorizationReader: AuthorizationReader = {
+  async getAuthorization(uid) {
+    const snapshot = await getFirestore().collection("authorization").doc(uid).get();
+    return snapshot.exists ? snapshot.data() ?? null : null;
+  },
+};
+
+export function claimRole(token: AuthClaims): UserRole | null {
+  return USER_ROLES.includes(token.role as UserRole) ?
+    token.role as UserRole :
+    null;
+}
+
+export function claimRoleVersion(token: AuthClaims): number | null {
+  return typeof token.roleVersion === "number" &&
+    Number.isSafeInteger(token.roleVersion) &&
+    token.roleVersion > 0 ?
+    token.roleVersion :
+    null;
+}
+
+export function hasConsistentAdminFlag(token: AuthClaims, role: UserRole) {
+  return role === "admin" ? token.admin === true : token.admin !== true;
+}
+
 /**
- * Returns the normalized role stored in trusted custom claims.
- * @param {AuthClaims} token Authentication claims.
- * @return {string|null} Normalized role.
+ * Validates claims against the current fail-closed authorization record.
  */
-export function claimRole(token: AuthClaims): string | null {
-  if (
-    token.role === "user" ||
-    token.role === "organizer" ||
-    token.role === "validator" ||
-    token.role === "admin"
-  ) {
-    return token.role;
+export async function authorizeIdentity(
+  identity: AuthIdentity | undefined,
+  allowedRoles: readonly UserRole[],
+  reader: AuthorizationReader = firestoreAuthorizationReader
+): Promise<AuthorizedIdentity> {
+  if (!identity) {
+    throw new HttpsError("unauthenticated", "Autenticação obrigatória.");
   }
-  return null;
+
+  const role = claimRole(identity.token);
+  const roleVersion = claimRoleVersion(identity.token);
+  const authorization = await reader.getAuthorization(identity.uid);
+  const valid = authorization !== null &&
+    authorization.status === "active" &&
+    role !== null &&
+    roleVersion !== null &&
+    authorization.role === role &&
+    authorization.roleVersion === roleVersion &&
+    hasConsistentAdminFlag(identity.token, role) &&
+    allowedRoles.includes(role);
+
+  if (!valid) {
+    throw new HttpsError(
+      "permission-denied",
+      "Autorização ausente, desatualizada ou inválida."
+    );
+  }
+
+  return { ...identity, role, roleVersion };
+}
+
+export async function requireCurrentAdmin(
+  identity: AuthIdentity | undefined,
+  reader?: AuthorizationReader
+) {
+  return authorizeIdentity(identity, ["admin"], reader);
 }
 
 /**
- * Returns whether trusted custom claims grant global administration.
- * @param {AuthClaims} token Authentication claims.
- * @return {boolean} Whether the identity is an admin.
- */
-export function isAdminClaims(token: AuthClaims): boolean {
-  return token.admin === true || claimRole(token) === "admin";
-}
-
-/**
- * Checks whether an identity may validate tickets for one event.
- * @param {AuthIdentity} identity Authenticated identity.
- * @param {string} eventId Target event.
- * @param {EventAuthorizationReader} reader Authorization data reader.
- * @return {Promise<boolean>} Whether validation is authorized.
+ * Checks event ownership/assignment after current authorization was validated.
  */
 export async function canValidateEvent(
-  identity: AuthIdentity,
+  identity: AuthorizedIdentity,
   eventId: string,
   reader: EventAuthorizationReader
 ): Promise<boolean> {
-  if (isAdminClaims(identity.token)) return true;
+  if (identity.role === "admin") return true;
 
-  const role = claimRole(identity.token);
-  if (role === "organizer") {
+  if (identity.role === "organizer") {
     const event = await reader.getEvent(eventId);
     return event?.organizerId === identity.uid;
   }
 
-  if (role === "validator") {
-    const assignment = await reader.getValidatorAssignment(
-      eventId,
-      identity.uid
-    );
+  if (identity.role === "validator") {
+    const assignment = await reader.getValidatorAssignment(eventId, identity.uid);
     return assignment?.userId === identity.uid && assignment.active === true;
   }
 

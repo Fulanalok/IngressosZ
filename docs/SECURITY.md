@@ -24,6 +24,22 @@ Roles atuais:
 - `purchases`: sem acesso direto pelo cliente.
 - `tickets`: leitura pelo dono/admin; escrita direta bloqueada.
 - `users`: dados proprios permitidos, mas `role` protegido.
+- `authorization`: fonte autoritativa separada, sem acesso pelo cliente.
+
+## Roles e tokens antigos
+
+Todo acesso privilegiado compara `role`, `admin` e `roleVersion` do token com
+`authorization/{uid}`. O documento precisa existir e estar `active`. Versao
+ausente/antiga/futura, role divergente, flag admin contraditoria e estados
+`applying/error` sao negados.
+
+A primeira transacao de uma alteracao incrementa a versao e muda o estado para
+`applying` antes de chamar Firebase Auth. Isso invalida imediatamente tokens
+antigos tanto nas Functions quanto nas Firestore e Storage Rules. Claims nao
+relacionadas sao preservadas e refresh tokens sao revogados antes da ativacao.
+
+`users/{uid}.role` nunca concede privilegio; permanece somente como espelho de
+exibicao.
 
 ## Pagamentos
 

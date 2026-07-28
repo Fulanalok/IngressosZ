@@ -1,35 +1,31 @@
 import admin from "firebase-admin";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { claimRole, isAdminClaims } from "../auth/authorization.js";
+import {
+  authorizeIdentity,
+  requireCurrentAdmin,
+  type AuthorizationReader,
+  type UserRole,
+} from "../auth/authorization.js";
 import { callableSecurityOptions } from "../config/security.js";
 
 /**
  * Rejects requests that do not carry trusted admin custom claims.
  * @param {object} request Callable request.
  */
-function requireAdmin(request: { auth?: { token: Record<string, unknown> } }) {
-  if (!request.auth || !isAdminClaims(request.auth.token)) {
-    throw new HttpsError(
-      "permission-denied",
-      "Apenas administradores podem gerenciar acessos de eventos."
-    );
-  }
-}
-
 /**
- * Ensures the target user has the expected trusted custom claim.
+ * Ensures the target user has current authoritative authorization.
  * @param {string} userId Target user.
  * @param {string} expectedRole Required role.
  */
-async function requireTargetRole(userId: string, expectedRole: string) {
-  const user = await admin.auth().getUser(userId);
-  if (claimRole(user.customClaims ?? {}) !== expectedRole) {
-    throw new HttpsError(
-      "failed-precondition",
-      `O usuário precisa possuir a role ${expectedRole}.`
-    );
-  }
+async function requireTargetRole(userId: string, expectedRole: UserRole) {
+  await authorizeIdentity(
+    {
+      uid: userId,
+      token: (await admin.auth().getUser(userId)).customClaims ?? {},
+    },
+    [expectedRole]
+  );
 }
 
 interface EventValidatorRequest {
@@ -39,7 +35,7 @@ interface EventValidatorRequest {
 
 type TargetRoleChecker = (
   userId: string,
-  expectedRole: string
+  expectedRole: UserRole
 ) => Promise<void>;
 
 /**
@@ -58,13 +54,15 @@ export function requirePayloadObject(data: unknown): Record<string, unknown> {
  * Validates and authorizes one validator assignment change.
  * @param {EventValidatorRequest} request Callable request.
  * @param {TargetRoleChecker} targetRoleChecker Target role verifier.
+ * @param {AuthorizationReader} authorizationReader Authorization source.
  * @return {Promise<object>} Normalized assignment arguments.
  */
 export async function authorizeEventValidatorChange(
   request: EventValidatorRequest,
-  targetRoleChecker: TargetRoleChecker = requireTargetRole
+  targetRoleChecker: TargetRoleChecker = requireTargetRole,
+  authorizationReader?: AuthorizationReader
 ) {
-  requireAdmin(request);
+  await requireCurrentAdmin(request.auth, authorizationReader);
   const { eventId, userId, active = true } = requirePayloadObject(
     request.data
   ) as {
@@ -86,7 +84,7 @@ export async function authorizeEventValidatorChange(
 export const setEventOrganizer = onCall(
   callableSecurityOptions,
   async (request) => {
-    requireAdmin(request);
+    await requireCurrentAdmin(request.auth);
     const { eventId, organizerId } = requirePayloadObject(request.data) as {
       eventId?: string;
       organizerId?: string | null;

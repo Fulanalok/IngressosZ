@@ -113,6 +113,8 @@ Tickets e usuarios:
 - `validateTicket`: HTTP autenticado para validacao presencial.
 - `setAdminRole`: callable para promover admin.
 - `setUserRole`: callable para definir `validator`, `organizer` ou `admin`.
+- Alteracoes de role usam `authorization/{uid}`, roleVersion monotonica,
+  operacoes idempotentes e estados fail-closed. `users.role` e apenas espelho.
 
 Sistema e operacao:
 
@@ -193,6 +195,7 @@ e obrigatoria no Firestore Emulator e cobre atomicidade, concorrencia e outcomes
 npm --prefix functions run test
 npm run test:webhook
 npm run test:maintenance
+npm run test:roles
 ```
 
 Os scripts de integracao iniciam o emulador e falham se ele ou a suite nao

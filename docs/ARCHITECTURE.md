@@ -57,6 +57,7 @@ flowchart LR
 | `purchases` | Compra consolidada pelo backend. |
 | `tickets` | Ingressos emitidos com QR Code. |
 | `users` | Perfil e role do usuario. |
+| `authorization` | Role/version autoritativas e operações de mudança. |
 
 ## Functions principais
 
@@ -89,6 +90,11 @@ flowchart LR
   `paymentId` e repara sessao/evento sem repetir estoque, tickets ou e-mail.
 - QR Code usa assinatura JWT para reduzir risco de falsificacao.
 - Validacao presencial depende do backend para bloquear reuso.
+- `users.role` e apenas espelho de exibicao. A autoridade fica em
+  `authorization/{uid}` e custom claims precisam carregar a mesma `roleVersion`.
+- Mudancas de role usam estados `applying`, `error` e `active`. Nao existe
+  atomicidade distribuida entre Auth e Firestore; estados intermediarios negam
+  privilegio e permitem retry idempotente.
 
 ## Expiracao e aprovacao tardia
 
@@ -111,3 +117,4 @@ flowchart LR
 - [functions/API.md](../functions/API.md)
 - [SECURITY.md](SECURITY.md)
 - [OPERATIONS.md](OPERATIONS.md)
+- [role-version-rollout.md](role-version-rollout.md)

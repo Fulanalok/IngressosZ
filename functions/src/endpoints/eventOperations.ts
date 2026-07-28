@@ -1,7 +1,10 @@
 /* eslint-disable require-jsdoc, max-len */
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { claimRole, isAdminClaims } from "../auth/authorization.js";
+import {
+  authorizeIdentity,
+  type AuthorizationReader,
+} from "../auth/authorization.js";
 import { callableSecurityOptions } from "../config/security.js";
 import { requirePayloadObject } from "./eventAccess.js";
 
@@ -28,6 +31,7 @@ export interface EventOperationsRepository {
 export interface EventOperationsDependencies {
   repository: EventOperationsRepository;
   timestamp(): unknown;
+  authorizationReader?: AuthorizationReader;
 }
 
 const CREATE_FIELDS = new Set([
@@ -44,18 +48,16 @@ const REQUIRED_STRINGS = [
 ];
 const TICKET_TYPES = ["standard", "vip", "premium"];
 
-function requireEventManager(request: EventRequest) {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Autenticacao obrigatoria.");
-  }
-  const role = claimRole(request.auth.token);
-  if (!isAdminClaims(request.auth.token) && role !== "organizer") {
-    throw new HttpsError(
-      "permission-denied",
-      "Apenas administradores e organizadores podem gerenciar eventos."
-    );
-  }
-  return { identity: request.auth, isAdmin: isAdminClaims(request.auth.token) };
+async function requireEventManager(
+  request: EventRequest,
+  reader?: AuthorizationReader
+) {
+  const identity = await authorizeIdentity(
+    request.auth,
+    ["admin", "organizer"],
+    reader
+  );
+  return { identity, isAdmin: identity.role === "admin" };
 }
 
 function rejectUnknownFields(
@@ -181,7 +183,10 @@ export async function executeCreateEvent(
   request: EventRequest,
   dependencies: EventOperationsDependencies
 ) {
-  const { identity, isAdmin } = requireEventManager(request);
+  const { identity, isAdmin } = await requireEventManager(
+    request,
+    dependencies.authorizationReader
+  );
   const payload = validateCreatePayload(requirePayloadObject(request.data));
   if (!isAdmin && payload.organizerId !== undefined) {
     throw new HttpsError("permission-denied", "Organizadores nao podem definir organizerId.");
@@ -211,7 +216,10 @@ export async function executeUpdateEvent(
   request: EventRequest,
   dependencies: EventOperationsDependencies
 ) {
-  const { identity, isAdmin } = requireEventManager(request);
+  const { identity, isAdmin } = await requireEventManager(
+    request,
+    dependencies.authorizationReader
+  );
   const payload = requirePayloadObject(request.data);
   rejectUnknownFields(payload, new Set(["eventId", "changes"]));
   const eventId = payload.eventId;
@@ -249,7 +257,10 @@ export async function executeDeleteEvent(
   request: EventRequest,
   dependencies: EventOperationsDependencies
 ) {
-  const { identity, isAdmin } = requireEventManager(request);
+  const { identity, isAdmin } = await requireEventManager(
+    request,
+    dependencies.authorizationReader
+  );
   const payload = requirePayloadObject(request.data);
   rejectUnknownFields(payload, new Set(["eventId"]));
   if (typeof payload.eventId !== "string" || !payload.eventId) {

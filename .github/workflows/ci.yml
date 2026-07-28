@@ -59,6 +59,9 @@ jobs:
       - name: Payment Session Maintenance Integration Tests
         run: npm run test:maintenance
 
+      - name: Role Authorization Integration Tests
+        run: npm run test:roles
+
       - name: E2E (Cypress)
         uses: cypress-io/github-action@v6
         env:

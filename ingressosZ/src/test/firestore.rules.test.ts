@@ -70,7 +70,25 @@ describe("autorizacao do Firestore", () => {
   });
 
   afterAll(async () => testEnv?.cleanup());
-  beforeEach(async () => testEnv.clearFirestore());
+  beforeEach(async () => {
+    await testEnv.clearFirestore();
+    const currentRoles: Record<string, string> = {
+      "admin-a": "admin",
+      "org-a": "organizer",
+      "org-b": "organizer",
+      "organizer-a": "organizer",
+      "validator-a": "validator",
+      "validator-b": "validator",
+      "validator-inactive": "validator",
+    };
+    for (const [uid, role] of Object.entries(currentRoles)) {
+      await seed(`authorization/${uid}`, {
+        role,
+        roleVersion: 1,
+        status: "active",
+      });
+    }
+  });
 
   it("permite leitura publica de eventos por usuario anonimo", async () => {
     await seed("events/public-event", eventData("org-a"));
@@ -132,6 +150,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia organizer ao criar evento diretamente", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     await assertFails(
       setDoc(doc(organizer.firestore(), "events/event-a"), eventData("org-a"))
@@ -147,6 +166,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia criacao direta mesmo com capacidade inicial valida", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -157,6 +177,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia maxTickets fracionario na criacao", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -171,6 +192,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia availableTickets fracionario na criacao", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -185,6 +207,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia soldTickets positivo na criacao", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -198,6 +221,7 @@ describe("autorizacao do Firestore", () => {
   it("bloqueia estoque disponivel diferente da capacidade na criacao", async () => {
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -213,6 +237,7 @@ describe("autorizacao do Firestore", () => {
     await seed("events/event-b", eventData("org-b"));
     const organizerA = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertSucceeds(getDoc(doc(organizerA.firestore(), "events/event-a")));
@@ -250,6 +275,7 @@ describe("autorizacao do Firestore", () => {
     await seed("events/event-b/participants/buyer-b", { userId: "buyer-b" });
     const organizerA = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(getDoc(doc(organizerA.firestore(), "tickets/ticket-b")));
@@ -278,6 +304,7 @@ describe("autorizacao do Firestore", () => {
     });
     const organizerA = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     await assertSucceeds(getDoc(doc(organizerA.firestore(), "tickets/ticket-a")));
     await assertSucceeds(
@@ -319,6 +346,7 @@ describe("autorizacao do Firestore", () => {
     });
     const organizerA = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     await assertSucceeds(
       getDocs(
@@ -400,9 +428,11 @@ describe("autorizacao do Firestore", () => {
     });
     const owner = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     const otherOrganizer = testEnv.authenticatedContext("org-b", {
       role: "organizer",
+      roleVersion: 1,
     });
     await assertSucceeds(
       getDoc(doc(owner.firestore(), "paymentSessions/session-a"))
@@ -422,6 +452,7 @@ describe("autorizacao do Firestore", () => {
     const admin = testEnv.authenticatedContext("admin-a", {
       role: "admin",
       admin: true,
+      roleVersion: 1,
     });
     await assertSucceeds(
       getDoc(doc(admin.firestore(), "paymentSessions/session-a"))
@@ -459,6 +490,7 @@ describe("autorizacao do Firestore", () => {
       testEnv.authenticatedContext("admin-a", {
         role: "admin",
         admin: true,
+        roleVersion: 1,
       }),
     ];
     for (const context of contexts) {
@@ -481,6 +513,7 @@ describe("autorizacao do Firestore", () => {
       testEnv.authenticatedContext("admin-a", {
         role: "admin",
         admin: true,
+        roleVersion: 1,
       }),
     ];
     for (const context of contexts) {
@@ -576,12 +609,15 @@ describe("autorizacao do Firestore", () => {
     });
     const assigned = testEnv.authenticatedContext("validator-a", {
       role: "validator",
+      roleVersion: 1,
     });
     const unassigned = testEnv.authenticatedContext("validator-b", {
       role: "validator",
+      roleVersion: 1,
     });
     const inactive = testEnv.authenticatedContext("validator-inactive", {
       role: "validator",
+      roleVersion: 1,
     });
 
     await assertSucceeds(
@@ -664,6 +700,7 @@ describe("autorizacao do Firestore", () => {
     const user = testEnv.authenticatedContext("user-a", { role: "user" });
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
 
     await assertFails(
@@ -672,6 +709,7 @@ describe("autorizacao do Firestore", () => {
     await assertFails(
       updateDoc(doc(organizer.firestore(), "users/user-a"), {
         role: "organizer",
+      roleVersion: 1,
       })
     );
   });
@@ -680,6 +718,7 @@ describe("autorizacao do Firestore", () => {
     await seed("events/event-a", eventData("org-a"));
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     await assertFails(
       updateDoc(doc(organizer.firestore(), "events/event-a"), {
@@ -697,6 +736,7 @@ describe("autorizacao do Firestore", () => {
     await seed("events/event-a", eventData("org-a"));
     const organizer = testEnv.authenticatedContext("org-a", {
       role: "organizer",
+      roleVersion: 1,
     });
     const eventRef = doc(organizer.firestore(), "events/event-a");
 
@@ -717,6 +757,7 @@ describe("autorizacao do Firestore", () => {
     const admin = testEnv.authenticatedContext("admin-a", {
       role: "admin",
       admin: true,
+      roleVersion: 1,
     });
     await assertSucceeds(getDoc(doc(admin.firestore(), "events/event-a")));
     await assertFails(
@@ -756,5 +797,156 @@ describe("autorizacao do Firestore", () => {
     await assertFails(getDoc(doc(user.firestore(), "tickets/ticket-b")));
     await assertSucceeds(getDoc(doc(user.firestore(), "users/user-a")));
     await assertFails(getDoc(doc(user.firestore(), "users/user-b")));
+  });
+
+  it("nega authorization e operations para qualquer cliente", async () => {
+    await seed("authorization/admin-a/operations/op-a", {
+      status: "succeeded",
+    });
+    const admin = testEnv.authenticatedContext("admin-a", {
+      role: "admin",
+      admin: true,
+      roleVersion: 1,
+    });
+    await assertFails(
+      getDoc(doc(admin.firestore(), "authorization/admin-a"))
+    );
+    await assertFails(
+      getDoc(doc(
+        admin.firestore(),
+        "authorization/admin-a/operations/op-a"
+      ))
+    );
+    await assertFails(
+      setDoc(doc(admin.firestore(), "authorization/admin-a"), {
+        role: "admin",
+        roleVersion: 2,
+        status: "active",
+      })
+    );
+  });
+
+  it("nega admin sem versão, com versão antiga ou futura", async () => {
+    await seed("users/user-b", { uid: "user-b", role: "user", createdAt });
+    for (const claims of [
+      { role: "admin", admin: true },
+      { role: "admin", admin: true, roleVersion: 0 },
+      { role: "admin", admin: true, roleVersion: 2 },
+    ]) {
+      const stale = testEnv.authenticatedContext("admin-a", claims);
+      await assertFails(getDoc(doc(stale.firestore(), "users/user-b")));
+    }
+  });
+
+  it("nega status applying/error, role divergente e flag contraditória", async () => {
+    await seed("users/user-b", { uid: "user-b", role: "user", createdAt });
+    for (const status of ["applying", "error"]) {
+      await seed("authorization/admin-a", {
+        role: "admin",
+        roleVersion: 1,
+        status,
+      });
+      const admin = testEnv.authenticatedContext("admin-a", {
+        role: "admin",
+        admin: true,
+        roleVersion: 1,
+      });
+      await assertFails(getDoc(doc(admin.firestore(), "users/user-b")));
+    }
+
+    await seed("authorization/admin-a", {
+      role: "organizer",
+      roleVersion: 1,
+      status: "active",
+    });
+    const divergent = testEnv.authenticatedContext("admin-a", {
+      role: "admin",
+      admin: true,
+      roleVersion: 1,
+    });
+    await assertFails(getDoc(doc(divergent.firestore(), "users/user-b")));
+
+    await seed("authorization/org-a", {
+      role: "organizer",
+      roleVersion: 1,
+      status: "active",
+    });
+    await seed("events/event-a", eventData("org-a"));
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+    });
+    const contradictory = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+      admin: true,
+      roleVersion: 1,
+    });
+    await assertFails(
+      getDoc(doc(contradictory.firestore(), "tickets/ticket-a"))
+    );
+  });
+
+  it("rejeita tokens antigos de organizer e validator", async () => {
+    await seed("authorization/org-a", {
+      role: "organizer",
+      roleVersion: 2,
+      status: "active",
+    });
+    await seed("events/event-a", eventData("org-a"));
+    await seed("tickets/ticket-a", {
+      eventId: "event-a",
+      userId: "buyer-a",
+    });
+    const oldOrganizer = testEnv.authenticatedContext("org-a", {
+      role: "organizer",
+      roleVersion: 1,
+    });
+    await assertFails(
+      getDoc(doc(oldOrganizer.firestore(), "tickets/ticket-a"))
+    );
+
+    await seed("authorization/validator-a", {
+      role: "validator",
+      roleVersion: 2,
+      status: "active",
+    });
+    await seed("events/event-a/validators/validator-a", {
+      userId: "validator-a",
+      active: true,
+    });
+    const oldValidator = testEnv.authenticatedContext("validator-a", {
+      role: "validator",
+      roleVersion: 1,
+    });
+    await assertFails(getDoc(doc(
+      oldValidator.firestore(),
+      "events/event-a/validators/validator-a"
+    )));
+  });
+
+  it("preserva acessos próprios sem authorization ou roleVersion", async () => {
+    await seed("users/plain-user", {
+      uid: "plain-user",
+      role: "user",
+      createdAt,
+    });
+    await seed("tickets/plain-ticket", {
+      userId: "plain-user",
+      eventId: "event-a",
+    });
+    await seed("paymentSessions/plain-session", {
+      userId: "plain-user",
+      eventId: "event-a",
+    });
+    const user = testEnv.authenticatedContext("plain-user", { role: "user" });
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "users/plain-user"))
+    );
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "tickets/plain-ticket"))
+    );
+    await assertSucceeds(
+      getDoc(doc(user.firestore(), "paymentSessions/plain-session"))
+    );
   });
 });

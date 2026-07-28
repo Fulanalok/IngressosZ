@@ -19,6 +19,7 @@ handlers vivem em `functions/src/endpoints/`:
 - `email.ts`: trigger de ticket e envio de e-mails.
 - `refunds.ts`: reembolso administrativo.
 - `users.ts`: definicao de roles/custom claims.
+- `auth/roleChange.ts`: maquina de estados recuperavel de alteracoes de role.
 - `system.ts`: healthcheck, log de erro do cliente e reCAPTCHA v2.
 - `storage.ts`: otimizacao de imagens.
 - `seed.ts`: carga de desenvolvimento.
@@ -81,6 +82,16 @@ transacao Firestore.
 - **Efeito:** registra status de reembolso para auditoria e evita alterar dados
   diretamente pelo cliente.
 
+### `setAdminRole` / `setUserRole`
+
+- **Acesso:** admin com `roleVersion` atual em `authorization/{uid}`.
+- **Restricao:** autoalteracao de role e rejeitada.
+- **Consistencia:** a reserva Firestore invalida tokens anteriores antes de
+  atualizar Auth; falhas ficam `applying/error` e um admin atual pode repetir a
+  mesma role para retomar a operacao persistida.
+- **Retorno:** role, roleVersion, operationId gerado no servidor e indicador de
+  retomada.
+
 ## HTTP Endpoints
 
 ### `receiveWebhook`
@@ -140,6 +151,8 @@ conflitantes geram outcome terminal sem modificar os registros existentes.
 - `purchases` e `tickets` continuam protegidos contra escrita direta do cliente;
   a emissao acontece via Functions.
 - `paymentWebhookEvents` nega toda leitura e escrita do cliente.
+- `authorization` e suas operacoes negam toda leitura e escrita do cliente.
+- Branches privilegiadas comparam claims com o documento autoritativo ativo.
 
 ## Scheduled Functions
 

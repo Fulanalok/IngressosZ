@@ -25,6 +25,8 @@ Este arquivo resume o roadmap. O acompanhamento operacional detalhado fica em
 - [x] QR Codes usam JWT assinado com `JWT_SECRET`.
 - [x] Roles atuais: `user`, `validator`, `organizer`, `admin`.
 - [x] Rotas protegidas usam `RequireAuth` e `RequireRole`.
+- [x] Autorizacao privilegiada usa `authorization/{uid}` e `roleVersion`
+  monotonica; alteracoes de role sao recuperaveis e fail-closed.
 - [x] Rodada local de lint, typecheck, build e testes passou antes do ultimo
   push confirmado no GitHub.
 - [x] Cloud SQL/Data Connect removidos para reduzir custo.
